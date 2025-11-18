@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: alefy-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-alefy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alefy_password}
+      POSTGRES_DB: ${POSTGRES_DB:-alefy_db}
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-alefy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - alefy-network
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: alefy-backend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-alefy}:${POSTGRES_PASSWORD:-alefy_password}@postgres:5432/${POSTGRES_DB:-alefy_db}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      STORAGE_PATH: /app/storage
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+    expose:
+      - "3000"
+    volumes:
+      - ../backend:/app
+      - backend_storage:/app/storage
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - alefy-network
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.dev
+    container_name: alefy-frontend
+    environment:
+      VITE_API_URL: /api
+    expose:
+      - "5173"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - alefy-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: alefy-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - alefy-network
+
+volumes:
+  postgres_data:
+  backend_storage:
+
+networks:
+  alefy-network:
+    driver: bridge
+

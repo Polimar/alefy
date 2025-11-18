@@ -1,0 +1,360 @@
+import pool from '../database/db.js';
+import { AppError } from '../middleware/errorHandler.js';
+import { z } from 'zod';
+
+const createPlaylistSchema = z.object({
+  name: z.string().min(1, 'Nome playlist richiesto').max(255),
+  description: z.string().optional(),
+  is_public: z.boolean().optional().default(false),
+});
+
+const updatePlaylistSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
+  is_public: z.boolean().optional(),
+});
+
+const addTrackSchema = z.object({
+  track_id: z.number().int().positive(),
+  position: z.number().int().nonnegative().optional(),
+});
+
+export const getPlaylists = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+
+    const result = await pool.query(
+      `SELECT p.*, 
+       COUNT(pt.track_id) as track_count,
+       COALESCE(SUM(t.duration), 0) as total_duration
+       FROM playlists p
+       LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id
+       LEFT JOIN tracks t ON pt.track_id = t.id
+       WHERE p.user_id = $1
+       GROUP BY p.id
+       ORDER BY p.created_at DESC`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        playlists: result.rows,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPlaylist = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    // Get playlist info
+    const playlistResult = await pool.query(
+      `SELECT p.*, 
+       COUNT(pt.track_id) as track_count,
+       COALESCE(SUM(t.duration), 0) as total_duration
+       FROM playlists p
+       LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id
+       LEFT JOIN tracks t ON pt.track_id = t.id
+       WHERE p.id = $1 AND p.user_id = $2
+       GROUP BY p.id`,
+      [id, userId]
+    );
+
+    if (playlistResult.rows.length === 0) {
+      throw new AppError('Playlist non trovata', 404);
+    }
+
+    // Get tracks
+    const tracksResult = await pool.query(
+      `SELECT t.*, pt.position, pt.added_at
+       FROM playlist_tracks pt
+       JOIN tracks t ON pt.track_id = t.id
+       WHERE pt.playlist_id = $1 AND t.user_id = $2
+       ORDER BY pt.position ASC`,
+      [id, userId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        playlist: {
+          ...playlistResult.rows[0],
+          tracks: tracksResult.rows,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createPlaylist = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const validatedData = createPlaylistSchema.parse(req.body);
+
+    const result = await pool.query(
+      'INSERT INTO playlists (user_id, name, description, is_public) VALUES ($1, $2, $3, $4) RETURNING *',
+      [userId, validatedData.name, validatedData.description || null, validatedData.is_public]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: {
+        playlist: result.rows[0],
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+};
+
+export const updatePlaylist = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const validatedData = updatePlaylistSchema.parse(req.body);
+
+    // Check ownership
+    const checkResult = await pool.query(
+      'SELECT id FROM playlists WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      throw new AppError('Playlist non trovata', 404);
+    }
+
+    // Build update query
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    Object.keys(validatedData).forEach(key => {
+      if (validatedData[key] !== undefined) {
+        updates.push(`${key} = $${paramIndex}`);
+        values.push(validatedData[key]);
+        paramIndex++;
+      }
+    });
+
+    if (updates.length === 0) {
+      throw new AppError('Nessun campo da aggiornare', 400);
+    }
+
+    values.push(id, userId);
+    const query = `UPDATE playlists SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1} RETURNING *`;
+
+    const result = await pool.query(query, values);
+
+    res.json({
+      success: true,
+      data: {
+        playlist: result.rows[0],
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+};
+
+export const deletePlaylist = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    // Check ownership
+    const checkResult = await pool.query(
+      'SELECT id FROM playlists WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      throw new AppError('Playlist non trovata', 404);
+    }
+
+    // Delete playlist (cascade will delete playlist_tracks)
+    await pool.query('DELETE FROM playlists WHERE id = $1 AND user_id = $2', [id, userId]);
+
+    res.json({
+      success: true,
+      message: 'Playlist eliminata con successo',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const addTrack = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const validatedData = addTrackSchema.parse(req.body);
+
+    // Check playlist ownership
+    const playlistResult = await pool.query(
+      'SELECT id FROM playlists WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+
+    if (playlistResult.rows.length === 0) {
+      throw new AppError('Playlist non trovata', 404);
+    }
+
+    // Check track ownership
+    const trackResult = await pool.query(
+      'SELECT id FROM tracks WHERE id = $1 AND user_id = $2',
+      [validatedData.track_id, userId]
+    );
+
+    if (trackResult.rows.length === 0) {
+      throw new AppError('Traccia non trovata', 404);
+    }
+
+    // Check if track already in playlist
+    const existingResult = await pool.query(
+      'SELECT id FROM playlist_tracks WHERE playlist_id = $1 AND track_id = $2',
+      [id, validatedData.track_id]
+    );
+
+    if (existingResult.rows.length > 0) {
+      throw new AppError('Traccia già presente nella playlist', 409);
+    }
+
+    // Get max position if not specified
+    let position = validatedData.position;
+    if (position === undefined) {
+      const maxResult = await pool.query(
+        'SELECT COALESCE(MAX(position), -1) + 1 as next_position FROM playlist_tracks WHERE playlist_id = $1',
+        [id]
+      );
+      position = parseInt(maxResult.rows[0].next_position);
+    } else {
+      // Shift positions if needed
+      await pool.query(
+        'UPDATE playlist_tracks SET position = position + 1 WHERE playlist_id = $1 AND position >= $2',
+        [id, position]
+      );
+    }
+
+    // Add track
+    await pool.query(
+      'INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES ($1, $2, $3)',
+      [id, validatedData.track_id, position]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Traccia aggiunta alla playlist',
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+};
+
+export const removeTrack = async (req, res, next) => {
+  try {
+    const { id, trackId } = req.params;
+    const userId = req.user.userId;
+
+    // Check playlist ownership
+    const playlistResult = await pool.query(
+      'SELECT id FROM playlists WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+
+    if (playlistResult.rows.length === 0) {
+      throw new AppError('Playlist non trovata', 404);
+    }
+
+    // Get position before deleting
+    const positionResult = await pool.query(
+      'SELECT position FROM playlist_tracks WHERE playlist_id = $1 AND track_id = $2',
+      [id, trackId]
+    );
+
+    if (positionResult.rows.length === 0) {
+      throw new AppError('Traccia non trovata nella playlist', 404);
+    }
+
+    const position = positionResult.rows[0].position;
+
+    // Delete track
+    await pool.query(
+      'DELETE FROM playlist_tracks WHERE playlist_id = $1 AND track_id = $2',
+      [id, trackId]
+    );
+
+    // Shift positions
+    await pool.query(
+      'UPDATE playlist_tracks SET position = position - 1 WHERE playlist_id = $1 AND position > $2',
+      [id, position]
+    );
+
+    res.json({
+      success: true,
+      message: 'Traccia rimossa dalla playlist',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const reorderTracks = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const { track_ids } = req.body;
+
+    if (!Array.isArray(track_ids) || track_ids.length === 0) {
+      throw new AppError('Array di track_ids richiesto', 400);
+    }
+
+    // Check playlist ownership
+    const playlistResult = await pool.query(
+      'SELECT id FROM playlists WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+
+    if (playlistResult.rows.length === 0) {
+      throw new AppError('Playlist non trovata', 404);
+    }
+
+    // Update positions
+    await pool.query('BEGIN');
+    try {
+      for (let i = 0; i < track_ids.length; i++) {
+        await pool.query(
+          'UPDATE playlist_tracks SET position = $1 WHERE playlist_id = $2 AND track_id = $3',
+          [i, id, track_ids[i]]
+        );
+      }
+      await pool.query('COMMIT');
+    } catch (error) {
+      await pool.query('ROLLBACK');
+      throw error;
+    }
+
+    res.json({
+      success: true,
+      message: 'Ordine tracce aggiornato',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

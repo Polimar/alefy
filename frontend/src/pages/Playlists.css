@@ -1,0 +1,50 @@
+.playlists {
+  padding: 32px;
+}
+
+.playlists-header {
+  margin-bottom: 32px;
+}
+
+.playlists-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.playlists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.playlist-card {
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 20px;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.playlist-card:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.playlist-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.playlist-info {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.loading,
+.empty-state {
+  text-align: center;
+  padding: 64px;
+  color: var(--text-secondary);
+  font-size: 18px;
+}
+

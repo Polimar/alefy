@@ -1,0 +1,78 @@
+.library {
+  padding: 32px;
+}
+
+.library-header {
+  margin-bottom: 32px;
+}
+
+.library-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 500px;
+  padding: 12px 16px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.tracks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.track-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.track-item:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.track-info {
+  flex: 1;
+}
+
+.track-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.track-artist {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.track-duration {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.loading,
+.empty-state {
+  text-align: center;
+  padding: 64px;
+  color: var(--text-secondary);
+  font-size: 18px;
+}
+
