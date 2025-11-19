@@ -13,6 +13,7 @@ export default function Upload() {
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(null);
   const [youtubeError, setYoutubeError] = useState(null);
+  const [downloadStartTime, setDownloadStartTime] = useState(null);
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -69,32 +70,76 @@ export default function Upload() {
     e.preventDefault();
     if (!youtubeUrl.trim()) return;
 
+    let timeoutId = null;
+    let updateMessageInterval = null;
+
     try {
       setDownloading(true);
       setYoutubeError(null);
-      setDownloadProgress({ status: 'downloading', message: 'Download in corso...' });
+      const startTime = Date.now();
+      setDownloadStartTime(startTime);
+      
+      // Stato iniziale
+      setDownloadProgress({ status: 'downloading', message: 'Connessione a YouTube...', stage: 'init' });
+
+      // Timeout di sicurezza (5 minuti)
+      timeoutId = setTimeout(() => {
+        setDownloadProgress({ status: 'error', message: 'Timeout: il download sta impiegando troppo tempo' });
+        setYoutubeError('Il download sta impiegando troppo tempo. Riprova più tardi.');
+        setDownloading(false);
+      }, 5 * 60 * 1000);
+
+      // Aggiorna il messaggio con il tempo trascorso
+      updateMessageInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const stages = [
+          { stage: 'init', message: 'Connessione a YouTube...' },
+          { stage: 'download', message: 'Download audio in corso...' },
+          { stage: 'process', message: 'Elaborazione metadati...' },
+          { stage: 'save', message: 'Salvataggio nel database...' },
+        ];
+        const currentStage = stages[Math.min(Math.floor(elapsed / 10), stages.length - 1)];
+        setDownloadProgress(prev => {
+          if (prev && prev.status === 'downloading') {
+            return {
+              ...prev,
+              message: `${currentStage.message} (${elapsed}s)`,
+              stage: currentStage.stage
+            };
+          }
+          return prev;
+        });
+      }, 1000);
 
       const response = await api.post('/youtube/download', {
         url: youtubeUrl.trim(),
       });
 
-      setDownloadProgress({ status: 'success', message: 'Download completato!' });
+      // Download completato con successo
+      if (timeoutId) clearTimeout(timeoutId);
+      if (updateMessageInterval) clearInterval(updateMessageInterval);
+      
+      setDownloadProgress({ status: 'success', message: 'Download completato!', stage: 'complete' });
       setYoutubeUrl('');
       
       // Refresh library after a short delay
       setTimeout(() => {
         navigate('/');
         window.location.reload();
-      }, 1500);
+      }, 2000);
     } catch (error) {
       console.error('YouTube download error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Errore durante il download';
+      if (timeoutId) clearTimeout(timeoutId);
+      if (updateMessageInterval) clearInterval(updateMessageInterval);
+      
+      const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
       setYoutubeError(errorMessage);
       setDownloadProgress({ status: 'error', message: errorMessage });
     } finally {
       setDownloading(false);
       setTimeout(() => {
         setDownloadProgress(null);
+        setDownloadStartTime(null);
       }, 3000);
     }
   };
@@ -151,7 +196,14 @@ export default function Upload() {
           )}
           {downloadProgress && (
             <div className={`youtube-progress ${downloadProgress.status}`}>
-              {downloadProgress.message}
+              <div className="progress-message">{downloadProgress.message}</div>
+              {downloadProgress.status === 'downloading' && (
+                <div className="progress-bar-container">
+                  <div className="progress-bar">
+                    <div className="progress-fill progress-indeterminate" />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </form>

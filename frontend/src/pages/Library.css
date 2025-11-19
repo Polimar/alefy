@@ -354,3 +354,52 @@
   background-color: var(--accent-hover, #1ed760);
 }
 
+@media (max-width: 768px) {
+  .library {
+    padding: 16px;
+  }
+
+  .library-header h1 {
+    font-size: 24px;
+  }
+
+  .tracks-table {
+    font-size: 12px;
+  }
+
+  .tracks-table th,
+  .tracks-table td {
+    padding: 8px;
+  }
+
+  .track-cover-cell,
+  .track-year-cell,
+  .track-genre-cell,
+  .track-album-cell {
+    display: none;
+  }
+
+  .track-title-cell {
+    min-width: 0;
+  }
+
+  .track-artist-cell {
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  .track-duration-cell {
+    width: 50px;
+    font-size: 12px;
+  }
+
+  .track-actions-cell {
+    width: 60px;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 24px;
+  }
+}
+

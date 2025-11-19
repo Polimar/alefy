@@ -25,6 +25,8 @@ services:
       context: ../backend
       dockerfile: Dockerfile
     container_name: alefy-backend
+    env_file:
+      - ../.env
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: ${PORT:-3000}
@@ -46,6 +48,31 @@ services:
         condition: service_healthy
     networks:
       - alefy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`alevale.iliadboxos.it`) && PathPrefix(`/api`) && !PathPrefix(`/api/upload`) && !PathPrefix(`/api/stream`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend.middlewares=backend-headers"
+      - "traefik.http.routers.backend.service=backend"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.backend-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.backend-upload.rule=Host(`alevale.iliadboxos.it`) && PathPrefix(`/api/upload`)"
+      - "traefik.http.routers.backend-upload.entrypoints=websecure"
+      - "traefik.http.routers.backend-upload.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend-upload.middlewares=backend-upload-headers"
+      - "traefik.http.routers.backend-upload.service=backend-upload"
+      - "traefik.http.services.backend-upload.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.backend-upload-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.middlewares.backend-upload-headers.buffering.maxRequestBodyBytes=524288000"
+      - "traefik.http.routers.backend-stream.rule=Host(`alevale.iliadboxos.it`) && PathPrefix(`/api/stream`)"
+      - "traefik.http.routers.backend-stream.entrypoints=websecure"
+      - "traefik.http.routers.backend-stream.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend-stream.middlewares=backend-stream-headers"
+      - "traefik.http.routers.backend-stream.service=backend-stream"
+      - "traefik.http.services.backend-stream.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.backend-stream-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.middlewares.backend-stream-headers.buffering.maxRequestBodyBytes=0"
 
   frontend:
     build:
@@ -63,16 +90,43 @@ services:
       - backend
     networks:
       - alefy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`alevale.iliadboxos.it`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend.middlewares=frontend-headers"
+      - "traefik.http.services.frontend.loadbalancer.server.port=5173"
+      - "traefik.http.middlewares.frontend-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.frontend-http.rule=Host(`alevale.iliadboxos.it`)"
+      - "traefik.http.routers.frontend-http.entrypoints=web"
+      - "traefik.http.routers.frontend-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
 
-  nginx:
-    image: nginx:alpine
-    container_name: alefy-nginx
+  traefik:
+    image: traefik:v3.6.2
+    container_name: alefy-traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.network=docker_alefy-network"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=valerio@free-ware.it"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=INFO"
+      - "--accesslog=true"
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/letsencrypt:/letsencrypt
     depends_on:
       - backend
       - frontend

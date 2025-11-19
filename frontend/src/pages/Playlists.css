@@ -214,3 +214,52 @@
   cursor: not-allowed;
 }
 
+@media (max-width: 768px) {
+  .playlists {
+    padding: 16px;
+  }
+
+  .playlists-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .playlists-header h1 {
+    font-size: 24px;
+  }
+
+  .create-playlist-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .playlists-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .playlist-card {
+    padding: 16px;
+  }
+
+  .playlist-icon {
+    width: 100px;
+    height: 100px;
+  }
+
+  .playlist-name {
+    font-size: 14px;
+  }
+
+  .playlist-info {
+    font-size: 12px;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 24px;
+  }
+}
+

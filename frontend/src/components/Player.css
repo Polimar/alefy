@@ -144,3 +144,44 @@
   border: none;
 }
 
+@media (max-width: 768px) {
+  .player {
+    height: auto;
+    padding: 12px;
+    flex-direction: column;
+  }
+
+  .player-content {
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .player-track-info {
+    min-width: 0;
+    max-width: 100%;
+    text-align: center;
+    order: 1;
+  }
+
+  .player-controls {
+    order: 2;
+    width: 100%;
+  }
+
+  .player-volume {
+    order: 3;
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .progress-container {
+    max-width: 100%;
+  }
+
+  .time-display {
+    font-size: 10px;
+  }
+}
+

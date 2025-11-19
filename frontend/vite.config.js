@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'ALEFY',
         short_name: 'ALEFY',
@@ -28,8 +28,17 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    sourcemap: false,
+  },
   server: {
     port: 5173,
+    host: '0.0.0.0',
+    allowedHosts: [
+      'alevale.iliadboxos.it',
+      'localhost',
+      '.iliadboxos.it'
+    ],
     proxy: {
       '^/api': {
         target: 'http://backend:3000',

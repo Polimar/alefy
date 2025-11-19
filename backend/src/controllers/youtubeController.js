@@ -20,6 +20,8 @@ export const downloadYouTube = async (req, res, next) => {
     const validatedData = downloadSchema.parse(req.body);
     const { url } = validatedData;
 
+    console.log(`[YouTube Download] Inizio download per URL: ${url}, User ID: ${userId}`);
+
     const ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
     const storagePath = getStoragePath();
     const tempDir = path.join(storagePath, 'temp', 'youtube');
@@ -31,15 +33,34 @@ export const downloadYouTube = async (req, res, next) => {
     const timestamp = Date.now();
     const outputPath = path.join(tempDir, `%(title)s-${timestamp}.%(ext)s`);
 
-    // Download audio
-    const command = `${ytdlpPath} -x --audio-format mp3 --audio-quality 192K -o "${outputPath}" "${url}"`;
+    console.log(`[YouTube Download] Comando yt-dlp: preparazione...`);
+
+    // Download audio con parsing metadati nativo di yt-dlp
+    // --no-playlist: scarica solo il video specificato, non l'intera playlist
+    // --parse-metadata parsare titoli nel formato "Artista - Titolo"
+    // --embed-metadata incorporare i metadati nel file audio
+    // Nota: --replace-in-metadata rimosso per problemi di escape delle regex nella shell
+    const command = `${ytdlpPath} --no-playlist -x --audio-format mp3 --audio-quality 192K --parse-metadata "title:%(artist)s - %(title)s" --embed-metadata -o "${outputPath}" "${url}"`;
+    
+    console.log(`[YouTube Download] Esecuzione comando yt-dlp...`);
+    const startTime = Date.now();
     
     try {
-      await execAsync(command);
+      const { stdout, stderr } = await execAsync(command, { maxBuffer: 10 * 1024 * 1024 });
+      const duration = Date.now() - startTime;
+      console.log(`[YouTube Download] Comando completato in ${duration}ms`);
+      if (stderr) {
+        console.log(`[YouTube Download] stderr: ${stderr.substring(0, 500)}`);
+      }
     } catch (error) {
-      console.error('yt-dlp error:', error);
+      const duration = Date.now() - startTime;
+      console.error(`[YouTube Download] Errore dopo ${duration}ms:`, error.message);
+      console.error(`[YouTube Download] stdout:`, error.stdout?.substring(0, 500));
+      console.error(`[YouTube Download] stderr:`, error.stderr?.substring(0, 500));
       throw new AppError('Errore durante il download da YouTube: ' + (error.message || 'Errore sconosciuto'), 500);
     }
+
+    console.log(`[YouTube Download] Ricerca file scaricato...`);
 
     // Find downloaded file (new files after download)
     const filesAfter = await fs.readdir(tempDir);
@@ -63,26 +84,36 @@ export const downloadYouTube = async (req, res, next) => {
     }
     
     if (!downloadedFile) {
+      console.error(`[YouTube Download] File non trovato. Files prima: ${filesBefore.length}, Files dopo: ${filesAfter.length}`);
       throw new AppError('File scaricato non trovato. Verifica che yt-dlp sia installato correttamente.', 500);
     }
 
+    console.log(`[YouTube Download] File trovato: ${downloadedFile}`);
+
     const filePath = path.join(tempDir, downloadedFile);
 
-    // Extract metadata
+    // Extract metadata from audio file
+    // I metadati sono già stati parsati e incorporati da yt-dlp con --parse-metadata e --embed-metadata
+    console.log(`[YouTube Download] Estrazione metadati...`);
     const metadata = await extractMetadata(filePath);
+    console.log(`[YouTube Download] Metadati estratti: title=${metadata.title}, artist=${metadata.artist}`);
 
-    // Determine final storage path
+    // Determine final storage path using metadata
+    console.log(`[YouTube Download] Determinazione percorso di salvataggio...`);
     const finalPath = getTrackStoragePath(userId, metadata.artist, metadata.album);
     await ensureDirectoryExists(finalPath);
 
     // Move file to final location
+    console.log(`[YouTube Download] Spostamento file in: ${finalPath}`);
     const finalFilePath = path.join(finalPath, path.basename(filePath));
     await fs.rename(filePath, finalFilePath);
 
     // Get file stats
+    console.log(`[YouTube Download] Lettura statistiche file...`);
     const stats = await getFileStats(finalFilePath);
 
     // Save cover art if available
+    console.log(`[YouTube Download] Salvataggio cover art...`);
     let coverArtPath = null;
     if (metadata.picture) {
       coverArtPath = await saveCoverArt(
@@ -93,7 +124,8 @@ export const downloadYouTube = async (req, res, next) => {
       );
     }
 
-    // Insert track into database
+    // Insert track into database using metadata (già parsato da yt-dlp)
+    console.log(`[YouTube Download] Inserimento nel database...`);
     const result = await pool.query(
       `INSERT INTO tracks (
         user_id, title, artist, album, album_artist, genre, year,
@@ -121,6 +153,8 @@ export const downloadYouTube = async (req, res, next) => {
       ]
     );
 
+    console.log(`[YouTube Download] Download completato con successo. Track ID: ${result.rows[0].id}`);
+    
     res.status(201).json({
       success: true,
       data: {

@@ -8,7 +8,8 @@ RUN apk add --no-cache \
     ffmpeg-dev \
     python3 \
     py3-pip \
-    && pip3 install --no-cache-dir --break-system-packages yt-dlp
+    && pip3 install --no-cache-dir --break-system-packages yt-dlp \
+    && pip3 install --no-cache-dir --break-system-packages js2py
 
 # Copy package files
 COPY package*.json ./

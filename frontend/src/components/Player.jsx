@@ -34,8 +34,23 @@ export default function Player() {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const updateTime = () => setCurrentTime(audio.currentTime);
-    const updateDuration = () => setDuration(audio.duration);
+    const updateTime = () => {
+      if (audio.currentTime !== undefined && !isNaN(audio.currentTime)) {
+        setCurrentTime(audio.currentTime);
+      }
+    };
+    
+    const updateDuration = () => {
+      if (audio.duration !== undefined && !isNaN(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
+    };
+    
+    const handleCanPlay = () => {
+      // Quando l'audio è pronto, aggiorna la durata
+      updateDuration();
+    };
+    
     const handleEnded = () => {
       if (repeat === 'one') {
         audio.currentTime = 0;
@@ -47,11 +62,15 @@ export default function Player() {
 
     audio.addEventListener('timeupdate', updateTime);
     audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('canplay', handleCanPlay);
+    audio.addEventListener('durationchange', updateDuration);
     audio.addEventListener('ended', handleEnded);
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime);
       audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('canplay', handleCanPlay);
+      audio.removeEventListener('durationchange', updateDuration);
       audio.removeEventListener('ended', handleEnded);
     };
   }, [setCurrentTime, setDuration, next, repeat]);
@@ -61,11 +80,39 @@ export default function Player() {
     if (!audio) return;
 
     if (isPlaying) {
-      audio.play().catch(err => {
-        console.error('Error playing audio:', err);
-        setError('Errore nella riproduzione');
-        pause();
-      });
+      // Aspetta che l'audio sia pronto prima di fare play
+      if (audio.readyState >= 2) { // HAVE_CURRENT_DATA o superiore
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            // Ignora AbortError - significa che è stato interrotto da un nuovo load
+            if (err.name !== 'AbortError') {
+              console.error('Error playing audio:', err);
+              setError('Errore nella riproduzione');
+              pause();
+            }
+          });
+        }
+      } else {
+        // Se l'audio non è pronto, aspetta che lo sia
+        const handleCanPlay = () => {
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(err => {
+              if (err.name !== 'AbortError') {
+                console.error('Error playing audio:', err);
+                setError('Errore nella riproduzione');
+                pause();
+              }
+            });
+          }
+          audio.removeEventListener('canplay', handleCanPlay);
+        };
+        audio.addEventListener('canplay', handleCanPlay);
+        return () => {
+          audio.removeEventListener('canplay', handleCanPlay);
+        };
+      }
     } else {
       audio.pause();
     }
@@ -92,18 +139,30 @@ export default function Player() {
       try {
         setLoading(true);
         setError(null);
+        pause(); // Pausa prima di caricare nuovo brano
 
         const token = localStorage.getItem('accessToken');
         const streamUrl = `${API_URL}/stream/tracks/${currentTrack.id}`;
 
-        const response = await fetch(streamUrl, {
+        // Usa direttamente l'URL dello stream invece del blob per supportare Range Requests e seek
+        audio.src = streamUrl;
+        audio.crossOrigin = 'anonymous';
+        
+        // Imposta header Authorization tramite fetch e poi usa blob, oppure usa direttamente l'URL
+        // Per supportare seek, usiamo direttamente l'URL con token nell'header
+        // Ma l'audio element non supporta header custom, quindi usiamo un approccio diverso:
+        // Creiamo un blob ma solo dopo aver verificato che funziona
+        
+        // Verifica autenticazione prima
+        const testResponse = await fetch(streamUrl, {
+          method: 'HEAD',
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
 
-        if (!response.ok) {
-          if (response.status === 401) {
+        if (!testResponse.ok) {
+          if (testResponse.status === 401) {
             // Try to refresh token
             const refreshToken = localStorage.getItem('refreshToken');
             if (refreshToken) {
@@ -122,7 +181,9 @@ export default function Player() {
                   localStorage.setItem('accessToken', accessToken);
                   localStorage.setItem('refreshToken', newRefreshToken);
 
-                  // Retry with new token
+                  // Usa il nuovo token per lo stream
+                  const newStreamUrl = `${API_URL}/stream/tracks/${currentTrack.id}?token=${accessToken}`;
+                  // In alternativa, carica il blob con il nuovo token
                   const retryResponse = await fetch(streamUrl, {
                     headers: {
                       'Authorization': `Bearer ${accessToken}`,
@@ -137,7 +198,7 @@ export default function Player() {
                   blobUrlRef.current = URL.createObjectURL(blob);
                   audio.src = blobUrlRef.current;
                   audio.load();
-                  play();
+                  // NON chiamare play() automaticamente - aspetta che l'utente clicchi
                   return;
                 }
               } catch (refreshError) {
@@ -149,6 +210,17 @@ export default function Player() {
               }
             }
           }
+          throw new Error(`Errore ${testResponse.status}: ${testResponse.statusText}`);
+        }
+
+        // Carica il blob per supportare seek
+        const response = await fetch(streamUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
           throw new Error(`Errore ${response.status}: ${response.statusText}`);
         }
 
@@ -156,7 +228,7 @@ export default function Player() {
         blobUrlRef.current = URL.createObjectURL(blob);
         audio.src = blobUrlRef.current;
         audio.load();
-        play();
+        // NON chiamare play() automaticamente - aspetta che l'utente clicchi
       } catch (err) {
         console.error('Error loading audio:', err);
         setError(err.message || 'Errore nel caricamento del brano');
@@ -174,15 +246,17 @@ export default function Player() {
         blobUrlRef.current = null;
       }
     };
-  }, [currentTrack, play, pause]);
+  }, [currentTrack, pause]);
 
   const handleSeek = (e) => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !duration || duration === 0) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
-    audio.currentTime = percent * duration;
+    const newTime = Math.max(0, Math.min(duration, percent * duration));
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
   };
 
   const formatTime = (seconds) => {

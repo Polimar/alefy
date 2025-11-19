@@ -1,12 +1,35 @@
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { Home, Upload, ListMusic, LogOut } from 'lucide-react';
+import { Home, Upload, ListMusic, LogOut, Menu, X } from 'lucide-react';
 import Player from './Player';
 import './Layout.css';
 
 export default function Layout() {
   const { logout, user } = useAuthStore();
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    // Chiudi sidebar quando cambi pagina su mobile
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname, isMobile]);
 
   const handleLogout = () => {
     logout();
@@ -14,7 +37,22 @@ export default function Layout() {
 
   return (
     <div className="layout">
-      <aside className="sidebar">
+      {isMobile && (
+        <button 
+          className="mobile-menu-btn"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label="Toggle menu"
+        >
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      )}
+      {isMobile && sidebarOpen && (
+        <div 
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <h1>ALEFY</h1>
         </div>

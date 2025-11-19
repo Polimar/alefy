@@ -1,0 +1,29 @@
+api:
+  insecure: true
+  dashboard: true
+
+providers:
+  docker:
+    enabled: true
+    network: alefy-network
+    exposedByDefault: false
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: valerio@free-ware.it
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+
+log:
+  level: INFO
+
+accessLog: {}
+

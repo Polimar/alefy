@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
-import { Play, Trash2, ArrowLeft, Music } from 'lucide-react';
+import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1 } from 'lucide-react';
 import './PlaylistDetail.css';
 
 export default function PlaylistDetail() {
@@ -11,7 +11,15 @@ export default function PlaylistDetail() {
   const [playlist, setPlaylist] = useState(null);
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { setCurrentTrack, setQueue, play } = usePlayerStore();
+  const { 
+    setCurrentTrack, 
+    setQueue, 
+    play,
+    shuffle,
+    repeat,
+    toggleShuffle,
+    setRepeat
+  } = usePlayerStore();
 
   useEffect(() => {
     loadPlaylist();
@@ -33,15 +41,42 @@ export default function PlaylistDetail() {
 
   const handlePlayPlaylist = () => {
     if (tracks.length === 0) return;
-    setQueue(tracks);
-    setCurrentTrack(tracks[0]);
-    play();
+    // Applica shuffle se attivo
+    let tracksToPlay = [...tracks];
+    if (shuffle) {
+      tracksToPlay = [...tracks].sort(() => Math.random() - 0.5);
+    }
+    setQueue(tracksToPlay);
+    setCurrentTrack(tracksToPlay[0]);
+    // Usa setTimeout per assicurarsi che lo stato sia aggiornato prima di chiamare play
+    setTimeout(() => {
+      play();
+    }, 0);
   };
 
   const handlePlayTrack = (track) => {
-    setQueue(tracks);
+    // Applica shuffle se attivo
+    let tracksToPlay = [...tracks];
+    if (shuffle) {
+      tracksToPlay = [...tracks].sort(() => Math.random() - 0.5);
+      // Trova la posizione del track corrente nella lista shuffleata
+      const trackIndex = tracksToPlay.findIndex(t => t.id === track.id);
+      if (trackIndex !== -1) {
+        // Sposta il track corrente all'inizio
+        tracksToPlay = [track, ...tracksToPlay.filter(t => t.id !== track.id)];
+      }
+    } else {
+      // Trova l'indice del track e riordina dalla sua posizione
+      const trackIndex = tracks.findIndex(t => t.id === track.id);
+      if (trackIndex !== -1) {
+        tracksToPlay = [...tracks.slice(trackIndex), ...tracks.slice(0, trackIndex)];
+      }
+    }
+    setQueue(tracksToPlay);
     setCurrentTrack(track);
-    play();
+    setTimeout(() => {
+      play();
+    }, 0);
   };
 
   const handleRemoveTrack = async (trackId) => {
@@ -118,10 +153,30 @@ export default function PlaylistDetail() {
           <div className="playlist-stats">
             {tracks.length} brani • {formatTotalDuration(tracks)}
           </div>
-          <button className="play-playlist-btn" onClick={handlePlayPlaylist}>
-            <Play size={20} />
-            Riproduci
-          </button>
+          <div className="playlist-controls">
+            <button className="play-playlist-btn" onClick={handlePlayPlaylist}>
+              <Play size={20} />
+              Riproduci
+            </button>
+            <button 
+              className={`control-btn ${shuffle ? 'active' : ''}`}
+              onClick={toggleShuffle}
+              title="Shuffle"
+            >
+              <Shuffle size={18} />
+            </button>
+            <button 
+              className={`control-btn ${repeat !== 'off' ? 'active' : ''}`}
+              onClick={() => {
+                if (repeat === 'off') setRepeat('all');
+                else if (repeat === 'all') setRepeat('one');
+                else setRepeat('off');
+              }}
+              title={repeat === 'off' ? 'Repeat' : repeat === 'all' ? 'Repeat All' : 'Repeat One'}
+            >
+              {repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
+            </button>
+          </div>
         </div>
       </div>
 
