@@ -67,6 +67,7 @@ const useAuthStore = create((set) => ({
 
       const response = await api.get('/auth/me');
       set({ user: response.data.data.user, isAuthenticated: true, loading: false });
+      return response.data.data.user;
     } catch (error) {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');

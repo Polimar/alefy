@@ -73,6 +73,7 @@ import tracksRoutes from './routes/tracksRoutes.js';
 import playlistsRoutes from './routes/playlistsRoutes.js';
 import youtubeRoutes from './routes/youtubeRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
+import usersRoutes from './routes/usersRoutes.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
@@ -81,6 +82,7 @@ app.use('/api/tracks', tracksRoutes);
 app.use('/api/playlists', playlistsRoutes);
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/users', usersRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ 

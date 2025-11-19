@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { Home, Upload, ListMusic, LogOut, Menu, X } from 'lucide-react';
+import { Home, Upload, ListMusic, LogOut, Menu, X, Users } from 'lucide-react';
 import Player from './Player';
 import './Layout.css';
 
@@ -78,6 +78,15 @@ export default function Layout() {
             <ListMusic size={20} />
             <span>Playlist</span>
           </Link>
+          {user?.is_admin && (
+            <Link
+              to="/users"
+              className={`nav-item ${location.pathname === '/users' ? 'active' : ''}`}
+            >
+              <Users size={20} />
+              <span>Utenti</span>
+            </Link>
+          )}
         </nav>
         <div className="sidebar-footer">
           <div className="user-info">

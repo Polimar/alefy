@@ -219,7 +219,7 @@ export const logout = async (req, res, next) => {
 export const me = async (req, res, next) => {
   try {
     const result = await pool.query(
-      'SELECT id, email, username, created_at FROM users WHERE id = $1',
+      'SELECT id, email, username, is_admin, created_at FROM users WHERE id = $1',
       [req.user.userId]
     );
 
@@ -227,10 +227,17 @@ export const me = async (req, res, next) => {
       throw new AppError('Utente non trovato', 404);
     }
 
+    const user = result.rows[0];
     res.json({
       success: true,
       data: {
-        user: result.rows[0],
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          is_admin: user.is_admin || false,
+          created_at: user.created_at,
+        },
       },
     });
   } catch (error) {

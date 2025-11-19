@@ -24,18 +24,18 @@ async function seed() {
     );
 
     if (existingUser.rows.length > 0) {
-      console.log('Utente admin già esistente, aggiorno la password...');
+      console.log('Utente admin già esistente, aggiorno la password e is_admin...');
       const passwordHash = await bcrypt.hash(password, 10);
       await client.query(
-        'UPDATE users SET password_hash = $1 WHERE email = $2',
+        'UPDATE users SET password_hash = $1, is_admin = TRUE WHERE email = $2',
         [passwordHash, email]
       );
-      console.log('✓ Password admin aggiornata');
+      console.log('✓ Password admin aggiornata e is_admin impostato');
     } else {
       console.log('Creazione utente admin...');
       const passwordHash = await bcrypt.hash(password, 10);
       await client.query(
-        'INSERT INTO users (email, password_hash, username) VALUES ($1, $2, $3)',
+        'INSERT INTO users (email, password_hash, username, is_admin) VALUES ($1, $2, $3, TRUE)',
         [email, passwordHash, 'admin']
       );
       console.log('✓ Utente admin creato con successo');

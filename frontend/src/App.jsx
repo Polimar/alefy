@@ -7,7 +7,9 @@ import Library from './pages/Library';
 import Upload from './pages/Upload';
 import Playlists from './pages/Playlists';
 import PlaylistDetail from './pages/PlaylistDetail';
+import Users from './pages/Users';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   const { checkAuth, isAuthenticated, loading } = useAuthStore();
@@ -41,6 +43,14 @@ function App() {
         <Route path="upload" element={<Upload />} />
         <Route path="playlists" element={<Playlists />} />
         <Route path="playlists/:id" element={<PlaylistDetail />} />
+        <Route 
+          path="users" 
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <Users />
+            </ProtectedRoute>
+          } 
+        />
       </Route>
     </Routes>
   );

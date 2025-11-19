@@ -18,15 +18,15 @@ const updateTrackSchema = z.object({
 
 export const getTracks = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
+    // Tracks are now shared - show all tracks from all users
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = (page - 1) * limit;
 
-    // Build query with filters
-    let query = 'SELECT id, title, artist, album, album_artist, genre, year, track_number, disc_number, duration, file_size, cover_art_path, play_count, last_played_at, created_at FROM tracks WHERE user_id = $1';
-    const params = [userId];
-    let paramIndex = 2;
+    // Build query with filters - removed user_id filter to show all tracks
+    let query = 'SELECT id, title, artist, album, album_artist, genre, year, track_number, disc_number, duration, file_size, cover_art_path, play_count, last_played_at, created_at FROM tracks WHERE 1=1';
+    const params = [];
+    let paramIndex = 1;
 
     // Search filter
     if (req.query.search) {
@@ -227,15 +227,13 @@ export const deleteTrack = async (req, res, next) => {
 
 export const getArtists = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
-
+    // Show all artists from all users (shared library)
     const result = await pool.query(
       `SELECT DISTINCT artist, COUNT(*) as track_count 
        FROM tracks 
-       WHERE user_id = $1 AND artist IS NOT NULL 
+       WHERE artist IS NOT NULL 
        GROUP BY artist 
-       ORDER BY artist ASC`,
-      [userId]
+       ORDER BY artist ASC`
     );
 
     res.json({
@@ -251,16 +249,16 @@ export const getArtists = async (req, res, next) => {
 
 export const getAlbums = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
+    // Show all albums from all users (shared library)
     const artist = req.query.artist;
 
     let query = `SELECT DISTINCT album, artist, COUNT(*) as track_count 
                  FROM tracks 
-                 WHERE user_id = $1 AND album IS NOT NULL`;
-    const params = [userId];
+                 WHERE album IS NOT NULL`;
+    const params = [];
 
     if (artist) {
-      query += ` AND artist = $2`;
+      query += ` AND artist = $1`;
       params.push(artist);
       query += ` GROUP BY album, artist ORDER BY album ASC`;
     } else {
@@ -282,15 +280,13 @@ export const getAlbums = async (req, res, next) => {
 
 export const getGenres = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
-
+    // Show all genres from all users (shared library)
     const result = await pool.query(
       `SELECT DISTINCT genre, COUNT(*) as track_count 
        FROM tracks 
-       WHERE user_id = $1 AND genre IS NOT NULL 
+       WHERE genre IS NOT NULL 
        GROUP BY genre 
-       ORDER BY genre ASC`,
-      [userId]
+       ORDER BY genre ASC`
     );
 
     res.json({
