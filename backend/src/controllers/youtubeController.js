@@ -25,7 +25,11 @@ export const downloadYouTube = async (req, res, next) => {
     const tempDir = path.join(storagePath, 'temp', 'youtube');
     await ensureDirectoryExists(tempDir);
 
-    const outputPath = path.join(tempDir, `%(title)s-${Date.now()}.%(ext)s`);
+    // Get list of files before download
+    const filesBefore = await fs.readdir(tempDir);
+    
+    const timestamp = Date.now();
+    const outputPath = path.join(tempDir, `%(title)s-${timestamp}.%(ext)s`);
 
     // Download audio
     const command = `${ytdlpPath} -x --audio-format mp3 --audio-quality 192K -o "${outputPath}" "${url}"`;
@@ -33,15 +37,33 @@ export const downloadYouTube = async (req, res, next) => {
     try {
       await execAsync(command);
     } catch (error) {
-      throw new AppError('Errore durante il download da YouTube', 500);
+      console.error('yt-dlp error:', error);
+      throw new AppError('Errore durante il download da YouTube: ' + (error.message || 'Errore sconosciuto'), 500);
     }
 
-    // Find downloaded file
-    const files = await fs.readdir(tempDir);
-    const downloadedFile = files.find(f => f.includes(Date.now().toString().slice(0, -3)));
+    // Find downloaded file (new files after download)
+    const filesAfter = await fs.readdir(tempDir);
+    const newFiles = filesAfter.filter(f => !filesBefore.includes(f));
+    
+    let downloadedFile = null;
+    
+    if (newFiles.length > 0) {
+      downloadedFile = newFiles[0];
+    } else {
+      // Try to find by timestamp
+      const filesByTimestamp = filesAfter.filter(f => f.includes(timestamp.toString()));
+      if (filesByTimestamp.length > 0) {
+        const testPath = path.join(tempDir, filesByTimestamp[0]);
+        // Check if it's a file (not directory)
+        const stats = await fs.stat(testPath);
+        if (stats.isFile()) {
+          downloadedFile = filesByTimestamp[0];
+        }
+      }
+    }
     
     if (!downloadedFile) {
-      throw new AppError('File scaricato non trovato', 500);
+      throw new AppError('File scaricato non trovato. Verifica che yt-dlp sia installato correttamente.', 500);
     }
 
     const filePath = path.join(tempDir, downloadedFile);

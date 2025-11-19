@@ -1,11 +1,16 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import usePlayerStore from '../store/playerStore';
 import api from '../utils/api';
 import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
 import './Player.css';
 
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
 export default function Player() {
   const audioRef = useRef(null);
+  const blobUrlRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const {
     currentTrack,
     isPlaying,
@@ -56,11 +61,15 @@ export default function Player() {
     if (!audio) return;
 
     if (isPlaying) {
-      audio.play();
+      audio.play().catch(err => {
+        console.error('Error playing audio:', err);
+        setError('Errore nella riproduzione');
+        pause();
+      });
     } else {
       audio.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, pause]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -73,11 +82,99 @@ export default function Player() {
     const audio = audioRef.current;
     if (!audio || !currentTrack) return;
 
-    const streamUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/stream/tracks/${currentTrack.id}`;
-    audio.src = streamUrl;
-    audio.load();
-    play();
-  }, [currentTrack, play]);
+    // Cleanup previous blob URL
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+
+    const loadAudio = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem('accessToken');
+        const streamUrl = `${API_URL}/stream/tracks/${currentTrack.id}`;
+
+        const response = await fetch(streamUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Try to refresh token
+            const refreshToken = localStorage.getItem('refreshToken');
+            if (refreshToken) {
+              try {
+                const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ refreshToken }),
+                });
+
+                if (refreshResponse.ok) {
+                  const refreshData = await refreshResponse.json();
+                  const { accessToken, refreshToken: newRefreshToken } = refreshData.data || refreshData;
+                  localStorage.setItem('accessToken', accessToken);
+                  localStorage.setItem('refreshToken', newRefreshToken);
+
+                  // Retry with new token
+                  const retryResponse = await fetch(streamUrl, {
+                    headers: {
+                      'Authorization': `Bearer ${accessToken}`,
+                    },
+                  });
+
+                  if (!retryResponse.ok) {
+                    throw new Error('Errore di autenticazione');
+                  }
+
+                  const blob = await retryResponse.blob();
+                  blobUrlRef.current = URL.createObjectURL(blob);
+                  audio.src = blobUrlRef.current;
+                  audio.load();
+                  play();
+                  return;
+                }
+              } catch (refreshError) {
+                console.error('Token refresh failed:', refreshError);
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+                window.location.href = '/login';
+                return;
+              }
+            }
+          }
+          throw new Error(`Errore ${response.status}: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        blobUrlRef.current = URL.createObjectURL(blob);
+        audio.src = blobUrlRef.current;
+        audio.load();
+        play();
+      } catch (err) {
+        console.error('Error loading audio:', err);
+        setError(err.message || 'Errore nel caricamento del brano');
+        pause();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAudio();
+
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, [currentTrack, play, pause]);
 
   const handleSeek = (e) => {
     const audio = audioRef.current;
@@ -100,6 +197,33 @@ export default function Player() {
   return (
     <div className="player">
       <audio ref={audioRef} />
+      {error && (
+        <div className="player-error" style={{ 
+          position: 'absolute', 
+          top: '-30px', 
+          left: '50%', 
+          transform: 'translateX(-50%)',
+          background: 'var(--error, #ff4444)',
+          color: 'white',
+          padding: '4px 12px',
+          borderRadius: '4px',
+          fontSize: '12px'
+        }}>
+          {error}
+        </div>
+      )}
+      {loading && (
+        <div className="player-loading" style={{ 
+          position: 'absolute', 
+          top: '-30px', 
+          left: '50%', 
+          transform: 'translateX(-50%)',
+          color: 'var(--text-secondary)',
+          fontSize: '12px'
+        }}>
+          Caricamento...
+        </div>
+      )}
       <div className="player-content">
         <div className="player-track-info">
           <div className="track-title">{currentTrack.title}</div>

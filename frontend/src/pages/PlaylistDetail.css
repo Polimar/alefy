@@ -1,0 +1,229 @@
+.playlist-detail {
+  padding: 32px;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 8px 16px;
+  background-color: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  color: var(--accent, #1db954);
+}
+
+.playlist-header {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 48px;
+}
+
+.playlist-cover {
+  width: 240px;
+  height: 240px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.playlist-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.playlist-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--accent, #1db954), #1ed760);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.playlist-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.playlist-type {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+
+.playlist-info h1 {
+  font-size: 48px;
+  font-weight: 900;
+  margin: 0 0 16px 0;
+  line-height: 1.2;
+}
+
+.playlist-description {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+}
+
+.playlist-stats {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.play-playlist-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  background-color: var(--accent, #1db954);
+  color: white;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+  transition: all 0.2s;
+  width: fit-content;
+}
+
+.play-playlist-btn:hover {
+  transform: scale(1.05);
+  background-color: var(--accent-hover, #1ed760);
+}
+
+.playlist-tracks {
+  margin-top: 32px;
+}
+
+.empty-tracks {
+  text-align: center;
+  padding: 64px;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.tracks-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tracks-table thead {
+  border-bottom: 1px solid var(--border);
+}
+
+.tracks-table th {
+  text-align: left;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
+.tracks-table th:first-child {
+  width: 40px;
+  text-align: center;
+}
+
+.tracks-table th:last-child {
+  width: 100px;
+  text-align: right;
+}
+
+.track-row {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.2s;
+}
+
+.track-row:hover {
+  background-color: var(--bg-secondary);
+}
+
+.track-row td {
+  padding: 12px;
+  vertical-align: middle;
+}
+
+.track-number {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.track-info {
+  min-width: 200px;
+}
+
+.track-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.track-artist {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.track-album {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.track-duration {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.track-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.action-btn {
+  padding: 6px;
+  background-color: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 64px;
+  color: var(--text-secondary);
+  font-size: 18px;
+}
+

@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Library from './pages/Library';
 import Upload from './pages/Upload';
 import Playlists from './pages/Playlists';
+import PlaylistDetail from './pages/PlaylistDetail';
 import Layout from './components/Layout';
 
 function App() {
@@ -39,6 +40,7 @@ function App() {
         <Route index element={<Library />} />
         <Route path="upload" element={<Upload />} />
         <Route path="playlists" element={<Playlists />} />
+        <Route path="playlists/:id" element={<PlaylistDetail />} />
       </Route>
     </Routes>
   );

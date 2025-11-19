@@ -28,44 +28,122 @@
   border-color: var(--accent);
 }
 
-.tracks-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.tracks-container {
+  overflow-x: auto;
 }
 
-.track-item {
+.tracks-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tracks-table thead {
+  border-bottom: 2px solid var(--border);
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-primary);
+  z-index: 10;
+}
+
+.tracks-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
+.tracks-table th:first-child {
+  width: 60px;
+  text-align: center;
+}
+
+.tracks-table th:last-child {
+  width: 100px;
+  text-align: center;
+}
+
+.track-row {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.track-row:hover {
+  background-color: var(--bg-secondary);
+}
+
+.track-row td {
+  padding: 12px 16px;
+  vertical-align: middle;
+}
+
+.track-cover-cell {
+  width: 60px;
+  text-align: center;
+}
+
+.track-cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.track-cover-placeholder {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--accent, #1db954), #1ed760);
+  border-radius: 4px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background-color: var(--bg-secondary);
-  border-radius: 8px;
-  transition: background-color 0.2s;
+  justify-content: center;
+  color: white;
+  margin: 0 auto;
 }
 
-.track-item:hover {
-  background-color: var(--bg-tertiary);
-}
-
-.track-info {
-  flex: 1;
+.track-title-cell {
+  min-width: 200px;
 }
 
 .track-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
-  margin-bottom: 4px;
+  color: var(--text-primary);
 }
 
-.track-artist {
+.track-artist-cell {
+  min-width: 150px;
   font-size: 14px;
   color: var(--text-secondary);
 }
 
-.track-duration {
+.track-album-cell {
+  min-width: 150px;
   font-size: 14px;
   color: var(--text-secondary);
+}
+
+.track-genre-cell {
+  min-width: 100px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.track-year-cell {
+  width: 80px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.track-duration-cell {
+  width: 80px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: right;
 }
 
 .loading,
@@ -74,5 +152,205 @@
   padding: 64px;
   color: var(--text-secondary);
   font-size: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+.track-actions-cell {
+  width: 100px;
+  text-align: center;
+  position: relative;
+}
+
+.track-actions {
+  position: relative;
+  display: inline-block;
+}
+
+.action-btn {
+  padding: 6px;
+  background-color: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.action-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  min-width: 200px;
+  overflow: hidden;
+}
+
+.action-menu-item {
+  width: 100%;
+  padding: 12px 16px;
+  background-color: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background-color 0.2s;
+}
+
+.action-menu-item:hover {
+  background-color: var(--bg-secondary);
+}
+
+.action-menu-item.danger {
+  color: var(--error, #ff4444);
+}
+
+.action-menu-item.danger:hover {
+  background-color: rgba(255, 68, 68, 0.1);
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--bg-primary);
+  border-radius: 12px;
+  padding: 32px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.modal-subtitle {
+  margin: 0 0 24px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.no-playlists {
+  text-align: center;
+  padding: 32px;
+}
+
+.no-playlists p {
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+}
+
+.playlists-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.playlist-select-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.playlist-select-item:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--accent, #1db954);
+}
+
+.playlist-select-info {
+  flex: 1;
+}
+
+.playlist-select-name {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.playlist-select-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.btn-cancel,
+.btn-primary {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.btn-cancel:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.btn-primary {
+  background-color: var(--accent, #1db954);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover, #1ed760);
 }
 
