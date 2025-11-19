@@ -29,8 +29,9 @@ export default function PlaylistDetail() {
     try {
       setLoading(true);
       const response = await api.get(`/playlists/${id}`);
-      setPlaylist(response.data.data.playlist);
-      setTracks(response.data.data.tracks || []);
+      const playlistData = response.data.data.playlist;
+      setPlaylist(playlistData);
+      setTracks(playlistData.tracks || []);
     } catch (error) {
       console.error('Error loading playlist:', error);
       alert('Errore nel caricamento della playlist');

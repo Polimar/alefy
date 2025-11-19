@@ -35,19 +35,32 @@ const usePlayerStore = create((set, get) => ({
     if (queue.length === 0) return;
     
     const currentIndex = queue.findIndex(t => t.id === currentTrack?.id);
+    
+    // Se siamo all'ultimo brano
+    if (currentIndex === queue.length - 1) {
+      if (repeat === 'all') {
+        // Riparti dall'inizio
+        const nextIndex = shuffle ? Math.floor(Math.random() * queue.length) : 0;
+        set({ currentTrack: queue[nextIndex] });
+      } else {
+        // Stop se repeat è 'off'
+        set({ isPlaying: false, currentTrack: null });
+      }
+      return;
+    }
+    
+    // Prossimo brano
     let nextIndex;
-    
     if (shuffle) {
-      nextIndex = Math.floor(Math.random() * queue.length);
+      // In shuffle, scegli un brano casuale diverso da quello corrente
+      do {
+        nextIndex = Math.floor(Math.random() * queue.length);
+      } while (nextIndex === currentIndex && queue.length > 1);
     } else {
-      nextIndex = (currentIndex + 1) % queue.length;
+      nextIndex = currentIndex + 1;
     }
     
-    if (nextIndex === 0 && repeat !== 'all') {
-      set({ isPlaying: false, currentTrack: null });
-    } else {
-      set({ currentTrack: queue[nextIndex] });
-    }
+    set({ currentTrack: queue[nextIndex] });
   },
   
   previous: () => {

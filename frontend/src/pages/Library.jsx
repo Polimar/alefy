@@ -107,10 +107,13 @@ export default function Library() {
       });
       setShowAddToPlaylist(false);
       setSelectedTrack(null);
+      // Ricarica le playlist per aggiornare i conteggi
+      loadPlaylists();
       alert('Traccia aggiunta alla playlist!');
     } catch (error) {
       console.error('Error adding track to playlist:', error);
-      alert('Errore nell\'aggiunta della traccia alla playlist');
+      const errorMessage = error.response?.data?.message || error.response?.data?.error?.message || 'Errore nell\'aggiunta della traccia alla playlist';
+      alert(errorMessage);
     }
   };
 
