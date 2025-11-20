@@ -183,12 +183,12 @@ export const downloadYouTube = async (req, res, next) => {
         metadata.year,
         metadata.trackNumber,
         metadata.discNumber,
-        metadata.duration,
+        Math.round(metadata.duration || 0), // Arrotonda duration a intero
         path.relative(storagePath, finalFilePath),
         stats?.size || 0,
         path.extname(finalFilePath).substring(1).toLowerCase(),
-        metadata.bitrate,
-        metadata.sampleRate,
+        metadata.bitrate ? Math.round(metadata.bitrate) : null, // Arrotonda bitrate a intero
+        metadata.sampleRate ? Math.round(metadata.sampleRate) : null, // Arrotonda sampleRate a intero
         coverArtPath,
       ]
     );
