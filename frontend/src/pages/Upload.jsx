@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { Download, Music } from 'lucide-react';
+import { Download, Music, Search } from 'lucide-react';
 import './Upload.css';
 
 export default function Upload() {
@@ -14,6 +14,11 @@ export default function Upload() {
   const [downloadProgress, setDownloadProgress] = useState(null);
   const [youtubeError, setYoutubeError] = useState(null);
   const [downloadStartTime, setDownloadStartTime] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchLimit, setSearchLimit] = useState('10');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(null);
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -153,9 +158,140 @@ export default function Upload() {
     return patterns.some(pattern => pattern.test(url));
   };
 
+  const formatDuration = (seconds) => {
+    if (!seconds) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setSearching(true);
+    setSearchError(null);
+    setSearchResults([]);
+
+    try {
+      const response = await api.get('/youtube/search', {
+        params: {
+          q: searchQuery.trim(),
+          limit: searchLimit,
+        },
+      });
+
+      setSearchResults(response.data.data.results || []);
+    } catch (error) {
+      console.error('YouTube search error:', error);
+      const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante la ricerca';
+      setSearchError(errorMessage);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleDownloadFromSearch = async (url) => {
+    // Usa la stessa logica del download normale
+    setYoutubeUrl(url);
+    // Trigger del download dopo un breve delay per permettere l'aggiornamento dello stato
+    setTimeout(() => {
+      const form = document.querySelector('.youtube-form');
+      if (form) {
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      }
+    }, 100);
+  };
+
   return (
     <div className="upload">
       <h1>Carica Brani</h1>
+
+      {/* YouTube Search Section */}
+      <div className="youtube-search-section">
+        <h2>
+          <Search size={20} />
+          Cerca su YouTube
+        </h2>
+        <form onSubmit={handleSearch} className="youtube-search-form">
+          <div className="youtube-search-input-group">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSearchError(null);
+              }}
+              placeholder="Cerca brani, artisti, album..."
+              className="youtube-search-input"
+              disabled={searching}
+            />
+            <select
+              value={searchLimit}
+              onChange={(e) => setSearchLimit(e.target.value)}
+              className="youtube-search-limit"
+              disabled={searching}
+            >
+              <option value="5">5 risultati</option>
+              <option value="10">10 risultati</option>
+              <option value="20">20 risultati</option>
+              <option value="50">50 risultati</option>
+            </select>
+            <button
+              type="submit"
+              disabled={searching || !searchQuery.trim()}
+              className="youtube-search-btn"
+            >
+              {searching ? 'Cercando...' : 'Cerca'}
+            </button>
+          </div>
+          {searchError && (
+            <div className="youtube-search-error">
+              {searchError}
+            </div>
+          )}
+        </form>
+
+        {searchResults.length > 0 && (
+          <div className="youtube-search-results">
+            <h3>Trovati {searchResults.length} risultati</h3>
+            <div className="search-results-grid">
+              {searchResults.map((result) => (
+                <div key={result.id} className="search-result-card">
+                  {result.thumbnail_url && (
+                    <div className="result-thumbnail">
+                      <img src={result.thumbnail_url} alt={result.title} />
+                    </div>
+                  )}
+                  <div className="result-content">
+                    <h4 className="result-title">{result.title}</h4>
+                    <p className="result-channel">{result.channel}</p>
+                    <div className="result-meta">
+                      <span className="result-duration">{formatDuration(result.duration)}</span>
+                      {result.view_count > 0 && (
+                        <span className="result-views">
+                          {result.view_count.toLocaleString()} visualizzazioni
+                        </span>
+                      )}
+                    </div>
+                    {result.description && (
+                      <p className="result-description">{result.description}</p>
+                    )}
+                    <button
+                      onClick={() => handleDownloadFromSearch(result.url)}
+                      disabled={downloading}
+                      className="result-download-btn"
+                    >
+                      <Download size={16} />
+                      Scarica
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* YouTube Download Section */}
       <div className="youtube-section">

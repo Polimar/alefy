@@ -14,6 +14,11 @@ const downloadSchema = z.object({
   url: z.string().url('URL non valido'),
 });
 
+const searchSchema = z.object({
+  q: z.string().min(1, 'Query di ricerca non può essere vuota'),
+  limit: z.enum(['5', '10', '20', '50']).default('10'),
+});
+
 export const downloadYouTube = async (req, res, next) => {
   try {
     const userId = req.user.userId;
@@ -201,6 +206,122 @@ export const downloadYouTube = async (req, res, next) => {
         track: result.rows[0],
       },
     });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+};
+
+// Helper function per ottenere il percorso di yt-dlp
+const getYtdlpPath = async () => {
+  let ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
+  
+  if (ytdlpPath.startsWith('/')) {
+    try {
+      await fs.access(ytdlpPath);
+      return ytdlpPath;
+    } catch (error) {
+      console.error(`[YouTube Search] yt-dlp non trovato al percorso: ${ytdlpPath}`);
+      try {
+        const { stdout } = await execAsync('which yt-dlp', { maxBuffer: 1024 });
+        return stdout.trim();
+      } catch (pathError) {
+        throw new AppError('yt-dlp non è installato o non è nel PATH. Verifica l\'installazione.', 500);
+      }
+    }
+  } else {
+    try {
+      const { stdout } = await execAsync(`which ${ytdlpPath}`, { maxBuffer: 1024 });
+      return stdout.trim();
+    } catch (error) {
+      console.error(`[YouTube Search] yt-dlp non trovato nel PATH: ${ytdlpPath}`);
+      throw new AppError('yt-dlp non è installato o non è nel PATH. Verifica l\'installazione.', 500);
+    }
+  }
+};
+
+export const searchYouTube = async (req, res, next) => {
+  try {
+    const validatedData = searchSchema.parse(req.query);
+    const { q: query, limit } = validatedData;
+    const maxResults = parseInt(limit, 10);
+
+    console.log(`[YouTube Search] Ricerca: "${query}", Limite: ${maxResults}`);
+
+    const ytdlpPath = await getYtdlpPath();
+    console.log(`[YouTube Search] yt-dlp path: ${ytdlpPath}`);
+
+    // Usa ytsearch per cercare senza scaricare
+    const searchQuery = `ytsearch${maxResults}:${query}`;
+    const command = `${ytdlpPath} "${searchQuery}" --dump-json --no-playlist`;
+
+    console.log(`[YouTube Search] Esecuzione comando yt-dlp...`);
+    const startTime = Date.now();
+
+    try {
+      const { stdout, stderr } = await execAsync(command, {
+        maxBuffer: 5 * 1024 * 1024, // 5MB per i risultati JSON
+        timeout: 30000 // 30 secondi timeout
+      });
+
+      const duration = Date.now() - startTime;
+      console.log(`[YouTube Search] Comando completato in ${duration}ms`);
+
+      if (stderr && !stderr.includes('WARNING')) {
+        console.log(`[YouTube Search] stderr: ${stderr.substring(0, 500)}`);
+      }
+
+      // Parse JSON results - yt-dlp restituisce un JSON per riga
+      const lines = stdout.trim().split('\n').filter(line => line.trim());
+      const results = [];
+
+      for (const line of lines) {
+        try {
+          const videoData = JSON.parse(line);
+          
+          // Estrai informazioni essenziali
+          const result = {
+            id: videoData.id || null,
+            title: videoData.title || 'Senza titolo',
+            channel: videoData.channel || videoData.uploader || 'Canale sconosciuto',
+            duration: videoData.duration || 0,
+            thumbnail_url: videoData.thumbnail || videoData.thumbnails?.[0]?.url || null,
+            description: videoData.description ? videoData.description.substring(0, 200) : '',
+            view_count: videoData.view_count || 0,
+            url: videoData.webpage_url || `https://www.youtube.com/watch?v=${videoData.id}`,
+          };
+
+          results.push(result);
+        } catch (parseError) {
+          console.error(`[YouTube Search] Errore parsing JSON:`, parseError.message);
+          // Continua con il prossimo risultato
+        }
+      }
+
+      console.log(`[YouTube Search] Trovati ${results.length} risultati`);
+
+      res.json({
+        success: true,
+        data: {
+          results,
+          count: results.length,
+          query,
+        },
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[YouTube Search] Errore dopo ${duration}ms:`, error.message);
+      console.error(`[YouTube Search] stdout:`, error.stdout?.substring(0, 500));
+      console.error(`[YouTube Search] stderr:`, error.stderr?.substring(0, 500));
+      
+      const errorMessage = error.stderr?.includes('ERROR')
+        ? error.stderr.split('ERROR')[1]?.substring(0, 200) || error.message
+        : error.message;
+      
+      throw new AppError('Errore durante la ricerca su YouTube: ' + errorMessage, 500);
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return next(new AppError(error.errors[0].message, 400));
