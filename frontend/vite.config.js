@@ -8,6 +8,34 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'apple-touch-icon.png'],
+      workbox: {
+        // Non cachare le richieste API - sempre vai al server
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/.*\/api\/.*/i,
+            handler: 'NetworkOnly',
+            options: {
+              cacheName: 'api-cache',
+              networkTimeoutSeconds: 10,
+            },
+          },
+          // Cacha solo i file statici
+          {
+            urlPattern: /^https:\/\/.*\/assets\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'assets-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 anno
+              },
+            },
+          },
+        ],
+        // Non precache le richieste API
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/],
+      },
       manifest: {
         name: 'ALEFY',
         short_name: 'ALEFY',

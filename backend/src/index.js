@@ -55,6 +55,14 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
+// Disabilita cache per tutte le risposte API
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 // Health check
 app.get('/health', async (req, res) => {
   try {
