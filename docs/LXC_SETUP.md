@@ -96,11 +96,38 @@ Dopo aver configurato il dominio e verificato che punti al server:
 
 ```bash
 # Setup SSL automatico
-certbot --nginx -d tuo-dominio.com --non-interactive --agree-tos --email tua-email@example.com
+certbot --nginx -d alevale.iliadboxos.it --non-interactive --agree-tos --email valerio@free-ware.it
 
 # Verifica rinnovo automatico
 certbot renew --dry-run
 ```
+
+## Risoluzione Problemi
+
+### Installazione Incompleta
+
+Se l'installazione è stata interrotta o il servizio `alefy` non esiste:
+
+```bash
+# Scarica script di diagnostica
+git clone https://github.com/Polimar/alefy.git /tmp/alefy
+cd /tmp/alefy
+
+# Esegui script di diagnostica e correzione
+chmod +x scripts/lxc-diagnose.sh
+./scripts/lxc-diagnose.sh
+```
+
+Lo script di diagnostica:
+- Verifica e crea utente `alefy` se mancante
+- Installa Node.js se assente
+- Clona/aggiorna il repository
+- Copia backend e frontend
+- Crea file `.env` con configurazione
+- Installa dipendenze
+- Esegue migrazioni database
+- Builda il frontend
+- Crea e avvia il servizio Systemd
 
 ## Verifica Installazione
 
@@ -362,4 +389,5 @@ nginx -t
 Per problemi o domande:
 - Repository: https://github.com/Polimar/alefy
 - Issues: https://github.com/Polimar/alefy/issues
+
 
