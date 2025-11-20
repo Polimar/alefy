@@ -13,10 +13,10 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\/api\/.*/i,
-            handler: 'NetworkOnly',
+            handler: 'NetworkOnly', // Non cachare mai le API
             options: {
               cacheName: 'api-cache',
-              networkTimeoutSeconds: 10,
+              // Rimuovo networkTimeoutSeconds perché non è compatibile con NetworkOnly
             },
           },
           // Cacha solo i file statici
