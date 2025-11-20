@@ -16,6 +16,19 @@ DOMAIN="${DOMAIN:-alevale.iliadboxos.it}"
 
 echo -e "${YELLOW}=== Diagnostica Alefy ===${NC}\n"
 
+# Funzione helper per eseguire comandi come utente (funziona anche come root)
+run_as_user() {
+    local user=$1
+    shift
+    if command -v runuser &> /dev/null; then
+        runuser -u "$user" -- "$@"
+    else
+        # Usa su con bash per eseguire il comando
+        local cmd="$*"
+        su -s /bin/bash "$user" -c "$cmd"
+    fi
+}
+
 # Verifica utente
 echo -e "${YELLOW}1. Verifica utente ${ALEFY_USER}...${NC}"
 if id "$ALEFY_USER" &>/dev/null; then
@@ -54,11 +67,11 @@ fi
 echo -e "\n${YELLOW}4. Verifica repository...${NC}"
 if [ ! -d "$ALEFY_HOME/repo" ]; then
     echo -e "${RED}✗ Repository non trovato, clone...${NC}"
-    sudo -u "$ALEFY_USER" git clone "$ALEFY_REPO_URL" "$ALEFY_HOME/repo"
+    run_as_user "$ALEFY_USER" git clone "$ALEFY_REPO_URL" "$ALEFY_HOME/repo"
     echo -e "${GREEN}✓ Repository clonato${NC}"
 else
     echo -e "${YELLOW}Repository esistente, aggiornamento...${NC}"
-    cd "$ALEFY_HOME/repo" && sudo -u "$ALEFY_USER" git pull
+    cd "$ALEFY_HOME/repo" && run_as_user "$ALEFY_USER" git pull
     echo -e "${GREEN}✓ Repository aggiornato${NC}"
 fi
 
@@ -66,21 +79,21 @@ fi
 echo -e "\n${YELLOW}5. Copia backend e frontend...${NC}"
 if [ ! -d "$ALEFY_HOME/backend" ]; then
     echo -e "${RED}✗ Backend non trovato, copia...${NC}"
-    sudo -u "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/backend" "$ALEFY_HOME/"
+    run_as_user "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/backend" "$ALEFY_HOME/"
     echo -e "${GREEN}✓ Backend copiato${NC}"
 else
     echo -e "${YELLOW}Backend esistente, aggiornamento...${NC}"
-    sudo -u "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/backend" "$ALEFY_HOME/"
+    run_as_user "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/backend" "$ALEFY_HOME/"
     echo -e "${GREEN}✓ Backend aggiornato${NC}"
 fi
 
 if [ ! -d "$ALEFY_HOME/frontend" ]; then
     echo -e "${RED}✗ Frontend non trovato, copia...${NC}"
-    sudo -u "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
+    run_as_user "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
     echo -e "${GREEN}✓ Frontend copiato${NC}"
 else
     echo -e "${YELLOW}Frontend esistente, aggiornamento...${NC}"
-    sudo -u "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
+    run_as_user "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
     echo -e "${GREEN}✓ Frontend aggiornato${NC}"
 fi
 
@@ -90,16 +103,16 @@ if [ ! -f "$ALEFY_HOME/backend/.env" ]; then
     echo -e "${RED}✗ File .env non trovato, creazione...${NC}"
     
     # Leggi password PostgreSQL esistente o genera nuova
-    if sudo -u postgres psql -tAc "SELECT 1 FROM pg_user WHERE usename='alefy'" | grep -q 1; then
+    if run_as_user postgres psql -tAc "SELECT 1 FROM pg_user WHERE usename='alefy'" | grep -q 1; then
         echo -e "${YELLOW}Utente PostgreSQL esistente, recupero password...${NC}"
-        POSTGRES_PASSWORD=$(sudo -u postgres psql -tAc "SELECT passwd FROM pg_shadow WHERE usename='alefy'" 2>/dev/null || echo "")
+        POSTGRES_PASSWORD=$(run_as_user postgres psql -tAc "SELECT passwd FROM pg_shadow WHERE usename='alefy'" 2>/dev/null || echo "")
         if [ -z "$POSTGRES_PASSWORD" ]; then
             POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
-            sudo -u postgres psql -c "ALTER USER alefy WITH PASSWORD '$POSTGRES_PASSWORD';"
+            run_as_user postgres psql -c "ALTER USER alefy WITH PASSWORD '$POSTGRES_PASSWORD';"
         fi
     else
         POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
-        sudo -u postgres psql <<EOF
+        run_as_user postgres psql <<EOF
 CREATE USER alefy WITH PASSWORD '$POSTGRES_PASSWORD';
 CREATE DATABASE alefy_db OWNER alefy;
 GRANT ALL PRIVILEGES ON DATABASE alefy_db TO alefy;
@@ -154,21 +167,21 @@ echo -e "\n${YELLOW}7. Installazione dipendenze backend...${NC}"
 cd "$ALEFY_HOME/backend"
 if [ ! -d "node_modules" ]; then
     echo -e "${RED}✗ Dipendenze non installate, installazione...${NC}"
-    sudo -u "$ALEFY_USER" npm ci --production
+    run_as_user "$ALEFY_USER" npm ci --production
     echo -e "${GREEN}✓ Dipendenze installate${NC}"
 else
     echo -e "${YELLOW}Dipendenze esistenti, aggiornamento...${NC}"
-    sudo -u "$ALEFY_USER" npm ci --production
+    run_as_user "$ALEFY_USER" npm ci --production
     echo -e "${GREEN}✓ Dipendenze aggiornate${NC}"
 fi
 
 # Esecuzione migrazioni
 echo -e "\n${YELLOW}8. Esecuzione migrazioni database...${NC}"
-sudo -u "$ALEFY_USER" npm run migrate || echo -e "${YELLOW}⚠ Migrazioni già eseguite o errore (verificare manualmente)${NC}"
+run_as_user "$ALEFY_USER" npm run migrate || echo -e "${YELLOW}⚠ Migrazioni già eseguite o errore (verificare manualmente)${NC}"
 
 # Seed database
 echo -e "\n${YELLOW}9. Verifica seed database...${NC}"
-sudo -u "$ALEFY_USER" npm run seed || echo -e "${YELLOW}⚠ Seed già eseguito o errore${NC}"
+run_as_user "$ALEFY_USER" npm run seed || echo -e "${YELLOW}⚠ Seed già eseguito o errore${NC}"
 
 # Setup frontend
 echo -e "\n${YELLOW}10. Setup frontend...${NC}"
@@ -183,17 +196,17 @@ chown "$ALEFY_USER:$ALEFY_USER" .env.production
 # Installazione dipendenze frontend
 if [ ! -d "node_modules" ]; then
     echo -e "${RED}✗ Dipendenze frontend non installate...${NC}"
-    sudo -u "$ALEFY_USER" npm ci
+    run_as_user "$ALEFY_USER" npm ci
     echo -e "${GREEN}✓ Dipendenze installate${NC}"
 else
     echo -e "${YELLOW}Dipendenze esistenti, aggiornamento...${NC}"
-    sudo -u "$ALEFY_USER" npm ci
+    run_as_user "$ALEFY_USER" npm ci
     echo -e "${GREEN}✓ Dipendenze aggiornate${NC}"
 fi
 
 # Build frontend
 echo -e "\n${YELLOW}11. Build frontend...${NC}"
-sudo -u "$ALEFY_USER" npm run build
+run_as_user "$ALEFY_USER" npm run build
 
 # Copia build
 echo -e "\n${YELLOW}12. Copia build frontend...${NC}"

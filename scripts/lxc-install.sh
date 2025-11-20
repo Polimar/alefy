@@ -28,6 +28,19 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Funzione helper per eseguire comandi come utente (funziona anche come root)
+run_as_user() {
+    local user=$1
+    shift
+    if command -v runuser &> /dev/null; then
+        runuser -u "$user" -- "$@"
+    else
+        # Usa su con bash per eseguire il comando
+        local cmd="$*"
+        su -s /bin/bash "$user" -c "$cmd"
+    fi
+}
+
 # Rileva distribuzione
 if [ -f /etc/debian_version ]; then
     DISTRO="debian"
@@ -106,14 +119,14 @@ chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME"
 # Clone repository
 echo -e "${YELLOW}Clone repository...${NC}"
 if [ ! -d "$ALEFY_HOME/backend" ]; then
-    sudo -u "$ALEFY_USER" git clone "$ALEFY_REPO_URL" "$ALEFY_HOME/repo"
-    sudo -u "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/backend" "$ALEFY_HOME/"
-    sudo -u "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
+    run_as_user "$ALEFY_USER" git clone "$ALEFY_REPO_URL" "$ALEFY_HOME/repo"
+    run_as_user "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/backend" "$ALEFY_HOME/"
+    run_as_user "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
 else
     echo -e "${YELLOW}Directory backend già esistente, aggiornamento...${NC}"
-    cd "$ALEFY_HOME/repo" && sudo -u "$ALEFY_USER" git pull
-    sudo -u "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/backend" "$ALEFY_HOME/"
-    sudo -u "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
+    cd "$ALEFY_HOME/repo" && run_as_user "$ALEFY_USER" git pull
+    run_as_user "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/backend" "$ALEFY_HOME/"
+    run_as_user "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
 fi
 
 # Setup PostgreSQL
@@ -127,7 +140,7 @@ if [ -z "$POSTGRES_PASSWORD" ]; then
 fi
 
 # Crea utente e database PostgreSQL
-sudo -u postgres psql <<EOF
+run_as_user postgres psql <<EOF
 DO \$\$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_user WHERE usename = '$POSTGRES_USER') THEN
@@ -205,15 +218,15 @@ chmod 600 .env
 
 # Installazione dipendenze backend
 echo -e "${YELLOW}Installazione dipendenze backend...${NC}"
-sudo -u "$ALEFY_USER" npm ci --production
+run_as_user "$ALEFY_USER" npm ci --production
 
 # Esecuzione migrazioni
 echo -e "${YELLOW}Esecuzione migrazioni database...${NC}"
-sudo -u "$ALEFY_USER" npm run migrate
+run_as_user "$ALEFY_USER" npm run migrate
 
 # Creazione utente admin
 echo -e "${YELLOW}Creazione utente admin...${NC}"
-sudo -u "$ALEFY_USER" npm run seed
+run_as_user "$ALEFY_USER" npm run seed
 
 # Setup Frontend
 echo -e "${YELLOW}Setup Frontend...${NC}"
@@ -228,11 +241,11 @@ chown "$ALEFY_USER:$ALEFY_USER" .env.production
 
 # Installazione dipendenze frontend
 echo -e "${YELLOW}Installazione dipendenze frontend...${NC}"
-sudo -u "$ALEFY_USER" npm ci
+run_as_user "$ALEFY_USER" npm ci
 
 # Build frontend
 echo -e "${YELLOW}Build frontend...${NC}"
-sudo -u "$ALEFY_USER" npm run build
+run_as_user "$ALEFY_USER" npm run build
 
 # Copia build in directory Nginx
 mkdir -p /var/www/alefy
@@ -391,4 +404,5 @@ echo -e "  Log backend: journalctl -u alefy -f"
 echo -e "  Riavvia backend: systemctl restart alefy"
 echo -e "  Status Nginx: systemctl status nginx"
 echo -e "  Test Nginx: nginx -t"
+
 
