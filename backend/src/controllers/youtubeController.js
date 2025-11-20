@@ -23,6 +23,15 @@ export const downloadYouTube = async (req, res, next) => {
     console.log(`[YouTube Download] Inizio download per URL: ${url}, User ID: ${userId}`);
 
     const ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
+    
+    // Verifica che yt-dlp sia accessibile
+    try {
+      await execAsync(`which ${ytdlpPath}`, { maxBuffer: 1024 });
+    } catch (error) {
+      console.error(`[YouTube Download] yt-dlp non trovato nel PATH: ${ytdlpPath}`);
+      throw new AppError('yt-dlp non è installato o non è nel PATH. Verifica l\'installazione.', 500);
+    }
+    
     const storagePath = getStoragePath();
     const tempDir = path.join(storagePath, 'temp', 'youtube');
     await ensureDirectoryExists(tempDir);
@@ -34,6 +43,8 @@ export const downloadYouTube = async (req, res, next) => {
     const outputPath = path.join(tempDir, `%(title)s-${timestamp}.%(ext)s`);
 
     console.log(`[YouTube Download] Comando yt-dlp: preparazione...`);
+    console.log(`[YouTube Download] yt-dlp path: ${ytdlpPath}`);
+    console.log(`[YouTube Download] Output path: ${outputPath}`);
 
     // Download audio con parsing metadati nativo di yt-dlp
     // --no-playlist: scarica solo il video specificato, non l'intera playlist
@@ -46,18 +57,27 @@ export const downloadYouTube = async (req, res, next) => {
     const startTime = Date.now();
     
     try {
-      const { stdout, stderr } = await execAsync(command, { maxBuffer: 10 * 1024 * 1024 });
+      const { stdout, stderr } = await execAsync(command, { 
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: 300000 // 5 minuti timeout
+      });
       const duration = Date.now() - startTime;
       console.log(`[YouTube Download] Comando completato in ${duration}ms`);
+      if (stdout) {
+        console.log(`[YouTube Download] stdout: ${stdout.substring(0, 1000)}`);
+      }
       if (stderr) {
-        console.log(`[YouTube Download] stderr: ${stderr.substring(0, 500)}`);
+        console.log(`[YouTube Download] stderr: ${stderr.substring(0, 1000)}`);
       }
     } catch (error) {
       const duration = Date.now() - startTime;
       console.error(`[YouTube Download] Errore dopo ${duration}ms:`, error.message);
-      console.error(`[YouTube Download] stdout:`, error.stdout?.substring(0, 500));
-      console.error(`[YouTube Download] stderr:`, error.stderr?.substring(0, 500));
-      throw new AppError('Errore durante il download da YouTube: ' + (error.message || 'Errore sconosciuto'), 500);
+      console.error(`[YouTube Download] stdout:`, error.stdout?.substring(0, 1000));
+      console.error(`[YouTube Download] stderr:`, error.stderr?.substring(0, 1000));
+      const errorMessage = error.stderr?.includes('ERROR') 
+        ? error.stderr.split('ERROR')[1]?.substring(0, 200) || error.message
+        : error.message;
+      throw new AppError('Errore durante il download da YouTube: ' + errorMessage, 500);
     }
 
     console.log(`[YouTube Download] Ricerca file scaricato...`);
