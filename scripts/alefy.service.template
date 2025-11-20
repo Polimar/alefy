@@ -1,0 +1,47 @@
+# Template servizio Systemd per Alefy Backend
+# Questo file viene generato automaticamente da lxc-install.sh
+# Modifiche manuali verranno sovrascritte
+
+[Unit]
+Description=ALEFY Backend API Server
+Documentation=https://github.com/Polimar/alefy
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User={{ALEFY_USER}}
+Group={{ALEFY_USER}}
+WorkingDirectory={{ALEFY_HOME}}/backend
+Environment="NODE_ENV=production"
+Environment="PORT=3000"
+EnvironmentFile={{ALEFY_HOME}}/backend/.env
+
+# Comando di avvio
+ExecStart=/usr/bin/node src/index.js
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=200
+StartLimitBurst=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alefy
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ALEFY_HOME}}/storage {{ALEFY_HOME}}/logs
+
+# Resource limits (opzionale, scommentare se necessario)
+# LimitNOFILE=65536
+# LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
+
