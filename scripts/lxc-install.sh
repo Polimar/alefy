@@ -305,15 +305,45 @@ server {
     root /var/www/alefy;
     index index.html;
 
+    # Logging
+    access_log /var/log/nginx/alefy-access.log;
+    error_log /var/log/nginx/alefy-error.log;
+
+    # MIME types (importante per CSS e altri file statici)
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
     # Gzip compression
     gzip on;
     gzip_vary on;
     gzip_min_length 1024;
-    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/json application/javascript;
+    gzip_comp_level 6;
+    gzip_types 
+        text/plain 
+        text/css 
+        text/xml 
+        text/javascript 
+        application/x-javascript 
+        application/xml+rss 
+        application/json 
+        application/javascript
+        application/x-font-ttf
+        application/vnd.ms-fontobject
+        font/opentype
+        image/svg+xml
+        image/x-icon;
+
+    # Cache per file statici (CSS, JS, immagini)
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot|json)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
 
     # Frontend routing (SPA)
     location / {
         try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
     # API proxy
@@ -345,6 +375,11 @@ server {
         proxy_buffering off;
         proxy_cache off;
     }
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
 }
 NGINX_EOF
 
