@@ -37,13 +37,13 @@ export default function Layout() {
 
   return (
     <div className="layout">
-      {isMobile && (
+      {isMobile && !sidebarOpen && (
         <button 
           className="mobile-menu-btn"
           onClick={() => setSidebarOpen(!sidebarOpen)}
           aria-label="Toggle menu"
         >
-          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          <Menu size={24} />
         </button>
       )}
       {isMobile && sidebarOpen && (
