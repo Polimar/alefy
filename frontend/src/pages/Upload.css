@@ -1,5 +1,6 @@
 .upload {
   padding: 32px;
+  padding-bottom: 160px; /* Spazio per il player fisso */
 }
 
 .upload h1 {
@@ -231,11 +232,20 @@
 
 @media (max-width: 768px) {
   .upload {
-    padding: 16px;
+    padding: 12px;
+    padding-top: 60px; /* Spazio per il menu button */
+    padding-bottom: 140px; /* Spazio per il player */
   }
 
   .upload h1 {
-    font-size: 24px;
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  .upload h2 {
+    font-size: 16px;
+    margin-bottom: 12px;
   }
 
   .youtube-section,
@@ -250,10 +260,19 @@
 
   .youtube-input {
     width: 100%;
+    font-size: 14px;
+    padding: 10px 14px;
   }
 
   .youtube-download-btn {
     width: 100%;
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+
+  .youtube-hint {
+    font-size: 11px;
+    padding: 8px 10px;
   }
 
   .upload-area {
@@ -268,14 +287,20 @@
     margin-top: 24px;
   }
 
+  .files-list h2 {
+    font-size: 16px;
+  }
+
   .file-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+    padding: 10px 12px;
   }
 
   .file-item button {
     width: 100%;
+    padding: 8px 12px;
   }
 }
 

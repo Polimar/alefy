@@ -101,11 +101,10 @@ export const getTracks = async (req, res, next) => {
 export const getTrack = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
-
+    // Tracks are shared - no user_id filter
     const result = await pool.query(
-      'SELECT * FROM tracks WHERE id = $1 AND user_id = $2',
-      [id, userId]
+      'SELECT * FROM tracks WHERE id = $1',
+      [id]
     );
 
     if (result.rows.length === 0) {

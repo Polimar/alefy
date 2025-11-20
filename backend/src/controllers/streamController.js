@@ -9,9 +9,9 @@ export const streamTrack = async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    // Get track from database
+    // Get track from database - tracks are shared, no ownership check
     const result = await pool.query(
-      'SELECT id, file_path, user_id FROM tracks WHERE id = $1',
+      'SELECT id, file_path FROM tracks WHERE id = $1',
       [id]
     );
 
@@ -20,11 +20,6 @@ export const streamTrack = async (req, res, next) => {
     }
 
     const track = result.rows[0];
-
-    // Check ownership
-    if (track.user_id !== userId) {
-      throw new AppError('Accesso negato', 403);
-    }
 
     // Build full file path
     const storagePath = getStoragePath();
@@ -101,11 +96,10 @@ export const streamTrack = async (req, res, next) => {
 export const getCoverArt = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
 
-    // Get track from database
+    // Get track from database - tracks are shared, no ownership check
     const result = await pool.query(
-      'SELECT id, cover_art_path, user_id FROM tracks WHERE id = $1',
+      'SELECT id, cover_art_path FROM tracks WHERE id = $1',
       [id]
     );
 
@@ -114,11 +108,6 @@ export const getCoverArt = async (req, res, next) => {
     }
 
     const track = result.rows[0];
-
-    // Check ownership
-    if (track.user_id !== userId) {
-      throw new AppError('Accesso negato', 403);
-    }
 
     if (!track.cover_art_path) {
       throw new AppError('Copertina non disponibile', 404);

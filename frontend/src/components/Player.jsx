@@ -49,6 +49,17 @@ export default function Player() {
     const handleCanPlay = () => {
       // Quando l'audio è pronto, aggiorna la durata
       updateDuration();
+      // Se isPlaying è true e l'audio è pronto, riproduci automaticamente
+      if (isPlaying && audio.readyState >= 2) {
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            if (err.name !== 'AbortError') {
+              console.error('Error auto-playing on canplay:', err);
+            }
+          });
+        }
+      }
     };
     
     const handleEnded = () => {
@@ -57,6 +68,8 @@ export default function Player() {
         audio.play();
       } else {
         next();
+        // Auto-play il prossimo brano dopo next()
+        // Il useEffect per isPlaying gestirà il play quando l'audio è pronto
       }
     };
 
@@ -73,11 +86,11 @@ export default function Player() {
       audio.removeEventListener('durationchange', updateDuration);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [setCurrentTime, setDuration, next, repeat]);
+  }, [setCurrentTime, setDuration, next, repeat, isPlaying]);
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !currentTrack) return;
 
     if (isPlaying) {
       // Aspetta che l'audio sia pronto prima di fare play
@@ -116,7 +129,7 @@ export default function Player() {
     } else {
       audio.pause();
     }
-  }, [isPlaying, pause]);
+  }, [isPlaying, pause, currentTrack]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -139,7 +152,8 @@ export default function Player() {
       try {
         setLoading(true);
         setError(null);
-        pause(); // Pausa prima di caricare nuovo brano
+        // NON chiamare pause() qui - lascia che il controllo isPlaying gestisca la pausa
+        // Se isPlaying è true, l'audio verrà riprodotto automaticamente quando è pronto
 
         const token = localStorage.getItem('accessToken');
         const streamUrl = `${API_URL}/stream/tracks/${currentTrack.id}`;
@@ -228,7 +242,9 @@ export default function Player() {
         blobUrlRef.current = URL.createObjectURL(blob);
         audio.src = blobUrlRef.current;
         audio.load();
-        // NON chiamare play() automaticamente - aspetta che l'utente clicchi
+        
+        // L'auto-play sarà gestito dal useEffect che monitora isPlaying
+        // Non serve aggiungere listener qui perché il useEffect per isPlaying lo gestirà
       } catch (err) {
         console.error('Error loading audio:', err);
         setError(err.message || 'Errore nel caricamento del brano');
@@ -246,7 +262,7 @@ export default function Player() {
         blobUrlRef.current = null;
       }
     };
-  }, [currentTrack, pause]);
+  }, [currentTrack, pause, isPlaying]);
 
   const handleSeek = (e) => {
     const audio = audioRef.current;

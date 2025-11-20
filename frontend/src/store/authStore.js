@@ -11,15 +11,25 @@ const useAuthStore = create((set) => ({
       const response = await api.post('/auth/login', { email, password });
       const { user, accessToken, refreshToken } = response.data.data;
       
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      try {
+        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem('refreshToken', refreshToken);
+      } catch (storageError) {
+        console.error('Errore nel salvataggio del token:', storageError);
+        return {
+          success: false,
+          error: 'Errore nel salvataggio della sessione. Verifica che il browser permetta l\'uso di localStorage.',
+        };
+      }
       
       set({ user, isAuthenticated: true });
       return { success: true };
     } catch (error) {
+      const errorMessage = error.response?.data?.error?.message || error.message || 'Errore durante il login';
+      console.error('Login error:', error);
       return {
         success: false,
-        error: error.response?.data?.error?.message || 'Errore durante il login',
+        error: errorMessage,
       };
     }
   },
@@ -59,7 +69,15 @@ const useAuthStore = create((set) => ({
 
   checkAuth: async () => {
     try {
-      const token = localStorage.getItem('accessToken');
+      let token;
+      try {
+        token = localStorage.getItem('accessToken');
+      } catch (storageError) {
+        console.error('Errore nell\'accesso a localStorage:', storageError);
+        set({ isAuthenticated: false, loading: false });
+        return;
+      }
+
       if (!token) {
         set({ isAuthenticated: false, loading: false });
         return;
@@ -69,8 +87,13 @@ const useAuthStore = create((set) => ({
       set({ user: response.data.data.user, isAuthenticated: true, loading: false });
       return response.data.data.user;
     } catch (error) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      console.error('CheckAuth error:', error);
+      try {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+      } catch (storageError) {
+        console.error('Errore nella rimozione dei token:', storageError);
+      }
       set({ user: null, isAuthenticated: false, loading: false });
     }
   },

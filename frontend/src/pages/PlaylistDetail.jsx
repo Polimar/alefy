@@ -49,10 +49,11 @@ export default function PlaylistDetail() {
     }
     setQueue(tracksToPlay);
     setCurrentTrack(tracksToPlay[0]);
-    // Usa setTimeout per assicurarsi che lo stato sia aggiornato prima di chiamare play
-    setTimeout(() => {
+    // Chiama play() dopo setCurrentTrack - il Player gestirà l'auto-play quando l'audio è pronto
+    // Usa requestAnimationFrame per assicurarsi che lo stato sia aggiornato
+    requestAnimationFrame(() => {
       play();
-    }, 0);
+    });
   };
 
   const handlePlayTrack = (track) => {
@@ -75,9 +76,10 @@ export default function PlaylistDetail() {
     }
     setQueue(tracksToPlay);
     setCurrentTrack(track);
-    setTimeout(() => {
+    // Chiama play() dopo setCurrentTrack - il Player gestirà l'auto-play quando l'audio è pronto
+    requestAnimationFrame(() => {
       play();
-    }, 0);
+    });
   };
 
   const handleRemoveTrack = async (trackId) => {
@@ -188,46 +190,79 @@ export default function PlaylistDetail() {
             <p>Nessuna traccia in questa playlist</p>
           </div>
         ) : (
-          <table className="tracks-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Titolo</th>
-                <th>Album</th>
-                <th>Durata</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Desktop: Tabella */}
+            <table className="tracks-table tracks-table-desktop">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Titolo</th>
+                  <th>Album</th>
+                  <th>Durata</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {tracks.map((track, index) => (
+                  <tr key={track.id} className="track-row">
+                    <td className="track-number">{index + 1}</td>
+                    <td className="track-info">
+                      <div className="track-title">{track.title}</div>
+                      <div className="track-artist">{track.artist || 'Artista sconosciuto'}</div>
+                    </td>
+                    <td className="track-album">{track.album || '-'}</td>
+                    <td className="track-duration">{formatDuration(track.duration)}</td>
+                    <td className="track-actions">
+                      <button
+                        className="action-btn"
+                        onClick={() => handlePlayTrack(track)}
+                        title="Riproduci"
+                      >
+                        <Play size={16} />
+                      </button>
+                      <button
+                        className="action-btn"
+                        onClick={() => handleRemoveTrack(track.id)}
+                        title="Rimuovi"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Mobile: Cards */}
+            <div className="tracks-table-mobile">
               {tracks.map((track, index) => (
-                <tr key={track.id} className="track-row">
-                  <td className="track-number">{index + 1}</td>
-                  <td className="track-info">
-                    <div className="track-title">{track.title}</div>
-                    <div className="track-artist">{track.artist || 'Artista sconosciuto'}</div>
-                  </td>
-                  <td className="track-album">{track.album || '-'}</td>
-                  <td className="track-duration">{formatDuration(track.duration)}</td>
-                  <td className="track-actions">
+                <div key={track.id} className="track-card">
+                  <div className="track-card-number">{index + 1}</div>
+                  <div className="track-card-info">
+                    <div className="track-card-title">{track.title}</div>
+                    <div className="track-card-artist">{track.artist || 'Artista sconosciuto'}</div>
+                  </div>
+                  <div className="track-card-duration">{formatDuration(track.duration)}</div>
+                  <div className="track-card-actions">
                     <button
                       className="action-btn"
                       onClick={() => handlePlayTrack(track)}
                       title="Riproduci"
                     >
-                      <Play size={16} />
+                      <Play size={18} />
                     </button>
                     <button
                       className="action-btn"
                       onClick={() => handleRemoveTrack(track.id)}
                       title="Rimuovi"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={18} />
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
     </div>

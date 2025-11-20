@@ -60,10 +60,17 @@ export default function Library() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleTrackClick = (track) => {
-    setQueue(tracks);
-    setCurrentTrack(track);
-    play();
+  const handleTrackClick = (track, e) => {
+    // Su mobile, apri direttamente il modal per aggiungere alla playlist
+    if (window.innerWidth < 768) {
+      e?.stopPropagation();
+      handleAddToPlaylist(track);
+    } else {
+      // Su desktop, riproduci la traccia
+      setQueue(tracks);
+      setCurrentTrack(track);
+      play();
+    }
   };
 
   const [coverUrls, setCoverUrls] = useState({});
@@ -133,8 +140,28 @@ export default function Library() {
 
   const handleMenuClick = (trackId, e) => {
     e.stopPropagation();
+    e.preventDefault();
     setMenuOpen(menuOpen === trackId ? null : trackId);
   };
+
+  useEffect(() => {
+    // Chiudi il menu quando si clicca fuori
+    const handleClickOutside = (e) => {
+      if (menuOpen && !e.target.closest('.track-actions') && !e.target.closest('.action-menu')) {
+        setMenuOpen(null);
+      }
+    };
+
+    if (menuOpen) {
+      document.addEventListener('click', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [menuOpen]);
 
   return (
     <div className="library">
@@ -156,101 +183,142 @@ export default function Library() {
           <p>Nessun brano trovato</p>
         </div>
       ) : (
-        <div className="tracks-container">
-          <table className="tracks-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Titolo</th>
-                <th>Artista</th>
-                <th>Album</th>
-                <th>Genere</th>
-                <th>Anno</th>
-                <th>Durata</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {tracks.map((track) => {
-                const coverUrl = coverUrls[track.id];
-                if (track.cover_art_path && !coverUrl) {
-                  getCoverArtUrl(track);
-                }
-                return (
-                  <tr
-                    key={track.id}
-                    className="track-row"
-                    onClick={() => handleTrackClick(track)}
-                  >
-                    <td className="track-cover-cell">
-                      {coverUrl ? (
-                        <img
-                          src={coverUrl}
-                          alt={track.title}
-                          className="track-cover"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
-                          }}
-                        />
-                      ) : (
-                        <div className="track-cover-placeholder">
-                          <Music size={20} />
-                        </div>
-                      )}
-                    </td>
-                    <td className="track-title-cell">
-                      <div className="track-title">{track.title || 'Titolo sconosciuto'}</div>
-                    </td>
-                    <td className="track-artist-cell">
-                      {track.artist || 'Artista sconosciuto'}
-                    </td>
-                    <td className="track-album-cell">
-                      {track.album || '-'}
-                    </td>
-                    <td className="track-genre-cell">
-                      {track.genre || '-'}
-                    </td>
-                    <td className="track-year-cell">
-                      {track.year || '-'}
-                    </td>
-                    <td className="track-duration-cell">
-                      {formatDuration(track.duration)}
-                    </td>
-                    <td className="track-actions-cell">
-                      <div className="track-actions">
-                        <button
-                          className="action-btn"
-                          onClick={(e) => handleMenuClick(track.id, e)}
-                        >
-                          <MoreVertical size={16} />
-                        </button>
-                        {menuOpen === track.id && (
-                          <div className="action-menu" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              className="action-menu-item"
-                              onClick={() => handleAddToPlaylist(track)}
-                            >
-                              <Plus size={16} />
-                              Aggiungi a playlist
-                            </button>
-                            <button
-                              className="action-menu-item danger"
-                              onClick={(e) => handleDeleteTrack(track.id, e)}
-                            >
-                              <Trash2 size={16} />
-                              Elimina
-                            </button>
+        <>
+          {/* Desktop: Tabella */}
+          <div className="tracks-container">
+            <table className="tracks-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Titolo</th>
+                  <th>Artista</th>
+                  <th>Album</th>
+                  <th>Genere</th>
+                  <th>Anno</th>
+                  <th>Durata</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {tracks.map((track) => {
+                  const coverUrl = coverUrls[track.id];
+                  if (track.cover_art_path && !coverUrl) {
+                    getCoverArtUrl(track);
+                  }
+                  return (
+                    <tr
+                      key={track.id}
+                      className="track-row"
+                      onClick={(e) => handleTrackClick(track, e)}
+                    >
+                      <td className="track-cover-cell">
+                        {coverUrl ? (
+                          <img
+                            src={coverUrl}
+                            alt={track.title}
+                            className="track-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : (
+                          <div className="track-cover-placeholder">
+                            <Music size={20} />
                           </div>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td className="track-title-cell">
+                        <div className="track-title">{track.title || 'Titolo sconosciuto'}</div>
+                      </td>
+                      <td className="track-artist-cell">
+                        {track.artist || 'Artista sconosciuto'}
+                      </td>
+                      <td className="track-album-cell">
+                        {track.album || '-'}
+                      </td>
+                      <td className="track-genre-cell">
+                        {track.genre || '-'}
+                      </td>
+                      <td className="track-year-cell">
+                        {track.year || '-'}
+                      </td>
+                      <td className="track-duration-cell">
+                        {formatDuration(track.duration)}
+                      </td>
+                      <td className="track-actions-cell">
+                        <div className="track-actions">
+                          <button
+                            className="action-btn"
+                            onClick={(e) => handleMenuClick(track.id, e)}
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+                          {menuOpen === track.id && (
+                            <div className="action-menu" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                className="action-menu-item"
+                                onClick={() => handleAddToPlaylist(track)}
+                              >
+                                <Plus size={16} />
+                                Aggiungi a playlist
+                              </button>
+                              <button
+                                className="action-menu-item danger"
+                                onClick={(e) => handleDeleteTrack(track.id, e)}
+                              >
+                                <Trash2 size={16} />
+                                Elimina
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: Cards */}
+          <div className="tracks-table-mobile">
+            {tracks.map((track) => {
+              const coverUrl = coverUrls[track.id];
+              if (track.cover_art_path && !coverUrl) {
+                getCoverArtUrl(track);
+              }
+              return (
+                <div
+                  key={track.id}
+                  className="track-card"
+                  onClick={(e) => handleTrackClick(track, e)}
+                >
+                  {coverUrl ? (
+                    <img
+                      src={coverUrl}
+                      alt={track.title}
+                      className="track-card-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : (
+                    <div className="track-card-cover-placeholder">
+                      <Music size={24} />
+                    </div>
+                  )}
+                  <div className="track-card-info">
+                    <div className="track-card-title">{track.title || 'Titolo sconosciuto'}</div>
+                    <div className="track-card-artist">{track.artist || 'Artista sconosciuto'}</div>
+                  </div>
+                  <div className="track-card-duration">{formatDuration(track.duration)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {showAddToPlaylist && (

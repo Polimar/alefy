@@ -54,12 +54,22 @@ export default function Layout() {
       )}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
+          {isMobile && (
+            <button
+              className="sidebar-close-btn"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Chiudi menu"
+            >
+              <X size={20} />
+            </button>
+          )}
           <h1>ALEFY</h1>
         </div>
         <nav className="sidebar-nav">
           <Link
             to="/"
             className={`nav-item ${location.pathname === '/' ? 'active' : ''}`}
+            onClick={() => isMobile && setSidebarOpen(false)}
           >
             <Home size={20} />
             <span>Libreria</span>
@@ -67,6 +77,7 @@ export default function Layout() {
           <Link
             to="/upload"
             className={`nav-item ${location.pathname === '/upload' ? 'active' : ''}`}
+            onClick={() => isMobile && setSidebarOpen(false)}
           >
             <Upload size={20} />
             <span>Carica</span>
@@ -74,6 +85,7 @@ export default function Layout() {
           <Link
             to="/playlists"
             className={`nav-item ${location.pathname === '/playlists' ? 'active' : ''}`}
+            onClick={() => isMobile && setSidebarOpen(false)}
           >
             <ListMusic size={20} />
             <span>Playlist</span>
@@ -82,6 +94,7 @@ export default function Layout() {
             <Link
               to="/users"
               className={`nav-item ${location.pathname === '/users' ? 'active' : ''}`}
+              onClick={() => isMobile && setSidebarOpen(false)}
             >
               <Users size={20} />
               <span>Utenti</span>

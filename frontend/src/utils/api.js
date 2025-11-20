@@ -12,9 +12,13 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (storageError) {
+      console.error('Errore nell\'accesso a localStorage:', storageError);
     }
     return config;
   },
@@ -33,7 +37,15 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
+        let refreshToken;
+        try {
+          refreshToken = localStorage.getItem('refreshToken');
+        } catch (storageError) {
+          console.error('Errore nell\'accesso a localStorage:', storageError);
+          window.location.href = '/login';
+          return Promise.reject(new Error('Storage non disponibile'));
+        }
+
         if (!refreshToken) {
           throw new Error('No refresh token');
         }
@@ -43,14 +55,24 @@ api.interceptors.response.use(
         });
 
         const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
+        try {
+          localStorage.setItem('accessToken', accessToken);
+          localStorage.setItem('refreshToken', newRefreshToken);
+        } catch (storageError) {
+          console.error('Errore nel salvataggio del token:', storageError);
+          window.location.href = '/login';
+          return Promise.reject(storageError);
+        }
 
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        try {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+        } catch (storageError) {
+          console.error('Errore nella rimozione dei token:', storageError);
+        }
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }

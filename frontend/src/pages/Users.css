@@ -1,5 +1,6 @@
 .users {
   padding: 2rem;
+  padding-bottom: 160px; /* Spazio per il player fisso */
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -175,21 +176,39 @@
 
 @media (max-width: 768px) {
   .users {
-    padding: 1rem;
+    padding: 12px;
+    padding-top: 60px; /* Spazio per il menu button */
+    padding-bottom: 140px; /* Spazio per il player */
   }
 
   .users-header {
     flex-direction: column;
-    gap: 1rem;
+    gap: 12px;
     align-items: stretch;
+    margin-bottom: 20px;
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-primary);
+    z-index: 10;
+    padding-bottom: 12px;
   }
 
   .users-header h1 {
-    font-size: 1.5rem;
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .create-user-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 20px;
+    font-size: 14px;
   }
 
   .users-table-container {
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .users-table {
@@ -198,8 +217,32 @@
 
   .users-table th,
   .users-table td {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.875rem;
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .user-info {
+    gap: 10px;
+  }
+
+  .user-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .user-name {
+    font-size: 13px;
+  }
+
+  .user-id {
+    font-size: 11px;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 20px;
+    max-height: 85vh;
   }
 }
 

@@ -31,7 +31,7 @@ const usePlayerStore = create((set, get) => ({
   setRepeat: (mode) => set({ repeat: mode }),
   
   next: () => {
-    const { queue, currentTrack, shuffle, repeat } = get();
+    const { queue, currentTrack, shuffle, repeat, isPlaying } = get();
     if (queue.length === 0) return;
     
     const currentIndex = queue.findIndex(t => t.id === currentTrack?.id);
@@ -41,7 +41,8 @@ const usePlayerStore = create((set, get) => ({
       if (repeat === 'all') {
         // Riparti dall'inizio
         const nextIndex = shuffle ? Math.floor(Math.random() * queue.length) : 0;
-        set({ currentTrack: queue[nextIndex] });
+        // Mantieni isPlaying a true per auto-play il prossimo brano
+        set({ currentTrack: queue[nextIndex], isPlaying: isPlaying });
       } else {
         // Stop se repeat è 'off'
         set({ isPlaying: false, currentTrack: null });
@@ -60,7 +61,8 @@ const usePlayerStore = create((set, get) => ({
       nextIndex = currentIndex + 1;
     }
     
-    set({ currentTrack: queue[nextIndex] });
+    // Mantieni isPlaying a true per auto-play il prossimo brano
+    set({ currentTrack: queue[nextIndex], isPlaying: isPlaying });
   },
   
   previous: () => {

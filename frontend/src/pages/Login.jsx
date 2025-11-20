@@ -16,6 +16,17 @@ export default function Login() {
     setError('');
     setLoading(true);
 
+    // Verifica che localStorage sia disponibile
+    try {
+      const testKey = '__localStorage_test__';
+      localStorage.setItem(testKey, 'test');
+      localStorage.removeItem(testKey);
+    } catch (storageError) {
+      setLoading(false);
+      setError('Il browser non permette l\'uso di localStorage. Disattiva la modalità privata o verifica le impostazioni del browser.');
+      return;
+    }
+
     const result = await login(email, password);
     setLoading(false);
 

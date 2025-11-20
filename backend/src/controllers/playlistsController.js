@@ -69,14 +69,14 @@ export const getPlaylist = async (req, res, next) => {
       throw new AppError('Playlist non trovata', 404);
     }
 
-    // Get tracks
+    // Get tracks (tracks are shared, no user_id filter)
     const tracksResult = await pool.query(
       `SELECT t.*, pt.position, pt.added_at
        FROM playlist_tracks pt
        JOIN tracks t ON pt.track_id = t.id
-       WHERE pt.playlist_id = $1 AND t.user_id = $2
+       WHERE pt.playlist_id = $1
        ORDER BY pt.position ASC`,
-      [id, userId]
+      [id]
     );
 
     res.json({
@@ -212,10 +212,10 @@ export const addTrack = async (req, res, next) => {
       throw new AppError('Playlist non trovata', 404);
     }
 
-    // Check track ownership
+    // Check if track exists (tracks are shared, no ownership check)
     const trackResult = await pool.query(
-      'SELECT id FROM tracks WHERE id = $1 AND user_id = $2',
-      [validatedData.track_id, userId]
+      'SELECT id FROM tracks WHERE id = $1',
+      [validatedData.track_id]
     );
 
     if (trackResult.rows.length === 0) {

@@ -147,13 +147,15 @@
 @media (max-width: 768px) {
   .player {
     height: auto;
-    padding: 12px;
+    min-height: 120px;
+    padding: 10px 12px;
     flex-direction: column;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
   }
 
   .player-content {
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     width: 100%;
   }
 
@@ -162,6 +164,15 @@
     max-width: 100%;
     text-align: center;
     order: 1;
+    width: 100%;
+  }
+
+  .player-track-info .track-title {
+    font-size: 13px;
+  }
+
+  .player-track-info .track-artist {
+    font-size: 11px;
   }
 
   .player-controls {
@@ -169,15 +180,27 @@
     width: 100%;
   }
 
+  .control-buttons {
+    gap: 12px;
+  }
+
+  .play-btn {
+    width: 44px;
+    height: 44px;
+  }
+
   .player-volume {
     order: 3;
     width: 100%;
     min-width: 0;
     justify-content: center;
+    padding: 0 20px;
   }
 
   .progress-container {
     max-width: 100%;
+    width: 100%;
+    order: 2;
   }
 
   .time-display {
