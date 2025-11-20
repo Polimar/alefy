@@ -333,14 +333,23 @@ server {
         image/svg+xml
         image/x-icon;
 
-    # Cache per file statici (CSS, JS, immagini)
+    # File statici (CSS, JS, immagini) - DEVE venire PRIMA di location /
+    location ~* ^/assets/.*\.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot|json)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # Altri file statici nella root
     location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot|json)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
         access_log off;
+        try_files $uri =404;
     }
 
-    # Frontend routing (SPA)
+    # Frontend routing (SPA) - DEVE venire DOPO le location per file statici
     location / {
         try_files $uri $uri/ /index.html;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
