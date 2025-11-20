@@ -199,8 +199,8 @@ UPLOAD_MAX_SIZE=500MB
 FFMPEG_PATH=/usr/bin/ffmpeg
 FFPROBE_PATH=/usr/bin/ffprobe
 
-# YouTube Download
-YTDLP_PATH=/usr/bin/yt-dlp
+# YouTube Download (usa yt-dlp dal PATH, verrà trovato automaticamente)
+YTDLP_PATH=yt-dlp
 
 # MusicBrainz API (opzionale)
 MUSICBRAINZ_USER_AGENT=ALEFY/1.0.0

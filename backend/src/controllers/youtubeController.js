@@ -22,14 +22,34 @@ export const downloadYouTube = async (req, res, next) => {
 
     console.log(`[YouTube Download] Inizio download per URL: ${url}, User ID: ${userId}`);
 
-    const ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
+    // Usa il percorso dal .env o cerca nel PATH
+    let ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
     
-    // Verifica che yt-dlp sia accessibile
-    try {
-      await execAsync(`which ${ytdlpPath}`, { maxBuffer: 1024 });
-    } catch (error) {
-      console.error(`[YouTube Download] yt-dlp non trovato nel PATH: ${ytdlpPath}`);
-      throw new AppError('yt-dlp non è installato o non è nel PATH. Verifica l\'installazione.', 500);
+    // Se è un percorso assoluto, verifica che esista
+    if (ytdlpPath.startsWith('/')) {
+      try {
+        await fs.access(ytdlpPath);
+      } catch (error) {
+        console.error(`[YouTube Download] yt-dlp non trovato al percorso: ${ytdlpPath}`);
+        // Prova a cercare nel PATH
+        try {
+          const { stdout } = await execAsync('which yt-dlp', { maxBuffer: 1024 });
+          ytdlpPath = stdout.trim();
+          console.log(`[YouTube Download] Trovato yt-dlp nel PATH: ${ytdlpPath}`);
+        } catch (pathError) {
+          throw new AppError('yt-dlp non è installato o non è nel PATH. Verifica l\'installazione.', 500);
+        }
+      }
+    } else {
+      // Se è solo il nome del comando, verifica che sia nel PATH
+      try {
+        const { stdout } = await execAsync(`which ${ytdlpPath}`, { maxBuffer: 1024 });
+        ytdlpPath = stdout.trim();
+        console.log(`[YouTube Download] yt-dlp trovato nel PATH: ${ytdlpPath}`);
+      } catch (error) {
+        console.error(`[YouTube Download] yt-dlp non trovato nel PATH: ${ytdlpPath}`);
+        throw new AppError('yt-dlp non è installato o non è nel PATH. Verifica l\'installazione.', 500);
+      }
     }
     
     const storagePath = getStoragePath();

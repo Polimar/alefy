@@ -146,7 +146,7 @@ UPLOAD_MAX_SIZE=500MB
 
 FFMPEG_PATH=/usr/bin/ffmpeg
 FFPROBE_PATH=/usr/bin/ffprobe
-YTDLP_PATH=/usr/bin/yt-dlp
+YTDLP_PATH=yt-dlp
 
 MUSICBRAINZ_USER_AGENT=ALEFY/1.0.0
 CORS_ORIGIN=https://$DOMAIN
