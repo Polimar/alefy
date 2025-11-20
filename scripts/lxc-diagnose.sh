@@ -167,11 +167,19 @@ echo -e "\n${YELLOW}7. Installazione dipendenze backend...${NC}"
 cd "$ALEFY_HOME/backend"
 if [ ! -d "node_modules" ]; then
     echo -e "${RED}✗ Dipendenze non installate, installazione...${NC}"
-    run_as_user "$ALEFY_USER" npm ci --production
+    if [ -f "package-lock.json" ]; then
+        run_as_user "$ALEFY_USER" npm ci --omit=dev
+    else
+        run_as_user "$ALEFY_USER" npm install --omit=dev
+    fi
     echo -e "${GREEN}✓ Dipendenze installate${NC}"
 else
     echo -e "${YELLOW}Dipendenze esistenti, aggiornamento...${NC}"
-    run_as_user "$ALEFY_USER" npm ci --production
+    if [ -f "package-lock.json" ]; then
+        run_as_user "$ALEFY_USER" npm ci --omit=dev
+    else
+        run_as_user "$ALEFY_USER" npm install --omit=dev
+    fi
     echo -e "${GREEN}✓ Dipendenze aggiornate${NC}"
 fi
 
@@ -196,11 +204,19 @@ chown "$ALEFY_USER:$ALEFY_USER" .env.production
 # Installazione dipendenze frontend
 if [ ! -d "node_modules" ]; then
     echo -e "${RED}✗ Dipendenze frontend non installate...${NC}"
-    run_as_user "$ALEFY_USER" npm ci
+    if [ -f "package-lock.json" ]; then
+        run_as_user "$ALEFY_USER" npm ci
+    else
+        run_as_user "$ALEFY_USER" npm install
+    fi
     echo -e "${GREEN}✓ Dipendenze installate${NC}"
 else
     echo -e "${YELLOW}Dipendenze esistenti, aggiornamento...${NC}"
-    run_as_user "$ALEFY_USER" npm ci
+    if [ -f "package-lock.json" ]; then
+        run_as_user "$ALEFY_USER" npm ci
+    else
+        run_as_user "$ALEFY_USER" npm install
+    fi
     echo -e "${GREEN}✓ Dipendenze aggiornate${NC}"
 fi
 

@@ -218,7 +218,11 @@ chmod 600 .env
 
 # Installazione dipendenze backend
 echo -e "${YELLOW}Installazione dipendenze backend...${NC}"
-run_as_user "$ALEFY_USER" npm ci --production
+if [ -f "$ALEFY_HOME/backend/package-lock.json" ]; then
+    run_as_user "$ALEFY_USER" npm ci --omit=dev
+else
+    run_as_user "$ALEFY_USER" npm install --omit=dev
+fi
 
 # Esecuzione migrazioni
 echo -e "${YELLOW}Esecuzione migrazioni database...${NC}"
@@ -241,7 +245,11 @@ chown "$ALEFY_USER:$ALEFY_USER" .env.production
 
 # Installazione dipendenze frontend
 echo -e "${YELLOW}Installazione dipendenze frontend...${NC}"
-run_as_user "$ALEFY_USER" npm ci
+if [ -f "$ALEFY_HOME/frontend/package-lock.json" ]; then
+    run_as_user "$ALEFY_USER" npm ci
+else
+    run_as_user "$ALEFY_USER" npm install
+fi
 
 # Build frontend
 echo -e "${YELLOW}Build frontend...${NC}"
