@@ -47,8 +47,12 @@ function cleanTrackTitle(title) {
  */
 export function parseTimestampsFromDescription(description, totalDuration = null) {
   if (!description || typeof description !== 'string') {
+    console.log('[Timestamp Parser] Descrizione vuota o non valida');
     return [];
   }
+
+  console.log(`[Timestamp Parser] Parsing descrizione (${description.length} caratteri), durata: ${totalDuration || 'null'}s`);
+  console.log(`[Timestamp Parser] Prime 500 caratteri: ${description.substring(0, 500)}`);
 
   const tracks = [];
   
@@ -69,7 +73,9 @@ export function parseTimestampsFromDescription(description, totalDuration = null
   // Esempio: "[00:00:00] - 01. Yesterday - The Beatles"
   const bracketPattern = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?)\]\s*[-–—]\s*(\d+)\.?\s*([^-]+?)(?:\s*[-–—]\s*([^\n\r\[\]]+?))?(?=\s*\[|\s*\d{1,2}:\d{2}|$|\n|\r)/gi;
   
+  let bracketMatches = 0;
   while ((match = bracketPattern.exec(description)) !== null) {
+    bracketMatches++;
     const hours = match[3] ? parseInt(match[1], 10) : 0;
     const minutes = match[3] ? parseInt(match[2], 10) : parseInt(match[1], 10);
     const seconds = match[3] ? parseInt(match[3], 10) : parseInt(match[2], 10);
@@ -90,12 +96,16 @@ export function parseTimestampsFromDescription(description, totalDuration = null
         title,
         index: match.index,
       });
+      console.log(`[Timestamp Parser] Trovato con pattern bracket: ${startTime}s - "${title}"`);
     }
   }
+  
+  console.log(`[Timestamp Parser] Pattern bracket trovati: ${bracketMatches}, tracce valide: ${foundTimestamps.length}`);
   
   // Pattern 2: Standard con parentesi o senza: (HH:MM:SS) o HH:MM:SS seguito da titolo
   // Solo se non abbiamo trovato nulla con le parentesi quadre
   if (foundTimestamps.length === 0) {
+    console.log(`[Timestamp Parser] Nessun match con pattern bracket, provo pattern standard`);
     const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:[-–—]?\s*(?:\d+\.?\s*)?)?([^\n\r\(\)\[\]]+?)(?=\s*(?:\d{1,2}:\d{2})|$|\(|\[|\n|\r)/g;
     
     while ((match = timestampPattern.exec(description)) !== null) {
@@ -121,8 +131,10 @@ export function parseTimestampsFromDescription(description, totalDuration = null
           title,
           index: match.index,
         });
+        console.log(`[Timestamp Parser] Trovato con pattern standard: ${startTime}s - "${title}"`);
       }
     }
+    console.log(`[Timestamp Parser] Pattern standard trovati: ${foundTimestamps.length} tracce totali`);
   }
   
   // Ordina per timestamp
@@ -151,6 +163,11 @@ export function parseTimestampsFromDescription(description, totalDuration = null
     };
     
     tracks.push(track);
+  }
+  
+  console.log(`[Timestamp Parser] Risultato finale: ${tracks.length} tracce parse`);
+  if (tracks.length > 0) {
+    console.log(`[Timestamp Parser] Prime 3 tracce:`, tracks.slice(0, 3).map(t => `${t.startTime}s-${t.endTime || 'null'}s: ${t.title}`));
   }
   
   return tracks;
