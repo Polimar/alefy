@@ -97,6 +97,10 @@ export async function processDownloadJob(job) {
       const cookiesPath = await getActiveCookiesPath();
       const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
       
+      if (cookiesPath) {
+        console.log(`[YouTube Download] Job ${jobId}: Usando cookies da: ${cookiesPath}`);
+      }
+      
       const infoCommand = `${ytdlpPath} "${url}" --dump-json --no-playlist ${cookiesFlag}`.trim();
       const { stdout: infoStdout } = await execAsync(infoCommand, {
         maxBuffer: 5 * 1024 * 1024,
@@ -790,6 +794,12 @@ export const searchYouTube = async (req, res, next) => {
     // Ottieni cookies attivi se disponibili
     const cookiesPath = await getActiveCookiesPath();
     const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
+    
+    if (cookiesPath) {
+      console.log(`[YouTube Search] Usando cookies da: ${cookiesPath}`);
+    } else {
+      console.log(`[YouTube Search] Nessun cookies attivo trovato`);
+    }
     
     // Usa ytsearch per cercare senza scaricare
     const searchQuery = `ytsearch${maxResults}:${query}`;
