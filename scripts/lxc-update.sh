@@ -61,6 +61,14 @@ if [ -f "package-lock.json" ]; then
 else
     run_as_user "$ALEFY_USER" npm install --production
 fi
+
+# Assicurati che uuid sia installato (potrebbe mancare se package-lock.json non è aggiornato)
+echo -e "${YELLOW}Verifica installazione uuid...${NC}"
+if ! run_as_user "$ALEFY_USER" npm list uuid &>/dev/null; then
+    echo -e "${YELLOW}Installazione uuid...${NC}"
+    run_as_user "$ALEFY_USER" npm install uuid --save --production
+fi
+run_as_user "$ALEFY_USER" npm list uuid || true
 echo -e "${GREEN}✓ Backend aggiornato${NC}"
 
 # 3. Ricostruisci frontend usando lo script dedicato
