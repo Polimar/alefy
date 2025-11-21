@@ -70,10 +70,13 @@ export function parseTimestampsFromDescription(description, totalDuration = null
   const foundTimestamps = [];
   
   // Pattern 1: [HH:MM:SS] - N. Titolo - Artista (priorità alta)
-  // Esempio: "[00:00:00] - 01. Yesterday - The Beatles"
+  // Supporta vari formati:
+  // - "[00:00:00] - 01. Yesterday - The Beatles" (con trattino dopo timestamp)
+  // - "[00:00:00] 01. Yesterday - The Beatles" (senza trattino dopo timestamp)
+  // - "[00:02:03] 02. The Beatles - Don't Let Me Down" (formato invertito)
   // Usa solo trattino ASCII per evitare problemi di encoding
   // Migliorato per catturare meglio titolo e artista separatamente
-  const bracketPattern = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*-\s*(\d+)\.?\s*([^-]+?)(?:\s*-\s*([^\n\r\[\]]+?))?(?=\s*\[|\s*\d{1,2}:\d{2}|$|\n|\r)/gi;
+  const bracketPattern = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*(?:-\s*)?(\d+)\.?\s*([^-]+?)(?:\s*-\s*([^\n\r\[\]]+?))?(?=\s*\[|\s*\d{1,2}:\d{2}|$|\n|\r)/gi;
   
   let bracketMatches = 0;
   const rawTracks = []; // Memorizza tracce con artista per normalizzazione
@@ -108,121 +111,123 @@ export function parseTimestampsFromDescription(description, totalDuration = null
   
   console.log(`[Timestamp Parser] Pattern bracket trovati: ${bracketMatches}, tracce valide: ${rawTracks.length}`);
   
-  // Normalizzazione: se tutti i titoli sono uguali (e ci sono almeno 3 tracce),
-  // probabilmente quello è l'artista e non il titolo
-  if (rawTracks.length >= 3) {
-    const titleCounts = new Map();
+  // Normalizzazione: gestisce casi dove titolo e artista sono invertiti
+  // Esempio: prima riga "Yesterday - The Beatles", altre righe "The Beatles - Don't Let Me Down"
+  if (rawTracks.length >= 2) {
+    // Raggruppa tutte le parti dopo il numero di traccia (prima e seconda parte dopo trattino)
+    const firstPartCounts = new Map(); // Parte prima del trattino finale
+    const secondPartCounts = new Map(); // Parte dopo il trattino finale
+    
     rawTracks.forEach(track => {
-      const normalizedTitle = track.title.toLowerCase().trim();
-      titleCounts.set(normalizedTitle, (titleCounts.get(normalizedTitle) || 0) + 1);
+      const firstPart = track.title.toLowerCase().trim();
+      const secondPart = track.artist.toLowerCase().trim();
+      
+      if (firstPart) {
+        firstPartCounts.set(firstPart, (firstPartCounts.get(firstPart) || 0) + 1);
+      }
+      if (secondPart) {
+        secondPartCounts.set(secondPart, (secondPartCounts.get(secondPart) || 0) + 1);
+      }
     });
     
-    // Se c'è un titolo che appare in tutte le tracce (o quasi tutte), probabilmente è l'artista
-    const mostCommonTitle = Array.from(titleCounts.entries())
+    // Trova quale parte appare più spesso come seconda parte (probabilmente l'artista)
+    const mostCommonSecondPart = Array.from(secondPartCounts.entries())
       .sort((a, b) => b[1] - a[1])[0];
     
-    if (mostCommonTitle && mostCommonTitle[1] >= rawTracks.length * 0.7) {
-      // Se almeno il 70% delle tracce ha lo stesso titolo, probabilmente quello è l'artista
-      const commonTitle = mostCommonTitle[0];
-      console.log(`[Timestamp Parser] Rilevato titolo comune sospetto (probabilmente artista): "${commonTitle}" (appare in ${mostCommonTitle[1]}/${rawTracks.length} tracce)`);
+    // Trova quale parte appare più spesso come prima parte
+    const mostCommonFirstPart = Array.from(firstPartCounts.entries())
+      .sort((a, b) => b[1] - a[1])[0];
+    
+    // Se una parte appare sempre (o quasi sempre) come seconda parte, quella è l'artista
+    const likelyArtist = mostCommonSecondPart && mostCommonSecondPart[1] >= rawTracks.length * 0.6 
+      ? mostCommonSecondPart[0] 
+      : null;
+    
+    // Se una parte appare sempre come prima parte e non come seconda, potrebbe essere l'artista invertito
+    const likelyArtistInverted = mostCommonFirstPart && 
+      mostCommonFirstPart[1] >= rawTracks.length * 0.6 &&
+      (!mostCommonSecondPart || mostCommonSecondPart[0] !== mostCommonFirstPart[0] || mostCommonSecondPart[1] < mostCommonFirstPart[1])
+      ? mostCommonFirstPart[0]
+      : null;
+    
+    console.log(`[Timestamp Parser] Analisi ordine: artista probabile (seconda parte)="${likelyArtist}", artista probabile (prima parte)="${likelyArtistInverted}"`);
+    
+    // Normalizza le tracce
+    for (const rawTrack of rawTracks) {
+      const firstPart = rawTrack.title.toLowerCase().trim();
+      const secondPart = rawTrack.artist.toLowerCase().trim();
       
-      // Riprova il parsing con una regex più specifica che cerca esplicitamente il formato:
-      // [HH:MM:SS] - N. Titolo - Artista
-      // Dove Artista è quello comune trovato
-      const specificPattern = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*-\s*(\d+)\.?\s*([^-]+?)\s*-\s*([^\n\r\[\]]+?)(?=\s*\[|\s*\d{1,2}:\d{2}|$|\n|\r)/gi;
-      const correctedTracks = new Map(); // Map<startTime, {title, artist}>
+      let finalTitle = rawTrack.title;
+      let needsCorrection = false;
       
-      let specificMatch;
-      while ((specificMatch = specificPattern.exec(description)) !== null) {
-        const h = specificMatch[3] ? parseInt(specificMatch[1], 10) : 0;
-        const m = specificMatch[3] ? parseInt(specificMatch[2], 10) : parseInt(specificMatch[1], 10);
-        const s = specificMatch[3] ? parseInt(specificMatch[3], 10) : parseInt(specificMatch[2], 10);
-        const st = h * 3600 + m * 60 + s;
-        
-        let t = cleanTrackTitle((specificMatch[5] || '').trim());
-        const a = cleanTrackTitle((specificMatch[6] || '').trim());
-        
-        // Se l'artista estratto corrisponde al titolo comune, questo è il match corretto
-        if (a.toLowerCase().trim() === commonTitle && t && t.length > 0 && t.toLowerCase().trim() !== commonTitle) {
-          correctedTracks.set(st, { title: t, artist: a });
-          console.log(`[Timestamp Parser] Trovato titolo corretto per ${st}s: "${t}" (artista: "${a}")`);
-        }
+      // Caso 1: La seconda parte è l'artista comune (formato corretto: Titolo - Artista)
+      if (likelyArtist && secondPart === likelyArtist && firstPart !== likelyArtist) {
+        // Formato già corretto: prima parte è titolo, seconda parte è artista
+        finalTitle = rawTrack.title;
+        console.log(`[Timestamp Parser] Formato corretto per ${rawTrack.startTime}s: "${finalTitle}"`);
       }
-      
-      // Applica le correzioni
-      for (const rawTrack of rawTracks) {
-        const corrected = correctedTracks.get(rawTrack.startTime);
+      // Caso 2: La prima parte è l'artista comune (formato invertito: Artista - Titolo)
+      else if (likelyArtistInverted && firstPart === likelyArtistInverted && secondPart !== likelyArtistInverted) {
+        // Formato invertito: prima parte è artista, seconda parte è titolo
+        finalTitle = rawTrack.artist;
+        needsCorrection = true;
+        console.log(`[Timestamp Parser] Formato invertito rilevato per ${rawTrack.startTime}s: "${rawTrack.title}" -> "${finalTitle}"`);
+      }
+      // Caso 3: La seconda parte è l'artista comune ma la prima parte è anche l'artista (caso ambiguo)
+      else if (likelyArtist && secondPart === likelyArtist && firstPart === likelyArtist) {
+        // Entrambe le parti sono uguali all'artista comune, cerca nella descrizione originale
+        const contextStart = Math.max(0, rawTrack.index - 50);
+        const contextEnd = Math.min(description.length, rawTrack.index + 300);
+        const context = description.substring(contextStart, contextEnd);
         
-        if (corrected) {
-          // Usa il titolo corretto trovato
-          foundTimestamps.push({
-            timestamp: rawTrack.timestamp,
-            startTime: rawTrack.startTime,
-            title: corrected.title,
-            index: rawTrack.index,
-          });
-        } else if (rawTrack.title.toLowerCase().trim() !== commonTitle) {
-          // Il titolo originale è diverso dall'artista comune, probabilmente è corretto
-          foundTimestamps.push({
-            timestamp: rawTrack.timestamp,
-            startTime: rawTrack.startTime,
-            title: rawTrack.title,
-            index: rawTrack.index,
-          });
-        } else {
-          // Il titolo è uguale all'artista comune, prova a cercare nella descrizione originale
-          // Cerca il contesto intorno a questo timestamp
-          const contextStart = Math.max(0, rawTrack.index - 50);
-          const contextEnd = Math.min(description.length, rawTrack.index + 300);
-          const context = description.substring(contextStart, contextEnd);
-          
-          // Cerca pattern alternativo: numero traccia seguito da titolo prima del trattino finale
-          const altPattern = new RegExp(`(\\d+)\\.?\\s+([^-]+?)\\s*-\\s*${commonTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
-          const altMatch = context.match(altPattern);
-          
-          if (altMatch && altMatch[2]) {
-            const altTitle = cleanTrackTitle(altMatch[2].trim());
-            if (altTitle && altTitle.toLowerCase().trim() !== commonTitle && altTitle.length > 0) {
-              foundTimestamps.push({
-                timestamp: rawTrack.timestamp,
-                startTime: rawTrack.startTime,
-                title: altTitle,
-                index: rawTrack.index,
-              });
-              console.log(`[Timestamp Parser] Trovato titolo alternativo per ${rawTrack.startTime}s: "${altTitle}"`);
-            } else {
-              // Fallback: usa il titolo originale (meglio di niente)
-              foundTimestamps.push({
-                timestamp: rawTrack.timestamp,
-                startTime: rawTrack.startTime,
-                title: rawTrack.title,
-                index: rawTrack.index,
-              });
-            }
-          } else {
-            // Fallback finale: usa il titolo originale
-            foundTimestamps.push({
-              timestamp: rawTrack.timestamp,
-              startTime: rawTrack.startTime,
-              title: rawTrack.title,
-              index: rawTrack.index,
-            });
+        // Cerca pattern: numero traccia seguito da titolo prima del trattino finale
+        const altPattern = new RegExp(`(\\d+)\\.?\\s+([^-]+?)\\s*-\\s*${likelyArtist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+        const altMatch = context.match(altPattern);
+        
+        if (altMatch && altMatch[2]) {
+          const altTitle = cleanTrackTitle(altMatch[2].trim());
+          if (altTitle && altTitle.toLowerCase().trim() !== likelyArtist && altTitle.length > 0) {
+            finalTitle = altTitle;
+            needsCorrection = true;
+            console.log(`[Timestamp Parser] Trovato titolo alternativo per ${rawTrack.startTime}s: "${finalTitle}"`);
           }
         }
       }
-    } else {
-      // Non c'è un titolo comune dominante, usa i dati originali
-      for (const rawTrack of rawTracks) {
-        foundTimestamps.push({
-          timestamp: rawTrack.timestamp,
-          startTime: rawTrack.startTime,
-          title: rawTrack.title,
-          index: rawTrack.index,
-        });
+      // Caso 4: Nessun artista comune rilevato, ma abbiamo entrambe le parti
+      else if (secondPart && firstPart && firstPart !== secondPart) {
+        // Se la seconda parte appare più spesso come seconda parte, probabilmente è l'artista
+        const secondPartFreq = secondPartCounts.get(secondPart) || 0;
+        const firstPartFreq = firstPartCounts.get(firstPart) || 0;
+        
+        if (secondPartFreq > firstPartFreq && secondPartFreq >= rawTracks.length * 0.3) {
+          // La seconda parte appare più spesso come seconda parte, probabilmente è l'artista
+          finalTitle = rawTrack.title;
+        } else if (firstPartFreq > secondPartFreq && firstPartFreq >= rawTracks.length * 0.3) {
+          // La prima parte appare più spesso come prima parte, potrebbe essere invertito
+          // Ma solo se la seconda parte non appare spesso come seconda parte
+          if ((secondPartCounts.get(secondPart) || 0) < rawTracks.length * 0.3) {
+            finalTitle = rawTrack.artist;
+            needsCorrection = true;
+            console.log(`[Timestamp Parser] Inversione rilevata per frequenza per ${rawTrack.startTime}s: "${rawTrack.title}" -> "${finalTitle}"`);
+          } else {
+            finalTitle = rawTrack.title;
+          }
+        } else {
+          // Ambiguo, usa il titolo originale
+          finalTitle = rawTrack.title;
+        }
       }
+      
+      // Aggiungi la traccia normalizzata
+      foundTimestamps.push({
+        timestamp: rawTrack.timestamp,
+        startTime: rawTrack.startTime,
+        title: finalTitle,
+        index: rawTrack.index,
+      });
     }
   } else {
-    // Meno di 3 tracce, usa i dati originali senza normalizzazione
+    // Meno di 2 tracce, usa i dati originali senza normalizzazione
     for (const rawTrack of rawTracks) {
       foundTimestamps.push({
         timestamp: rawTrack.timestamp,
