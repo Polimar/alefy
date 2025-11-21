@@ -27,8 +27,8 @@ function cleanTrackTitle(title) {
   
   return title
     .trim()
-    .replace(/^[-–—]\s*/, '') // Rimuovi trattini iniziali
-    .replace(/\s*[-–—]\s*$/, '') // Rimuovi trattini finali
+    .replace(/^[-–—\u2013\u2014]\s*/, '') // Rimuovi trattini iniziali (ASCII e Unicode)
+    .replace(/\s*[-–—\u2013\u2014]\s*$/, '') // Rimuovi trattini finali (ASCII e Unicode)
     .replace(/\s+/g, ' ') // Normalizza spazi multipli
     .trim();
 }
@@ -71,7 +71,8 @@ export function parseTimestampsFromDescription(description, totalDuration = null
   
   // Pattern 1: [HH:MM:SS] - N. Titolo - Artista (priorità alta)
   // Esempio: "[00:00:00] - 01. Yesterday - The Beatles"
-  const bracketPattern = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?)\]\s*[-–—]\s*(\d+)\.?\s*([^-]+?)(?:\s*[-–—]\s*([^\n\r\[\]]+?))?(?=\s*\[|\s*\d{1,2}:\d{2}|$|\n|\r)/gi;
+  // Usa solo trattino ASCII per evitare problemi di encoding
+  const bracketPattern = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?)\]\s*-\s*(\d+)\.?\s*([^-]+?)(?:\s*-\s*([^\n\r\[\]]+?))?(?=\s*\[|\s*\d{1,2}:\d{2}|$|\n|\r)/gi;
   
   let bracketMatches = 0;
   while ((match = bracketPattern.exec(description)) !== null) {
@@ -106,7 +107,8 @@ export function parseTimestampsFromDescription(description, totalDuration = null
   // Solo se non abbiamo trovato nulla con le parentesi quadre
   if (foundTimestamps.length === 0) {
     console.log(`[Timestamp Parser] Nessun match con pattern bracket, provo pattern standard`);
-    const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:[-–—]?\s*(?:\d+\.?\s*)?)?([^\n\r\(\)\[\]]+?)(?=\s*(?:\d{1,2}:\d{2})|$|\(|\[|\n|\r)/g;
+    // Usa solo trattino ASCII per evitare problemi di encoding
+    const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:-\s*(?:\d+\.?\s*)?)?([^\n\r\(\)\[\]]+?)(?=\s*(?:\d{1,2}:\d{2})|$|\(|\[|\n|\r)/g;
     
     while ((match = timestampPattern.exec(description)) !== null) {
       const hours = match[3] ? parseInt(match[1], 10) : 0;
@@ -121,7 +123,8 @@ export function parseTimestampsFromDescription(description, totalDuration = null
       title = title.replace(/^\d+\.?\s*/, '');
       // Rimuovi anche eventuali artisti alla fine separati da trattino (solo se seguito da maiuscola)
       // Esempio: "Yesterday - The Beatles" -> "Yesterday"
-      title = title.split(/\s*[-–—]\s*(?=[A-Z][a-z])/)[0];
+      // Usa solo trattino ASCII per evitare problemi
+      title = title.split(/\s*-\s*(?=[A-Z][a-z])/)[0];
       title = cleanTrackTitle(title);
       
       if (title && title.length > 0) {
@@ -194,7 +197,8 @@ export function hasTimestampPattern(description) {
   
   // Pattern semplice per rilevare timestamp: MM:SS o HH:MM:SS
   // Cerca pattern come: (00:00), 00:00, 0:00, 00:00:00, ecc.
-  const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*\d{1,2}:\d{2}(?::\d{2})?\s*[-–—]?\s*[^\n\r\(\)\[\]]+/g;
+  // Usa solo trattino ASCII per evitare problemi di encoding
+  const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*\d{1,2}:\d{2}(?::\d{2})?\s*-?\s*[^\n\r\(\)\[\]]+/g;
   
   // Conta quanti match troviamo
   const matches = description.match(timestampPattern);
