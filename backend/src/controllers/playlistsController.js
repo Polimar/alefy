@@ -23,10 +23,27 @@ export const getPlaylists = async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
+    // Query migliorata per includere thumbnail della prima traccia
     const result = await pool.query(
       `SELECT p.*, 
        COUNT(pt.track_id) as track_count,
-       COALESCE(SUM(t.duration), 0) as total_duration
+       COALESCE(SUM(t.duration), 0) as total_duration,
+       (
+         SELECT t2.cover_art_path 
+         FROM playlist_tracks pt2
+         JOIN tracks t2 ON pt2.track_id = t2.id
+         WHERE pt2.playlist_id = p.id
+         ORDER BY pt2.position ASC
+         LIMIT 1
+       ) as first_track_cover_art_path,
+       (
+         SELECT t2.id 
+         FROM playlist_tracks pt2
+         JOIN tracks t2 ON pt2.track_id = t2.id
+         WHERE pt2.playlist_id = p.id
+         ORDER BY pt2.position ASC
+         LIMIT 1
+       ) as first_track_id
        FROM playlists p
        LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id
        LEFT JOIN tracks t ON pt.track_id = t.id

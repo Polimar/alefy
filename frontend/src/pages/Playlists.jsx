@@ -4,6 +4,8 @@ import api from '../utils/api';
 import { Plus, Music } from 'lucide-react';
 import './Playlists.css';
 
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
 export default function Playlists() {
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,6 +13,7 @@ export default function Playlists() {
   const [playlistName, setPlaylistName] = useState('');
   const [playlistDescription, setPlaylistDescription] = useState('');
   const [creating, setCreating] = useState(false);
+  const [coverUrls, setCoverUrls] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,6 +60,44 @@ export default function Playlists() {
   const handlePlaylistClick = (playlistId) => {
     navigate(`/playlists/${playlistId}`);
   };
+
+  const getCoverArtUrl = async (playlist) => {
+    if (!playlist.first_track_cover_art_path || !playlist.first_track_id) {
+      return null;
+    }
+    
+    if (coverUrls[playlist.id]) {
+      return coverUrls[playlist.id];
+    }
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/stream/tracks/${playlist.first_track_id}/cover`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        setCoverUrls(prev => ({ ...prev, [playlist.id]: blobUrl }));
+        return blobUrl;
+      }
+    } catch (error) {
+      console.error('Error loading cover art:', error);
+    }
+    return null;
+  };
+
+  // Carica le cover quando cambiano le playlist
+  useEffect(() => {
+    playlists.forEach(playlist => {
+      if (playlist.first_track_cover_art_path && playlist.first_track_id && !coverUrls[playlist.id]) {
+        getCoverArtUrl(playlist);
+      }
+    });
+  }, [playlists]);
 
   return (
     <div className="playlists">
@@ -145,7 +186,15 @@ export default function Playlists() {
               onClick={() => handlePlaylistClick(playlist.id)}
             >
               <div className="playlist-icon">
-                <Music size={32} />
+                {coverUrls[playlist.id] ? (
+                  <img 
+                    src={coverUrls[playlist.id]} 
+                    alt={playlist.name}
+                    className="playlist-thumbnail"
+                  />
+                ) : (
+                  <Music size={32} />
+                )}
               </div>
               <div className="playlist-name">{playlist.name}</div>
               <div className="playlist-info">
