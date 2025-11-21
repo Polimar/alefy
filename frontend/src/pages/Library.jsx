@@ -50,37 +50,35 @@ export default function Library() {
     };
   }, [search]);
 
+  // Carica le cover solo quando cambiano le tracce (non ad ogni render)
+  // Non riprova se una cover ha già fallito (404) per quella traccia specifica
   useEffect(() => {
-    // Load cover arts for tracks that have them - batch loading per evitare troppe richieste simultanee
+    // Pulisci i fallimenti per tracce che non sono più nella lista corrente
+    // (utile quando si fa una ricerca e poi si torna alla lista completa)
+    const currentTrackIds = new Set(tracks.map(t => t.id));
+    failedCoversRef.current.forEach(trackId => {
+      if (!currentTrackIds.has(trackId)) {
+        failedCoversRef.current.delete(trackId);
+      }
+    });
+    
+    // Carica solo le cover che non sono già caricate, non in caricamento, e non hanno fallito
     const tracksToLoad = tracks.filter(track => 
       track.cover_art_path && 
       !coverUrls[track.id] && 
-      !loadingCoversRef.current.has(track.id)
+      !loadingCoversRef.current.has(track.id) &&
+      !failedCoversRef.current.has(track.id)
     );
     
-    // Carica massimo 5 cover alla volta per evitare sovraccarico
-    const MAX_CONCURRENT_LOADS = 5;
-    const tracksToLoadNow = tracksToLoad.slice(0, MAX_CONCURRENT_LOADS);
-    
-    tracksToLoadNow.forEach(track => {
-      getCoverArtUrl(track).catch(err => console.error('Error loading cover:', err));
-    });
-    
-    // Se ci sono altre cover da caricare, le carica dopo un breve delay
-    if (tracksToLoad.length > MAX_CONCURRENT_LOADS) {
-      const remainingTracks = tracksToLoad.slice(MAX_CONCURRENT_LOADS);
-      const delay = 1000; // 1 secondo di delay tra batch
-      
-      remainingTracks.forEach((track, index) => {
-        setTimeout(() => {
-          if (!coverUrls[track.id] && !loadingCoversRef.current.has(track.id)) {
-            getCoverArtUrl(track).catch(err => console.error('Error loading cover:', err));
-          }
-        }, delay * (Math.floor(index / MAX_CONCURRENT_LOADS) + 1));
+    // Carica tutte le cover disponibili (una volta sola per ogni traccia)
+    tracksToLoad.forEach(track => {
+      getCoverArtUrl(track).catch(err => {
+        // Gli errori sono già gestiti in getCoverArtUrl
+        console.error('Error loading cover:', err);
       });
-    }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tracks]);
+  }, [tracks]); // Solo quando cambiano le tracce, non ad ogni render
 
   const loadTracks = async () => {
     try {
@@ -126,10 +124,16 @@ export default function Library() {
 
   const [coverUrls, setCoverUrls] = useState({});
   const loadingCoversRef = useRef(new Set()); // Traccia le cover in caricamento per evitare chiamate duplicate
+  const failedCoversRef = useRef(new Set()); // Traccia le cover che hanno fallito (404) per non riprovarle
 
   const getCoverArtUrl = async (track) => {
     if (!track.cover_art_path) return null;
     if (coverUrls[track.id]) return coverUrls[track.id];
+    
+    // Non riprovare se ha già fallito (404)
+    if (failedCoversRef.current.has(track.id)) {
+      return null;
+    }
     
     // Evita chiamate duplicate se già in caricamento
     if (loadingCoversRef.current.has(track.id)) {
@@ -151,8 +155,13 @@ export default function Library() {
         const blobUrl = URL.createObjectURL(blob);
         setCoverUrls(prev => ({ ...prev, [track.id]: blobUrl }));
         return blobUrl;
+      } else if (response.status === 404) {
+        // Traccia i fallimenti 404 per non riprovare
+        failedCoversRef.current.add(track.id);
       }
     } catch (error) {
+      // In caso di errore di rete, non tracciare come fallimento permanente
+      // Potrebbe essere un problema temporaneo
       console.error('Error loading cover art:', error);
     } finally {
       loadingCoversRef.current.delete(track.id);
