@@ -37,17 +37,38 @@ fi
 echo -e "${YELLOW}Aggiornamento repository...${NC}"
 if [ -d "$ALEFY_HOME/repo" ]; then
     cd "$ALEFY_HOME/repo"
-    run_as_user "$ALEFY_USER" git pull
+    run_as_user "$ALEFY_USER" git pull || git pull
     echo -e "${GREEN}✓ Repository aggiornato${NC}"
     
     # Copia frontend aggiornato
     echo -e "\n${YELLOW}Copia frontend aggiornato...${NC}"
-    run_as_user "$ALEFY_USER" cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
+    # Rimuovi vecchia directory se esiste
+    if [ -d "$ALEFY_HOME/frontend" ]; then
+        chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/frontend" 2>/dev/null || true
+    fi
+    cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
+    chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/frontend"
+    echo -e "${GREEN}✓ Frontend copiato${NC}"
+else
+    echo -e "${RED}✗ Repository non trovato in $ALEFY_HOME/repo${NC}"
+    echo -e "${YELLOW}Clone repository...${NC}"
+    mkdir -p "$ALEFY_HOME/repo"
+    run_as_user "$ALEFY_USER" git clone https://github.com/Polimar/alefy.git "$ALEFY_HOME/repo" || git clone https://github.com/Polimar/alefy.git "$ALEFY_HOME/repo"
+    chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/repo"
+    echo -e "${GREEN}✓ Repository clonato${NC}"
+    
+    # Copia frontend
+    echo -e "\n${YELLOW}Copia frontend...${NC}"
+    cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
+    chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/frontend"
     echo -e "${GREEN}✓ Frontend copiato${NC}"
 fi
 
 # Vai nella directory frontend
 cd "$ALEFY_HOME/frontend"
+
+# Assicura che la directory appartenga all'utente alefy
+chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/frontend" 2>/dev/null || true
 
 # Crea/aggiorna .env.production
 echo -e "\n${YELLOW}Configurazione ambiente...${NC}"
@@ -74,7 +95,9 @@ fi
 # Pulisci build precedente
 echo -e "\n${YELLOW}Pulizia build precedente...${NC}"
 if [ -d "dist" ]; then
-    run_as_user "$ALEFY_USER" rm -rf dist
+    # Cambia proprietario se necessario e rimuovi
+    chown -R "$ALEFY_USER:$ALEFY_USER" dist 2>/dev/null || true
+    run_as_user "$ALEFY_USER" rm -rf dist || rm -rf dist
     echo -e "${GREEN}✓ Build precedente rimossa${NC}"
 fi
 
