@@ -71,6 +71,15 @@ fi
 run_as_user "$ALEFY_USER" npm list uuid || true
 echo -e "${GREEN}✓ Backend aggiornato${NC}"
 
+# 2.5. Esegui migration database
+echo -e "\n${YELLOW}2.5. Esecuzione migration database...${NC}"
+cd "$ALEFY_HOME/backend"
+if run_as_user "$ALEFY_USER" npm run migrate 2>&1; then
+    echo -e "${GREEN}✓ Migration completate${NC}"
+else
+    echo -e "${YELLOW}⚠ Errore durante migration (potrebbero essere già eseguite)${NC}"
+fi
+
 # 3. Ricostruisci frontend usando lo script dedicato
 echo -e "\n${YELLOW}3. Ricostruzione frontend...${NC}"
 cd "$REPO_DIR"
