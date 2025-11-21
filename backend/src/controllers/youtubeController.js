@@ -24,7 +24,7 @@ const downloadSchema = z.object({
     startTime: z.number().min(0),
     endTime: z.number().min(0).nullable(),
     title: z.string().min(1),
-  })).optional(),
+  })).optional().nullable(), // Accetta anche null quando tutte le tracce sono selezionate
 }).refine(
   (data) => !(data.playlistId && data.playlistName),
   { message: 'playlistId e playlistName non possono essere entrambi specificati' }
