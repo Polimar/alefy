@@ -44,16 +44,6 @@ app.use(morgan('combined', {
   }
 }));
 
-// Rate limiting più permissivo per autenticazione
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minuti
-  max: 20, // 20 tentativi di login ogni 15 minuti
-  message: 'Troppi tentativi di login, riprova più tardi.',
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true, // Non conta le richieste riuscite
-});
-
 // Rate limiting generale più permissivo
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
@@ -63,9 +53,9 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Applica rate limiting generale a tutte le API tranne auth
+// Applica rate limiting generale a tutte le API tranne auth (che ha il suo rate limiter)
 app.use('/api/', (req, res, next) => {
-  // Skip rate limiting per login e register
+  // Skip rate limiting per login e register (hanno il loro rate limiter nelle route)
   if (req.path === '/auth/login' || req.path === '/auth/register') {
     return next();
   }
