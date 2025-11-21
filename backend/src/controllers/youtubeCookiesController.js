@@ -40,6 +40,58 @@ export const upload = multer({
   },
 });
 
+/**
+ * Filtra solo i cookies di YouTube da un file cookies Netscape
+ */
+async function filterYouTubeCookies(inputPath) {
+  try {
+    const content = await fs.readFile(inputPath, 'utf8');
+    const lines = content.split('\n');
+    
+    // Mantieni l'header del file
+    const header = lines.filter(line => line.trim().startsWith('#'));
+    
+    // Filtra solo le righe che contengono cookies di YouTube o Google (necessari per YouTube)
+    const youtubeDomains = ['.youtube.com', 'youtube.com', '.google.com', 'google.com', '.google.it', 'google.it'];
+    const cookieLines = lines.filter(line => {
+      if (line.trim().startsWith('#') || !line.trim()) {
+        return false; // Skip header e righe vuote
+      }
+      
+      // Formato Netscape: domain	flag	path	secure	expiration	name	value
+      const parts = line.split('\t');
+      if (parts.length >= 6) {
+        const domain = parts[0].trim();
+        return youtubeDomains.some(yd => domain === yd || domain.endsWith(yd));
+      }
+      return false;
+    });
+    
+    // Se non ci sono cookies YouTube, usa tutto il file originale
+    if (cookieLines.length === 0) {
+      console.log('[YouTube Cookies] Nessun cookie YouTube trovato, uso file originale');
+      return null; // Usa file originale
+    }
+    
+    // Crea nuovo file filtrato
+    const filteredContent = [...header, ...cookieLines].join('\n');
+    const filteredPath = inputPath.replace('.txt', '-youtube-only.txt');
+    await fs.writeFile(filteredPath, filteredContent, 'utf8');
+    
+    console.log(`[YouTube Cookies] Filtrati ${cookieLines.length} cookies YouTube da ${lines.length} righe totali`);
+    
+    // Elimina file originale e rinomina quello filtrato
+    await fs.unlink(inputPath);
+    await fs.rename(filteredPath, inputPath);
+    
+    return inputPath;
+  } catch (error) {
+    console.error('[YouTube Cookies] Errore filtraggio cookies:', error);
+    // In caso di errore, usa il file originale
+    return null;
+  }
+}
+
 export const uploadCookies = async (req, res, next) => {
   try {
     const userId = req.user.userId;
@@ -47,6 +99,9 @@ export const uploadCookies = async (req, res, next) => {
     if (!req.file) {
       throw new AppError('File cookies richiesto', 400);
     }
+
+    // Filtra solo cookies YouTube se necessario
+    await filterYouTubeCookies(req.file.path);
 
     const cookiesFilePath = path.relative(getStoragePath(), req.file.path);
     const description = req.body.description || null;
