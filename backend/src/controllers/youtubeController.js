@@ -7,6 +7,10 @@ import { AppError } from '../middleware/errorHandler.js';
 import { extractMetadata, saveCoverArt, downloadThumbnail } from '../utils/audioMetadata.js';
 import { getTrackStoragePath, ensureDirectoryExists, getStoragePath, getFileStats } from '../utils/storage.js';
 import downloadQueue from '../utils/downloadQueue.js';
+import { detectAlbum } from '../utils/albumDetector.js';
+import { parseTimestampsFromDescription } from '../utils/timestampParser.js';
+import { splitAudioFile } from '../utils/audioSplitter.js';
+import { searchTrackMetadata } from '../utils/metadataSearch.js';
 import { z } from 'zod';
 
 const execAsync = promisify(exec);
@@ -63,6 +67,38 @@ export async function processDownloadJob(job) {
 
     // Risolvi percorso yt-dlp
     let ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
+    
+    // Prima ottieni i metadati del video per rilevare se è un album
+    console.log(`[YouTube Download] Job ${jobId}: Rilevamento album...`);
+    let videoInfo = null;
+    let albumInfo = null;
+    
+    try {
+      const infoCommand = `${ytdlpPath} "${url}" --dump-json --no-playlist`;
+      const { stdout: infoStdout } = await execAsync(infoCommand, {
+        maxBuffer: 5 * 1024 * 1024,
+        timeout: 30000,
+      });
+      
+      if (infoStdout) {
+        videoInfo = JSON.parse(infoStdout.trim());
+        const description = videoInfo.description || '';
+        const duration = videoInfo.duration || 0;
+        
+        albumInfo = detectAlbum(duration, description);
+        
+        if (albumInfo.isAlbum) {
+          console.log(`[YouTube Download] Job ${jobId}: Album rilevato con ${albumInfo.tracks.length} tracce`);
+          downloadQueue.updateJob(jobId, { 
+            isAlbum: true,
+            tracksCount: albumInfo.tracks.length,
+          });
+        }
+      }
+    } catch (infoError) {
+      console.warn(`[YouTube Download] Job ${jobId}: Impossibile ottenere info video: ${infoError.message}`);
+      // Continua comunque con il download
+    }
     
     if (ytdlpPath.startsWith('/')) {
       try {
@@ -187,77 +223,212 @@ export async function processDownloadJob(job) {
 
     const filePath = path.join(tempDir, downloadedFile);
 
-    // Estrai metadati
+    // Estrai metadati base
     console.log(`[YouTube Download] Job ${jobId}: Estrazione metadati...`);
     downloadQueue.updateJob(jobId, { progress: 95 });
     const metadata = await extractMetadata(filePath);
 
-    // Determina percorso finale
-    const finalPath = getTrackStoragePath(userId, metadata.artist, metadata.album);
-    await ensureDirectoryExists(finalPath);
-
-    // Sposta file
-    const finalFilePath = path.join(finalPath, path.basename(filePath));
-    await fs.rename(filePath, finalFilePath);
-
-    // Statistiche file
-    const stats = await getFileStats(finalFilePath);
-
-    // Download thumbnail se fornita, altrimenti usa cover art dal file
-    let coverArtPath = null;
-    if (thumbnailUrl) {
-      console.log(`[YouTube Download] Job ${jobId}: Download thumbnail da URL...`);
-      coverArtPath = await downloadThumbnail(thumbnailUrl, userId, metadata.title, storagePath);
-    }
-    
-    if (!coverArtPath && metadata.picture) {
-      console.log(`[YouTube Download] Job ${jobId}: Salvataggio cover art dal file...`);
-      coverArtPath = await saveCoverArt(
-        metadata.picture,
-        userId,
-        metadata.album,
-        storagePath
+    // Se è un album, dividilo in tracce
+    if (albumInfo && albumInfo.isAlbum && albumInfo.tracks.length > 0) {
+      console.log(`[YouTube Download] Job ${jobId}: Divisione album in ${albumInfo.tracks.length} tracce...`);
+      
+      const splitDir = path.join(tempDir, `split-${jobId}`);
+      await ensureDirectoryExists(splitDir);
+      
+      // Dividi il file audio
+      const splitTracks = await splitAudioFile(
+        filePath,
+        albumInfo.tracks,
+        splitDir,
+        (progress) => {
+          const totalProgress = 95 + (progress.current / albumInfo.tracks.length) * 5;
+          downloadQueue.updateJob(jobId, { 
+            progress: Math.min(totalProgress, 99),
+            splittingTrack: progress.track,
+          });
+        }
       );
+      
+      console.log(`[YouTube Download] Job ${jobId}: Album diviso in ${splitTracks.length} tracce`);
+      
+      // Download thumbnail una volta per tutte le tracce
+      let coverArtPath = null;
+      if (thumbnailUrl) {
+        console.log(`[YouTube Download] Job ${jobId}: Download thumbnail da URL...`);
+        coverArtPath = await downloadThumbnail(thumbnailUrl, userId, metadata.album || 'Album', storagePath);
+      }
+      
+      if (!coverArtPath && metadata.picture) {
+        console.log(`[YouTube Download] Job ${jobId}: Salvataggio cover art dal file...`);
+        coverArtPath = await saveCoverArt(
+          metadata.picture,
+          userId,
+          metadata.album,
+          storagePath
+        );
+      }
+      
+      // Per ogni traccia divisa: cerca metadati e salva nel database
+      const savedTracks = [];
+      const albumArtist = metadata.artist || videoInfo?.uploader || 'Unknown Artist';
+      const albumName = metadata.album || videoInfo?.title || 'Unknown Album';
+      
+      for (let i = 0; i < splitTracks.length; i++) {
+        const splitTrack = splitTracks[i];
+        const trackTitle = splitTrack.title;
+        
+        console.log(`[YouTube Download] Job ${jobId}: Elaborazione traccia ${i + 1}/${splitTracks.length}: ${trackTitle}`);
+        
+        // Cerca metadati per questa traccia
+        let trackMetadata = await searchTrackMetadata(albumArtist, trackTitle, albumName);
+        
+        // Estrai metadati dal file diviso
+        const fileMetadata = await extractMetadata(splitTrack.path);
+        
+        // Combina metadati (preferisci quelli cercati, fallback a file)
+        const finalMetadata = {
+          title: trackMetadata?.title || trackTitle || fileMetadata.title,
+          artist: trackMetadata?.artist || albumArtist || fileMetadata.artist,
+          album: trackMetadata?.album || albumName || fileMetadata.album,
+          albumArtist: albumArtist,
+          genre: trackMetadata?.genre || metadata.genre || fileMetadata.genre,
+          year: trackMetadata?.year || metadata.year || fileMetadata.year,
+          trackNumber: trackMetadata?.trackNumber || (i + 1),
+          discNumber: metadata.discNumber || fileMetadata.discNumber,
+          duration: Math.round((splitTrack.endTime || 0) - (splitTrack.startTime || 0)),
+          bitrate: fileMetadata.bitrate,
+          sampleRate: fileMetadata.sampleRate,
+        };
+        
+        // Determina percorso finale per questa traccia
+        const finalPath = getTrackStoragePath(userId, finalMetadata.artist, finalMetadata.album);
+        await ensureDirectoryExists(finalPath);
+        
+        // Sposta file
+        const finalFilePath = path.join(finalPath, path.basename(splitTrack.path));
+        await fs.rename(splitTrack.path, finalFilePath);
+        
+        // Statistiche file
+        const stats = await getFileStats(finalFilePath);
+        
+        // Inserisci nel database
+        const result = await pool.query(
+          `INSERT INTO tracks (
+            user_id, title, artist, album, album_artist, genre, year,
+            track_number, disc_number, duration, file_path, file_size,
+            file_format, bitrate, sample_rate, cover_art_path
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          RETURNING id, title, artist, album, duration, file_size, created_at`,
+          [
+            userId,
+            finalMetadata.title,
+            finalMetadata.artist,
+            finalMetadata.album,
+            finalMetadata.albumArtist,
+            finalMetadata.genre,
+            finalMetadata.year,
+            finalMetadata.trackNumber,
+            finalMetadata.discNumber,
+            finalMetadata.duration,
+            path.relative(storagePath, finalFilePath),
+            stats?.size || 0,
+            path.extname(finalFilePath).substring(1).toLowerCase(),
+            finalMetadata.bitrate ? Math.round(finalMetadata.bitrate) : null,
+            finalMetadata.sampleRate ? Math.round(finalMetadata.sampleRate) : null,
+            coverArtPath,
+          ]
+        );
+        
+        savedTracks.push(result.rows[0]);
+      }
+      
+      // Rimuovi file originale e directory split
+      try {
+        await fs.unlink(filePath);
+        await fs.rmdir(splitDir);
+      } catch (cleanupError) {
+        console.warn(`[YouTube Download] Job ${jobId}: Errore pulizia file temporanei: ${cleanupError.message}`);
+      }
+      
+      console.log(`[YouTube Download] Job ${jobId}: Album diviso e salvato. ${savedTracks.length} tracce create`);
+      
+      downloadQueue.updateJob(jobId, {
+        status: 'completed',
+        progress: 100,
+        track: savedTracks[0], // Ritorna la prima traccia come riferimento
+        tracks: savedTracks, // Tutte le tracce create
+      });
+      
+      downloadQueue.jobFinished(userId, jobId);
+    } else {
+      // Comportamento normale: singola traccia
+      // Determina percorso finale
+      const finalPath = getTrackStoragePath(userId, metadata.artist, metadata.album);
+      await ensureDirectoryExists(finalPath);
+
+      // Sposta file
+      const finalFilePath = path.join(finalPath, path.basename(filePath));
+      await fs.rename(filePath, finalFilePath);
+
+      // Statistiche file
+      const stats = await getFileStats(finalFilePath);
+
+      // Download thumbnail se fornita, altrimenti usa cover art dal file
+      let coverArtPath = null;
+      if (thumbnailUrl) {
+        console.log(`[YouTube Download] Job ${jobId}: Download thumbnail da URL...`);
+        coverArtPath = await downloadThumbnail(thumbnailUrl, userId, metadata.title, storagePath);
+      }
+      
+      if (!coverArtPath && metadata.picture) {
+        console.log(`[YouTube Download] Job ${jobId}: Salvataggio cover art dal file...`);
+        coverArtPath = await saveCoverArt(
+          metadata.picture,
+          userId,
+          metadata.album,
+          storagePath
+        );
+      }
+
+      // Inserisci nel database
+      console.log(`[YouTube Download] Job ${jobId}: Inserimento nel database...`);
+      const result = await pool.query(
+        `INSERT INTO tracks (
+          user_id, title, artist, album, album_artist, genre, year,
+          track_number, disc_number, duration, file_path, file_size,
+          file_format, bitrate, sample_rate, cover_art_path
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        RETURNING id, title, artist, album, duration, file_size, created_at`,
+        [
+          userId,
+          metadata.title,
+          metadata.artist,
+          metadata.album,
+          metadata.albumArtist,
+          metadata.genre,
+          metadata.year,
+          metadata.trackNumber,
+          metadata.discNumber,
+          Math.round(metadata.duration || 0),
+          path.relative(storagePath, finalFilePath),
+          stats?.size || 0,
+          path.extname(finalFilePath).substring(1).toLowerCase(),
+          metadata.bitrate ? Math.round(metadata.bitrate) : null,
+          metadata.sampleRate ? Math.round(metadata.sampleRate) : null,
+          coverArtPath,
+        ]
+      );
+
+      console.log(`[YouTube Download] Job ${jobId}: Completato con successo. Track ID: ${result.rows[0].id}`);
+      
+      downloadQueue.updateJob(jobId, {
+        status: 'completed',
+        progress: 100,
+        track: result.rows[0],
+      });
+
+      downloadQueue.jobFinished(userId, jobId);
     }
-
-    // Inserisci nel database
-    console.log(`[YouTube Download] Job ${jobId}: Inserimento nel database...`);
-    const result = await pool.query(
-      `INSERT INTO tracks (
-        user_id, title, artist, album, album_artist, genre, year,
-        track_number, disc_number, duration, file_path, file_size,
-        file_format, bitrate, sample_rate, cover_art_path
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-      RETURNING id, title, artist, album, duration, file_size, created_at`,
-      [
-        userId,
-        metadata.title,
-        metadata.artist,
-        metadata.album,
-        metadata.albumArtist,
-        metadata.genre,
-        metadata.year,
-        metadata.trackNumber,
-        metadata.discNumber,
-        Math.round(metadata.duration || 0),
-        path.relative(storagePath, finalFilePath),
-        stats?.size || 0,
-        path.extname(finalFilePath).substring(1).toLowerCase(),
-        metadata.bitrate ? Math.round(metadata.bitrate) : null,
-        metadata.sampleRate ? Math.round(metadata.sampleRate) : null,
-        coverArtPath,
-      ]
-    );
-
-    console.log(`[YouTube Download] Job ${jobId}: Completato con successo. Track ID: ${result.rows[0].id}`);
-    
-    downloadQueue.updateJob(jobId, {
-      status: 'completed',
-      progress: 100,
-      track: result.rows[0],
-    });
-
-    downloadQueue.jobFinished(userId, jobId);
   } catch (error) {
     console.error(`[YouTube Download] Job ${jobId}: Errore:`, error.message);
     downloadQueue.updateJob(jobId, {
@@ -467,16 +638,33 @@ export const searchYouTube = async (req, res, next) => {
         try {
           const videoData = JSON.parse(line);
           
+          // Estrai descrizione completa (non solo primi 200 caratteri)
+          const fullDescription = videoData.description || '';
+          const duration = videoData.duration || 0;
+          
+          // Rileva se è un album e estrai timestamp
+          const albumInfo = detectAlbum(duration, fullDescription);
+          const timestamps = albumInfo.tracks.length > 0 
+            ? albumInfo.tracks.map(t => ({
+                startTime: t.startTime,
+                endTime: t.endTime,
+                title: t.title,
+              }))
+            : [];
+          
           // Estrai informazioni essenziali
           const result = {
             id: videoData.id || null,
             title: videoData.title || 'Senza titolo',
             channel: videoData.channel || videoData.uploader || 'Canale sconosciuto',
-            duration: videoData.duration || 0,
+            duration: duration,
             thumbnail_url: videoData.thumbnail || videoData.thumbnails?.[0]?.url || null,
-            description: videoData.description ? videoData.description.substring(0, 200) : '',
+            description: fullDescription.substring(0, 500), // Mostra primi 500 caratteri per preview
+            full_description: fullDescription, // Descrizione completa per parsing
             view_count: videoData.view_count || 0,
             url: videoData.webpage_url || `https://www.youtube.com/watch?v=${videoData.id}`,
+            isAlbum: albumInfo.isAlbum,
+            timestamps: timestamps,
           };
 
           results.push(result);
@@ -508,6 +696,180 @@ export const searchYouTube = async (req, res, next) => {
       
       throw new AppError('Errore durante la ricerca su YouTube: ' + errorMessage, 500);
     }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+};
+
+const splitSchema = z.object({
+  timestamps: z.array(z.object({
+    startTime: z.number().min(0),
+    endTime: z.number().min(0).nullable(),
+    title: z.string().min(1),
+  })).min(1, 'Almeno un timestamp richiesto'),
+  useYouTubeDescription: z.boolean().optional().default(false),
+});
+
+export const splitTrack = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const { trackId } = req.params;
+    
+    // Verifica che la traccia esista e appartenga all'utente
+    const trackResult = await pool.query(
+      `SELECT t.*, u.id as user_id 
+       FROM tracks t 
+       JOIN users u ON t.user_id = u.id 
+       WHERE t.id = $1`,
+      [trackId]
+    );
+    
+    if (trackResult.rows.length === 0) {
+      return next(new AppError('Traccia non trovata', 404));
+    }
+    
+    const track = trackResult.rows[0];
+    
+    // Verifica che la traccia sia abbastanza lunga (>30 minuti) o che l'utente sia il proprietario
+    if (track.duration < 1800 && track.user_id !== userId) {
+      return next(new AppError('Non autorizzato a dividere questa traccia', 403));
+    }
+    
+    const validatedData = splitSchema.parse(req.body);
+    const { timestamps, useYouTubeDescription } = validatedData;
+    
+    const storagePath = getStoragePath();
+    const filePath = path.join(storagePath, track.file_path);
+    
+    // Verifica che il file esista
+    try {
+      await fs.access(filePath);
+    } catch (error) {
+      return next(new AppError('File audio non trovato', 404));
+    }
+    
+    // Se useYouTubeDescription è true, prova a ottenere la descrizione da YouTube
+    let tracksToSplit = timestamps;
+    if (useYouTubeDescription && track.file_path) {
+      // Cerca URL YouTube originale nel database o nei metadati
+      // Per ora usiamo i timestamp forniti
+      console.log(`[Split Track] Usando timestamp forniti dall'utente`);
+    }
+    
+    // Crea directory temporanea per le tracce divise
+    const splitDir = path.join(storagePath, 'temp', 'split', trackId.toString());
+    await ensureDirectoryExists(splitDir);
+    
+    // Dividi il file audio
+    console.log(`[Split Track] Divisione traccia ${trackId} in ${tracksToSplit.length} tracce...`);
+    const splitTracks = await splitAudioFile(
+      filePath,
+      tracksToSplit,
+      splitDir,
+      null // Nessun callback di progresso per divisione manuale
+    );
+    
+    // Estrai metadati originali
+    const originalMetadata = await extractMetadata(filePath);
+    const albumArtist = track.album_artist || track.artist || 'Unknown Artist';
+    const albumName = track.album || 'Unknown Album';
+    
+    // Per ogni traccia divisa: cerca metadati e salva nel database
+    const savedTracks = [];
+    
+    for (let i = 0; i < splitTracks.length; i++) {
+      const splitTrack = splitTracks[i];
+      const trackTitle = splitTrack.title;
+      
+      console.log(`[Split Track] Elaborazione traccia ${i + 1}/${splitTracks.length}: ${trackTitle}`);
+      
+      // Cerca metadati per questa traccia
+      let trackMetadata = await searchTrackMetadata(albumArtist, trackTitle, albumName);
+      
+      // Estrai metadati dal file diviso
+      const fileMetadata = await extractMetadata(splitTrack.path);
+      
+      // Combina metadati
+      const finalMetadata = {
+        title: trackMetadata?.title || trackTitle || fileMetadata.title,
+        artist: trackMetadata?.artist || albumArtist || fileMetadata.artist,
+        album: trackMetadata?.album || albumName || fileMetadata.album,
+        albumArtist: albumArtist,
+        genre: trackMetadata?.genre || track.genre || fileMetadata.genre,
+        year: trackMetadata?.year || null,
+        trackNumber: trackMetadata?.trackNumber || (i + 1),
+        discNumber: null,
+        duration: Math.round((splitTrack.endTime || 0) - (splitTrack.startTime || 0)),
+        bitrate: fileMetadata.bitrate,
+        sampleRate: fileMetadata.sampleRate,
+      };
+      
+      // Determina percorso finale per questa traccia
+      const finalPath = getTrackStoragePath(userId, finalMetadata.artist, finalMetadata.album);
+      await ensureDirectoryExists(finalPath);
+      
+      // Sposta file
+      const finalFilePath = path.join(finalPath, path.basename(splitTrack.path));
+      await fs.rename(splitTrack.path, finalFilePath);
+      
+      // Statistiche file
+      const stats = await getFileStats(finalFilePath);
+      
+      // Inserisci nel database
+      const result = await pool.query(
+        `INSERT INTO tracks (
+          user_id, title, artist, album, album_artist, genre, year,
+          track_number, disc_number, duration, file_path, file_size,
+          file_format, bitrate, sample_rate, cover_art_path
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        RETURNING id, title, artist, album, duration, file_size, created_at`,
+        [
+          userId,
+          finalMetadata.title,
+          finalMetadata.artist,
+          finalMetadata.album,
+          finalMetadata.albumArtist,
+          finalMetadata.genre,
+          finalMetadata.year,
+          finalMetadata.trackNumber,
+          finalMetadata.discNumber,
+          finalMetadata.duration,
+          path.relative(storagePath, finalFilePath),
+          stats?.size || 0,
+          path.extname(finalFilePath).substring(1).toLowerCase(),
+          finalMetadata.bitrate ? Math.round(finalMetadata.bitrate) : null,
+          finalMetadata.sampleRate ? Math.round(finalMetadata.sampleRate) : null,
+          track.cover_art_path, // Usa la stessa cover art della traccia originale
+        ]
+      );
+      
+      savedTracks.push(result.rows[0]);
+    }
+    
+    // Rimuovi directory split temporanea
+    try {
+      await fs.rmdir(splitDir);
+    } catch (cleanupError) {
+      console.warn(`[Split Track] Errore pulizia directory temporanea: ${cleanupError.message}`);
+    }
+    
+    // Opzionalmente, elimina la traccia originale (commentato per sicurezza)
+    // await pool.query('DELETE FROM tracks WHERE id = $1', [trackId]);
+    // await fs.unlink(filePath);
+    
+    console.log(`[Split Track] Traccia ${trackId} divisa in ${savedTracks.length} tracce`);
+    
+    res.json({
+      success: true,
+      data: {
+        message: `Traccia divisa in ${savedTracks.length} tracce`,
+        tracks: savedTracks,
+        originalTrackId: trackId,
+      },
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return next(new AppError(error.errors[0].message, 400));

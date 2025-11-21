@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
-import { Play, Music, MoreVertical, Plus, Trash2 } from 'lucide-react';
+import { Play, Music, MoreVertical, Plus, Trash2, Scissors } from 'lucide-react';
 import './Library.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -14,6 +14,10 @@ export default function Library() {
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [menuOpen, setMenuOpen] = useState(null);
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [splitTrack, setSplitTrack] = useState(null);
+  const [splitTimestamps, setSplitTimestamps] = useState([]);
+  const [splitLoading, setSplitLoading] = useState(false);
   const { setCurrentTrack, setQueue, play } = usePlayerStore();
   const searchTimeoutRef = useRef(null);
 
@@ -156,6 +160,88 @@ export default function Library() {
     }
   };
 
+  const handleSplitTrack = (track, e) => {
+    e.stopPropagation();
+    setSplitTrack(track);
+    setSplitTimestamps([]);
+    setShowSplitModal(true);
+    setMenuOpen(null);
+  };
+
+  const formatTimestamp = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const parseTimestampInput = (input) => {
+    const parts = input.trim().split(':');
+    if (parts.length === 2) {
+      const mins = parseInt(parts[0], 10);
+      const secs = parseInt(parts[1], 10);
+      if (!isNaN(mins) && !isNaN(secs)) {
+        return mins * 60 + secs;
+      }
+    }
+    return null;
+  };
+
+  const addTimestamp = () => {
+    const startInput = document.getElementById('split-start-time');
+    const endInput = document.getElementById('split-end-time');
+    const titleInput = document.getElementById('split-track-title');
+    
+    const startTime = parseTimestampInput(startInput.value);
+    const endTime = endInput.value ? parseTimestampInput(endInput.value) : null;
+    const title = titleInput.value.trim();
+    
+    if (startTime === null || !title) {
+      alert('Inserisci almeno il tempo di inizio (MM:SS) e il titolo');
+      return;
+    }
+    
+    if (endTime !== null && endTime <= startTime) {
+      alert('Il tempo di fine deve essere maggiore del tempo di inizio');
+      return;
+    }
+    
+    setSplitTimestamps([...splitTimestamps, { startTime, endTime, title }]);
+    startInput.value = '';
+    endInput.value = '';
+    titleInput.value = '';
+  };
+
+  const removeTimestamp = (index) => {
+    setSplitTimestamps(splitTimestamps.filter((_, i) => i !== index));
+  };
+
+  const handleSplitSubmit = async () => {
+    if (splitTimestamps.length === 0) {
+      alert('Aggiungi almeno un timestamp');
+      return;
+    }
+
+    setSplitLoading(true);
+    try {
+      const response = await api.post(`/youtube/split/${splitTrack.id}`, {
+        timestamps: splitTimestamps,
+        useYouTubeDescription: false,
+      });
+      
+      alert(`Traccia divisa in ${response.data.data.tracks.length} tracce!`);
+      setShowSplitModal(false);
+      setSplitTrack(null);
+      setSplitTimestamps([]);
+      loadTracks();
+    } catch (error) {
+      console.error('Error splitting track:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error?.message || 'Errore durante la divisione della traccia';
+      alert(errorMessage);
+    } finally {
+      setSplitLoading(false);
+    }
+  };
+
   const handleMenuClick = (trackId, e) => {
     e.stopPropagation();
     e.preventDefault();
@@ -281,6 +367,15 @@ export default function Library() {
                                 <Plus size={16} />
                                 Aggiungi a playlist
                               </button>
+                              {track.duration > 1800 && (
+                                <button
+                                  className="action-menu-item"
+                                  onClick={(e) => handleSplitTrack(track, e)}
+                                >
+                                  <Scissors size={16} />
+                                  Dividi in tracce
+                                </button>
+                              )}
                               <button
                                 className="action-menu-item danger"
                                 onClick={(e) => handleDeleteTrack(track.id, e)}
@@ -390,6 +485,99 @@ export default function Library() {
                 }}
               >
                 Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSplitModal && splitTrack && (
+        <div className="modal-overlay" onClick={() => {
+          setShowSplitModal(false);
+          setSplitTrack(null);
+          setSplitTimestamps([]);
+        }}>
+          <div className="modal-content split-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Dividi in Tracce</h2>
+            <p className="modal-subtitle">
+              Dividi "{splitTrack.title}" in tracce separate usando i timestamp
+            </p>
+            <p className="modal-info">
+              Durata totale: {formatDuration(splitTrack.duration)}
+            </p>
+
+            <div className="split-timestamps-form">
+              <div className="split-input-group">
+                <input
+                  type="text"
+                  id="split-start-time"
+                  placeholder="Inizio (MM:SS)"
+                  className="split-time-input"
+                />
+                <input
+                  type="text"
+                  id="split-end-time"
+                  placeholder="Fine (MM:SS) - opzionale"
+                  className="split-time-input"
+                />
+                <input
+                  type="text"
+                  id="split-track-title"
+                  placeholder="Titolo traccia"
+                  className="split-title-input"
+                />
+                <button
+                  type="button"
+                  onClick={addTimestamp}
+                  className="btn-add-timestamp"
+                >
+                  Aggiungi
+                </button>
+              </div>
+
+              {splitTimestamps.length > 0 && (
+                <div className="split-timestamps-list">
+                  <h3>Tracce da creare ({splitTimestamps.length}):</h3>
+                  <ul>
+                    {splitTimestamps.map((ts, idx) => (
+                      <li key={idx} className="split-timestamp-item">
+                        <span className="timestamp-time">
+                          {formatTimestamp(ts.startTime)}
+                          {ts.endTime ? ` - ${formatTimestamp(ts.endTime)}` : ' - Fine'}
+                        </span>
+                        <span className="timestamp-title">{ts.title}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeTimestamp(idx)}
+                          className="btn-remove-timestamp"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => {
+                  setShowSplitModal(false);
+                  setSplitTrack(null);
+                  setSplitTimestamps([]);
+                }}
+                disabled={splitLoading}
+              >
+                Annulla
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSplitSubmit}
+                disabled={splitLoading || splitTimestamps.length === 0}
+              >
+                {splitLoading ? 'Divisione in corso...' : 'Dividi'}
               </button>
             </div>
           </div>

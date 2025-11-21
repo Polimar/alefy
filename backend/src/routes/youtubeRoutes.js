@@ -1,5 +1,5 @@
 import express from 'express';
-import { downloadYouTube, searchYouTube, getQueue, cancelJob, pauseJob, resumeJob } from '../controllers/youtubeController.js';
+import { downloadYouTube, searchYouTube, getQueue, cancelJob, pauseJob, resumeJob, splitTrack } from '../controllers/youtubeController.js';
 import { authenticate } from '../middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 
@@ -55,6 +55,13 @@ router.post(
   '/queue/:jobId/resume',
   authenticate,
   resumeJob
+);
+
+router.post(
+  '/split/:trackId',
+  authenticate,
+  downloadLimiter,
+  splitTrack
 );
 
 export default router;

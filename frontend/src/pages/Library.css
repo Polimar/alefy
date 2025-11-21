@@ -474,3 +474,172 @@
   }
 }
 
+/* Split Modal Styles */
+.split-modal {
+  max-width: 600px;
+}
+
+.modal-info {
+  margin: 0 0 20px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  background-color: var(--bg-secondary);
+  border-radius: 6px;
+}
+
+.split-timestamps-form {
+  margin-bottom: 24px;
+}
+
+.split-input-group {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.split-time-input {
+  flex: 1;
+  min-width: 100px;
+  padding: 10px 12px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.split-time-input:focus {
+  outline: none;
+  border-color: var(--accent, #1db954);
+}
+
+.split-title-input {
+  flex: 2;
+  min-width: 150px;
+  padding: 10px 12px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.split-title-input:focus {
+  outline: none;
+  border-color: var(--accent, #1db954);
+}
+
+.btn-add-timestamp {
+  padding: 10px 16px;
+  background-color: var(--accent, #1db954);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-add-timestamp:hover {
+  background-color: var(--accent-hover, #1ed760);
+}
+
+.split-timestamps-list {
+  margin-top: 20px;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.split-timestamps-list h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.split-timestamps-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.split-timestamp-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background-color: var(--bg-primary);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+}
+
+.split-timestamp-item:last-child {
+  margin-bottom: 0;
+}
+
+.timestamp-time {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent, #1db954);
+  min-width: 100px;
+  font-family: monospace;
+}
+
+.timestamp-title {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.btn-remove-timestamp {
+  padding: 6px;
+  background-color: transparent;
+  border: none;
+  color: var(--error, #ff4444);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-remove-timestamp:hover {
+  background-color: rgba(255, 68, 68, 0.1);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .split-input-group {
+    flex-direction: column;
+  }
+
+  .split-time-input,
+  .split-title-input {
+    width: 100%;
+  }
+
+  .btn-add-timestamp {
+    width: 100%;
+  }
+
+  .split-timestamp-item {
+    flex-wrap: wrap;
+  }
+
+  .timestamp-time {
+    min-width: auto;
+  }
+}
+

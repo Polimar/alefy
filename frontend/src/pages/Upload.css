@@ -201,6 +201,25 @@
   opacity: 0.8;
 }
 
+.result-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.album-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background-color: var(--accent, #1db954);
+  color: white;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .result-description {
   font-size: 13px;
   color: var(--text-secondary);
@@ -211,6 +230,48 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.result-timestamps {
+  margin: 12px 0;
+  padding: 10px;
+  background-color: rgba(29, 185, 84, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(29, 185, 84, 0.3);
+}
+
+.result-timestamps strong {
+  display: block;
+  font-size: 12px;
+  color: var(--accent, #1db954);
+  margin-bottom: 6px;
+}
+
+.timestamps-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.timestamps-list li {
+  padding: 4px 0;
+  padding-left: 12px;
+  position: relative;
+}
+
+.timestamps-list li:before {
+  content: '▶';
+  position: absolute;
+  left: 0;
+  font-size: 10px;
+  color: var(--accent, #1db954);
+}
+
+.timestamps-more {
+  font-style: italic;
+  color: var(--text-secondary);
 }
 
 .result-download-btn {

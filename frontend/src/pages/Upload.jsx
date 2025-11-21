@@ -395,7 +395,14 @@ export default function Upload() {
                     </div>
                   )}
                   <div className="result-content">
-                    <h4 className="result-title">{result.title}</h4>
+                    <div className="result-title-row">
+                      <h4 className="result-title">{result.title}</h4>
+                      {result.isAlbum && (
+                        <span className="album-badge" title="Album completo - verrà diviso automaticamente in tracce">
+                          Album
+                        </span>
+                      )}
+                    </div>
                     <p className="result-channel">{result.channel}</p>
                     <div className="result-meta">
                       <span className="result-duration">{formatDuration(result.duration)}</span>
@@ -408,13 +415,32 @@ export default function Upload() {
                     {result.description && (
                       <p className="result-description">{result.description}</p>
                     )}
+                    {result.isAlbum && result.timestamps && result.timestamps.length > 0 && (
+                      <div className="result-timestamps">
+                        <strong>Tracce rilevate ({result.timestamps.length}):</strong>
+                        <ul className="timestamps-list">
+                          {result.timestamps.slice(0, 5).map((ts, idx) => (
+                            <li key={idx}>
+                              {formatDuration(ts.startTime)} - {ts.title}
+                            </li>
+                          ))}
+                          {result.timestamps.length > 5 && (
+                            <li className="timestamps-more">
+                              ... e altre {result.timestamps.length - 5} tracce
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
                     <button
                       onClick={() => handleDownloadFromSearch(result.url, result.thumbnail_url)}
                       disabled={queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading'))}
                       className="result-download-btn"
                     >
                       <Download size={16} />
-                      {queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading')) ? 'In coda...' : 'Scarica'}
+                      {queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading')) 
+                        ? 'In coda...' 
+                        : result.isAlbum ? 'Scarica e dividi' : 'Scarica'}
                     </button>
                   </div>
                 </div>
