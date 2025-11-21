@@ -82,7 +82,7 @@ export default function Upload() {
 
       setYoutubeUrl('');
       
-      // Avvia il polling se non è già attivo
+      // Avvia il polling se non è già attivo (ogni 5 secondi)
       if (!pollingIntervalRef.current) {
         const fetchQueue = async () => {
           try {
@@ -90,16 +90,24 @@ export default function Upload() {
             const jobs = response.data.data.jobs || [];
             setQueue(jobs);
 
-            const hasActiveJobs = jobs.some(job => job.status === 'pending' || job.status === 'downloading');
+            const hasActiveJobs = jobs.some(job => 
+              job.status === 'pending' || 
+              job.status === 'downloading' || 
+              job.status === 'paused'
+            );
             if (!hasActiveJobs && pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
               pollingIntervalRef.current = null;
             }
           } catch (error) {
             console.error('Errore nel recupero della coda:', error);
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
           }
         };
-        pollingIntervalRef.current = setInterval(fetchQueue, 2000);
+        pollingIntervalRef.current = setInterval(fetchQueue, 5000);
       }
     } catch (error) {
       console.error('YouTube download error:', error);
@@ -292,7 +300,7 @@ export default function Upload() {
         thumbnailUrl: thumbnailUrl || null,
       });
 
-      // Avvia il polling se non è già attivo
+      // Avvia il polling se non è già attivo (ogni 5 secondi)
       if (!pollingIntervalRef.current) {
         const fetchQueue = async () => {
           try {
@@ -300,16 +308,24 @@ export default function Upload() {
             const jobs = response.data.data.jobs || [];
             setQueue(jobs);
 
-            const hasActiveJobs = jobs.some(job => job.status === 'pending' || job.status === 'downloading');
+            const hasActiveJobs = jobs.some(job => 
+              job.status === 'pending' || 
+              job.status === 'downloading' || 
+              job.status === 'paused'
+            );
             if (!hasActiveJobs && pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
               pollingIntervalRef.current = null;
             }
           } catch (error) {
             console.error('Errore nel recupero della coda:', error);
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
           }
         };
-        pollingIntervalRef.current = setInterval(fetchQueue, 2000);
+        pollingIntervalRef.current = setInterval(fetchQueue, 5000);
       }
     } catch (error) {
       console.error('YouTube download error:', error);
