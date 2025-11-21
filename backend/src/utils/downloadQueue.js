@@ -127,7 +127,6 @@ class DownloadQueue extends EventEmitter {
     }
 
     this.processing.set(userId, true);
-    const job = queue[jobIndex];
 
     // Il job verrà processato dal controller che chiamerà updateJob per aggiornare lo stato
     // Quando il job è completato o fallito, questo metodo verrà chiamato di nuovo
