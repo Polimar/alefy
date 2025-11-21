@@ -337,17 +337,90 @@ export const cancelJob = async (req, res, next) => {
       return next(new AppError('Non autorizzato', 403));
     }
 
-    // Solo i job pending possono essere cancellati
-    if (job.status !== 'pending') {
-      return next(new AppError('Solo i job in attesa possono essere cancellati', 400));
+    // Non permettere cancellazione di job completed (vengono rimossi automaticamente)
+    if (job.status === 'completed') {
+      return next(new AppError('Job già completato', 400));
+    }
+
+    // Se è downloading, emetti evento per fermare il processo
+    if (job.status === 'downloading') {
+      downloadQueue.emit('job-cancel-requested', job);
     }
 
     downloadQueue.removeJob(jobId);
+
+    // Se era in processing, riavvia la coda
+    downloadQueue.jobFinished(userId, jobId);
 
     res.json({
       success: true,
       data: {
         message: 'Job cancellato con successo',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const pauseJob = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const { jobId } = req.params;
+
+    const job = downloadQueue.getJob(jobId);
+    if (!job) {
+      return next(new AppError('Job non trovato', 404));
+    }
+
+    if (job.userId !== userId) {
+      return next(new AppError('Non autorizzato', 403));
+    }
+
+    // Solo job pending possono essere messi in pausa
+    if (job.status !== 'pending') {
+      return next(new AppError('Solo i job in attesa possono essere messi in pausa', 400));
+    }
+
+    const success = downloadQueue.pauseJob(jobId);
+    if (!success) {
+      return next(new AppError('Impossibile mettere in pausa questo job', 400));
+    }
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Job messo in pausa',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resumeJob = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const { jobId } = req.params;
+
+    const job = downloadQueue.getJob(jobId);
+    if (!job) {
+      return next(new AppError('Job non trovato', 404));
+    }
+
+    if (job.userId !== userId) {
+      return next(new AppError('Non autorizzato', 403));
+    }
+
+    const success = downloadQueue.resumeJob(jobId);
+    if (!success) {
+      return next(new AppError('Impossibile riprendere questo job', 400));
+    }
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Job ripreso',
       },
     });
   } catch (error) {

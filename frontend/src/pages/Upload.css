@@ -633,6 +633,11 @@
   border-left: 4px solid var(--error, #ff4444);
 }
 
+.queue-item-paused {
+  border-left: 4px solid var(--text-secondary);
+  opacity: 0.7;
+}
+
 .queue-item-header {
   display: flex;
   justify-content: space-between;
@@ -668,6 +673,10 @@
   color: var(--text-secondary);
 }
 
+.status-icon.paused {
+  color: var(--text-secondary);
+}
+
 .status-icon.spinning {
   animation: spin 1s linear infinite;
 }
@@ -681,7 +690,13 @@
   }
 }
 
-.queue-cancel-btn {
+.queue-item-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.queue-action-btn {
   padding: 6px 8px;
   background-color: transparent;
   border: 1px solid var(--border);
@@ -692,6 +707,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.queue-pause-btn:hover {
+  background-color: var(--text-secondary);
+  border-color: var(--text-secondary);
+  color: white;
+}
+
+.queue-resume-btn:hover {
+  background-color: var(--accent, #1db954);
+  border-color: var(--accent, #1db954);
+  color: white;
 }
 
 .queue-cancel-btn:hover {
@@ -762,8 +789,10 @@
     gap: 8px;
   }
 
-  .queue-cancel-btn {
+  .queue-item-actions {
     align-self: flex-end;
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .progress-info {

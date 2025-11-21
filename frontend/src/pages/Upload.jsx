@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
-import { Download, Music, Search, X, CheckCircle, XCircle, Clock, Loader } from 'lucide-react';
+import { Download, Music, Search, X, CheckCircle, XCircle, Clock, Loader, Pause, Play, Trash2 } from 'lucide-react';
 import './Upload.css';
 
 export default function Upload() {
@@ -178,6 +178,8 @@ export default function Upload() {
         return <Loader size={16} className="status-icon downloading spinning" />;
       case 'pending':
         return <Clock size={16} className="status-icon pending" />;
+      case 'paused':
+        return <Pause size={16} className="status-icon paused" />;
       default:
         return null;
     }
@@ -193,8 +195,34 @@ export default function Upload() {
         return 'Download in corso';
       case 'pending':
         return 'In attesa';
+      case 'paused':
+        return 'In pausa';
       default:
         return status;
+    }
+  };
+
+  const pauseJob = async (jobId) => {
+    try {
+      await api.post(`/youtube/queue/${jobId}/pause`);
+      // Aggiorna la coda dopo la pausa
+      const response = await api.get('/youtube/queue');
+      setQueue(response.data.data.jobs || []);
+    } catch (error) {
+      console.error('Errore nella pausa del job:', error);
+      alert('Errore durante la pausa del job');
+    }
+  };
+
+  const resumeJob = async (jobId) => {
+    try {
+      await api.post(`/youtube/queue/${jobId}/resume`);
+      // Aggiorna la coda dopo la ripresa
+      const response = await api.get('/youtube/queue');
+      setQueue(response.data.data.jobs || []);
+    } catch (error) {
+      console.error('Errore nella ripresa del job:', error);
+      alert('Errore durante la ripresa del job');
     }
   };
 
@@ -403,18 +431,47 @@ export default function Upload() {
                     {getStatusIcon(job.status)}
                     <span>{getStatusLabel(job.status)}</span>
                   </div>
-                  {job.status === 'pending' && (
-                    <button
-                      onClick={() => cancelJob(job.id)}
-                      className="queue-cancel-btn"
-                      title="Cancella"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
+                  <div className="queue-item-actions">
+                    {job.status === 'pending' && (
+                      <button
+                        onClick={() => pauseJob(job.id)}
+                        className="queue-action-btn queue-pause-btn"
+                        title="Metti in pausa"
+                      >
+                        <Pause size={14} />
+                      </button>
+                    )}
+                    {job.status === 'paused' && (
+                      <>
+                        <button
+                          onClick={() => resumeJob(job.id)}
+                          className="queue-action-btn queue-resume-btn"
+                          title="Riprendi"
+                        >
+                          <Play size={14} />
+                        </button>
+                        <button
+                          onClick={() => cancelJob(job.id)}
+                          className="queue-action-btn queue-cancel-btn"
+                          title="Elimina"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
+                    {(job.status === 'downloading' || job.status === 'failed') && (
+                      <button
+                        onClick={() => cancelJob(job.id)}
+                        className="queue-action-btn queue-cancel-btn"
+                        title="Elimina"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="queue-item-url">{job.url}</div>
-                {job.status === 'downloading' && (
+                {(job.status === 'downloading' || job.status === 'paused') && (
                   <div className="queue-item-progress">
                     <div className="progress-bar">
                       <div

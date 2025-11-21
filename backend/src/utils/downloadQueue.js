@@ -112,9 +112,16 @@ class DownloadQueue extends EventEmitter {
       return;
     }
 
-    // Trova il prossimo job pending
-    const jobIndex = queue.findIndex(j => j.status === 'pending');
+    // Trova il prossimo job pending (non paused)
+    const jobIndex = queue.findIndex(j => j.status === 'pending' || j.status === 'paused');
     if (jobIndex === -1) {
+      this.processing.set(userId, false);
+      return;
+    }
+
+    const job = queue[jobIndex];
+    // Se il job è paused, non processarlo
+    if (job.status === 'paused') {
       this.processing.set(userId, false);
       return;
     }
@@ -128,6 +135,48 @@ class DownloadQueue extends EventEmitter {
   }
 
   /**
+   * Mette in pausa un job
+   */
+  pauseJob(jobId) {
+    const job = this.jobs.get(jobId);
+    if (!job) return false;
+
+    // Solo job pending possono essere messi in pausa
+    if (job.status !== 'pending') {
+      return false;
+    }
+
+    this.updateJob(jobId, { status: 'paused' });
+    
+    // Se era in processing, ferma il worker
+    if (this.processing.get(job.userId)) {
+      this.processing.set(job.userId, false);
+    }
+
+    return true;
+  }
+
+  /**
+   * Riprende un job in pausa
+   */
+  resumeJob(jobId) {
+    const job = this.jobs.get(jobId);
+    if (!job) return false;
+
+    // Solo job paused possono essere ripresi
+    if (job.status !== 'paused') {
+      return false;
+    }
+
+    this.updateJob(jobId, { status: 'pending' });
+    
+    // Riavvia il processing della coda
+    this.processQueue(job.userId);
+
+    return true;
+  }
+
+  /**
    * Segnala che un job è stato completato o fallito
    */
   jobFinished(userId, jobId) {
@@ -137,14 +186,30 @@ class DownloadQueue extends EventEmitter {
   }
 
   /**
-   * Pulisce i job completati più vecchi di 1 ora
+   * Pulisce i job completati più vecchi di 5 secondi (per nasconderli subito dalla UI)
    */
   cleanupOldJobs() {
+    const fiveSecondsAgo = Date.now() - 5 * 1000;
+    
+    for (const [jobId, job] of this.jobs.entries()) {
+      if (
+        job.status === 'completed' &&
+        job.updatedAt.getTime() < fiveSecondsAgo
+      ) {
+        this.removeJob(jobId);
+      }
+    }
+  }
+
+  /**
+   * Pulisce i job falliti più vecchi di 1 ora
+   */
+  cleanupFailedJobs() {
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     
     for (const [jobId, job] of this.jobs.entries()) {
       if (
-        (job.status === 'completed' || job.status === 'failed') &&
+        job.status === 'failed' &&
         job.updatedAt.getTime() < oneHourAgo
       ) {
         this.removeJob(jobId);
@@ -156,9 +221,14 @@ class DownloadQueue extends EventEmitter {
 // Singleton instance
 const downloadQueue = new DownloadQueue();
 
-// Cleanup automatico ogni 30 minuti
+// Cleanup automatico job completati ogni 2 secondi
 setInterval(() => {
   downloadQueue.cleanupOldJobs();
+}, 2 * 1000);
+
+// Cleanup automatico job falliti ogni 30 minuti
+setInterval(() => {
+  downloadQueue.cleanupFailedJobs();
 }, 30 * 60 * 1000);
 
 export default downloadQueue;

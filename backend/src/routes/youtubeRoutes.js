@@ -1,5 +1,5 @@
 import express from 'express';
-import { downloadYouTube, searchYouTube, getQueue, cancelJob } from '../controllers/youtubeController.js';
+import { downloadYouTube, searchYouTube, getQueue, cancelJob, pauseJob, resumeJob } from '../controllers/youtubeController.js';
 import { authenticate } from '../middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 
@@ -43,6 +43,18 @@ router.delete(
   '/queue/:jobId',
   authenticate,
   cancelJob
+);
+
+router.post(
+  '/queue/:jobId/pause',
+  authenticate,
+  pauseJob
+);
+
+router.post(
+  '/queue/:jobId/resume',
+  authenticate,
+  resumeJob
 );
 
 export default router;
