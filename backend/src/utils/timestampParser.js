@@ -131,12 +131,16 @@ export function parseTimestampsFromDescription(description, totalDuration = null
     });
     
     // Trova quale parte appare più spesso come seconda parte (probabilmente l'artista)
-    const mostCommonSecondPart = Array.from(secondPartCounts.entries())
-      .sort((a, b) => b[1] - a[1])[0];
+    const secondPartEntries = Array.from(secondPartCounts.entries());
+    const mostCommonSecondPart = secondPartEntries.length > 0
+      ? secondPartEntries.sort((a, b) => b[1] - a[1])[0]
+      : null;
     
     // Trova quale parte appare più spesso come prima parte
-    const mostCommonFirstPart = Array.from(firstPartCounts.entries())
-      .sort((a, b) => b[1] - a[1])[0];
+    const firstPartEntries = Array.from(firstPartCounts.entries());
+    const mostCommonFirstPart = firstPartEntries.length > 0
+      ? firstPartEntries.sort((a, b) => b[1] - a[1])[0]
+      : null;
     
     // Se una parte appare sempre (o quasi sempre) come seconda parte, quella è l'artista
     const likelyArtist = mostCommonSecondPart && mostCommonSecondPart[1] >= rawTracks.length * 0.6 
@@ -146,7 +150,7 @@ export function parseTimestampsFromDescription(description, totalDuration = null
     // Se una parte appare sempre come prima parte e non come seconda, potrebbe essere l'artista invertito
     const likelyArtistInverted = mostCommonFirstPart && 
       mostCommonFirstPart[1] >= rawTracks.length * 0.6 &&
-      (!mostCommonSecondPart || mostCommonSecondPart[0] !== mostCommonFirstPart[0] || mostCommonSecondPart[1] < mostCommonFirstPart[1])
+      (!mostCommonSecondPart || mostCommonSecondPart[0] !== mostCommonFirstPart[0] || (mostCommonSecondPart[1] || 0) < mostCommonFirstPart[1])
       ? mostCommonFirstPart[0]
       : null;
     
@@ -181,8 +185,9 @@ export function parseTimestampsFromDescription(description, totalDuration = null
         const context = description.substring(contextStart, contextEnd);
         
         // Cerca pattern: numero traccia seguito da titolo prima del trattino finale
-        const altPattern = new RegExp(`(\\d+)\\.?\\s+([^-]+?)\\s*-\\s*${likelyArtist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
-        const altMatch = context.match(altPattern);
+        const escapedArtist = likelyArtist ? likelyArtist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+        const altPattern = escapedArtist ? new RegExp(`(\\d+)\\.?\\s+([^-]+?)\\s*-\\s*${escapedArtist}`, 'i') : null;
+        const altMatch = altPattern ? context.match(altPattern) : null;
         
         if (altMatch && altMatch[2]) {
           const altTitle = cleanTrackTitle(altMatch[2].trim());
