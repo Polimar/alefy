@@ -850,6 +850,10 @@ const splitSchema = z.object({
   useYouTubeDescription: z.boolean().optional().default(false),
 });
 
+const parseTimestampsSchema = z.object({
+  url: z.string().url('URL non valido'),
+});
+
 export const splitTrack = async (req, res, next) => {
   try {
     const userId = req.user.userId;
@@ -1007,6 +1011,73 @@ export const splitTrack = async (req, res, next) => {
         originalTrackId: trackId,
       },
     });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+};
+
+/**
+ * Parsa timestamp dalla descrizione di un video YouTube
+ */
+export const parseTimestampsFromVideo = async (req, res, next) => {
+  try {
+    const validatedData = parseTimestampsSchema.parse(req.body);
+    const { url } = validatedData;
+
+    console.log(`[Parse Timestamps] Parsing timestamp per URL: ${url}`);
+
+    const ytdlpPath = await getYtdlpPath();
+    
+    // Ottieni informazioni video con descrizione completa
+    const command = `${ytdlpPath} "${url}" --dump-json --no-playlist`;
+    
+    try {
+      const { stdout } = await execAsync(command, {
+        maxBuffer: 5 * 1024 * 1024, // 5MB
+        timeout: 30000 // 30 secondi
+      });
+
+      const videoData = JSON.parse(stdout.trim());
+      const description = videoData.description || '';
+      const duration = videoData.duration || 0;
+
+      // Parsa timestamp dalla descrizione
+      const tracks = parseTimestampsFromDescription(description, duration);
+
+      if (tracks.length === 0) {
+        return res.json({
+          success: true,
+          data: {
+            tracks: [],
+            message: 'Nessun timestamp trovato nella descrizione',
+          },
+        });
+      }
+
+      console.log(`[Parse Timestamps] Trovati ${tracks.length} timestamp`);
+
+      res.json({
+        success: true,
+        data: {
+          tracks: tracks.map(t => ({
+            startTime: t.startTime,
+            endTime: t.endTime,
+            title: t.title,
+          })),
+          count: tracks.length,
+        },
+      });
+    } catch (error) {
+      console.error(`[Parse Timestamps] Errore:`, error.message);
+      const errorMessage = error.stderr?.includes('ERROR')
+        ? error.stderr.split('ERROR')[1]?.substring(0, 200) || error.message
+        : error.message;
+      
+      throw new AppError('Errore durante il parsing dei timestamp: ' + errorMessage, 500);
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return next(new AppError(error.errors[0].message, 400));

@@ -274,8 +274,16 @@
   color: var(--text-secondary);
 }
 
-.result-download-btn {
+.result-actions {
   margin-top: auto;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.result-download-btn {
+  flex: 1;
+  min-width: 120px;
   padding: 10px 16px;
   background-color: var(--accent, #1db954);
   color: white;
@@ -299,6 +307,47 @@
 .result-download-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.result-parse-btn {
+  padding: 10px 16px;
+  background-color: transparent;
+  color: var(--accent, #1db954);
+  border: 2px dashed var(--accent, #1db954);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.result-parse-btn:hover:not(:disabled) {
+  background-color: var(--accent, #1db954);
+  color: white;
+  border-style: solid;
+  transform: scale(1.02);
+}
+
+.result-parse-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.result-parse-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .youtube-form {

@@ -25,6 +25,8 @@ export default function Upload() {
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [expandedTracks, setExpandedTracks] = useState({}); // Map<resultId, boolean>
   const [selectedTracks, setSelectedTracks] = useState({}); // Map<resultId, Set<trackIndex>>
+  const [parsedTimestamps, setParsedTimestamps] = useState({}); // Map<resultId, timestamps[]>
+  const [parsingTimestamps, setParsingTimestamps] = useState(new Set()); // Set<resultId> per tracciare parsing in corso
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -113,6 +115,20 @@ export default function Upload() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Verifica se la descrizione contiene pattern timestamp senza fare parsing completo
+  const hasTimestampInDescription = (description) => {
+    if (!description || typeof description !== 'string') {
+      return false;
+    }
+    
+    // Pattern semplice per rilevare timestamp: MM:SS o HH:MM:SS
+    // Cerca pattern come: (00:00), 00:00, 0:00, 00:00:00, ecc.
+    const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*\d{1,2}:\d{2}(?::\d{2})?\s*[-–—]?\s*[^\n\r\(\)\[\]]+/g;
+    
+    const matches = description.match(timestampPattern);
+    return matches && matches.length > 0;
   };
 
   // Polling per aggiornare lo stato della coda (solo quando ci sono job attivi)
@@ -349,13 +365,74 @@ export default function Upload() {
     }
   };
 
+  const handleParseTimestamps = async (result) => {
+    try {
+      setYoutubeError(null);
+      
+      // Aggiungi risultato al set di parsing in corso
+      setParsingTimestamps(prev => new Set(prev).add(result.id));
+      
+      const response = await api.post('/youtube/parse-timestamps', {
+        url: result.url,
+      });
+      
+      const tracks = response.data.data.tracks || [];
+      
+      if (tracks.length === 0) {
+        alert('Nessun timestamp trovato nella descrizione del video');
+        return;
+      }
+      
+      // Salva timestamp parsati
+      setParsedTimestamps(prev => ({
+        ...prev,
+        [result.id]: tracks,
+      }));
+      
+      // Inizializza tutte le tracce come selezionate
+      setSelectedTracks(prev => ({
+        ...prev,
+        [result.id]: new Set(tracks.map((_, idx) => idx)),
+      }));
+      
+      // Espandi automaticamente le tracce
+      setExpandedTracks(prev => ({
+        ...prev,
+        [result.id]: true,
+      }));
+      
+    } catch (error) {
+      console.error('Errore parsing timestamp:', error);
+      const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il parsing dei timestamp';
+      setYoutubeError(errorMessage);
+      alert(errorMessage);
+    } finally {
+      // Rimuovi risultato dal set di parsing in corso
+      setParsingTimestamps(prev => {
+        const next = new Set(prev);
+        next.delete(result.id);
+        return next;
+      });
+    }
+  };
+
   const handleDownloadFromSearch = async (result) => {
     try {
       setYoutubeError(null);
       
-      // Se è un album, mostra modal per playlist e tracce
-      if (result.isAlbum && result.timestamps && result.timestamps.length > 0) {
-        setSelectedResult(result);
+      // Verifica se ha timestamp parsati manualmente
+      const hasParsedTimestamps = parsedTimestamps[result.id] && parsedTimestamps[result.id].length > 0;
+      
+      // Se è un album o ha timestamp parsati manualmente, mostra modal per playlist e tracce
+      if ((result.isAlbum && result.timestamps && result.timestamps.length > 0) || hasParsedTimestamps) {
+        // Crea risultato virtuale con timestamp parsati se necessario
+        const resultToUse = hasParsedTimestamps ? {
+          ...result,
+          isAlbum: true,
+          timestamps: parsedTimestamps[result.id],
+        } : result;
+        
+        setSelectedResult(resultToUse);
         setShowPlaylistModal(true);
         
         // Suggerisci nome playlist dal canale/artista se disponibile
@@ -381,9 +458,11 @@ export default function Upload() {
   const handleConfirmDownload = async () => {
     if (!selectedResult) return;
     
-    // Ottieni tracce selezionate
+    // Usa timestamp parsati se disponibili, altrimenti quelli del risultato
+    const timestampsToUse = parsedTimestamps[selectedResult.id] || selectedResult.timestamps || [];
+    
     const selectedIndices = selectedTracks[selectedResult.id] || new Set();
-    const tracksToDownload = selectedResult.timestamps.filter((_, idx) => selectedIndices.has(idx));
+    const tracksToDownload = timestampsToUse.filter((_, idx) => selectedIndices.has(idx));
     
     if (tracksToDownload.length === 0) {
       alert('Seleziona almeno una traccia da scaricare');
@@ -396,7 +475,7 @@ export default function Upload() {
       const downloadData = {
         url: selectedResult.url,
         thumbnailUrl: selectedResult.thumbnail_url || null,
-        selectedTracks: tracksToDownload.length < selectedResult.timestamps.length ? tracksToDownload : null,
+        selectedTracks: tracksToDownload.length < timestampsToUse.length ? tracksToDownload : null,
       };
       
       // Aggiungi playlist se specificata
@@ -503,10 +582,12 @@ export default function Upload() {
                     {result.description && (
                       <p className="result-description">{result.description}</p>
                     )}
-                    {result.isAlbum && result.timestamps && result.timestamps.length > 0 && (
+                    {/* Mostra tracce per album automatici o timestamp parsati manualmente */}
+                    {((result.isAlbum && result.timestamps && result.timestamps.length > 0) || 
+                      (parsedTimestamps[result.id] && parsedTimestamps[result.id].length > 0)) && (
                       <div className="result-timestamps">
                         <strong>
-                          Tracce rilevate ({result.timestamps.length}):
+                          Tracce rilevate ({parsedTimestamps[result.id] ? parsedTimestamps[result.id].length : result.timestamps.length}):
                           {selectedTracks[result.id] && (
                             <span className="selected-count">
                               {' '}({selectedTracks[result.id].size} selezionate)
@@ -514,7 +595,7 @@ export default function Upload() {
                           )}
                         </strong>
                         <ul className="timestamps-list">
-                          {(expandedTracks[result.id] ? result.timestamps : result.timestamps.slice(0, 5)).map((ts, idx) => {
+                          {((parsedTimestamps[result.id] || result.timestamps) || []).slice(0, expandedTracks[result.id] ? undefined : 5).map((ts, idx) => {
                             const isSelected = selectedTracks[result.id]?.has(idx) !== false; // Default true
                             return (
                               <li key={idx} className={isSelected ? 'track-selected' : ''}>
@@ -531,15 +612,15 @@ export default function Upload() {
                               </li>
                             );
                           })}
-                          {result.timestamps.length > 5 && !expandedTracks[result.id] && (
+                          {(parsedTimestamps[result.id] || result.timestamps || []).length > 5 && !expandedTracks[result.id] && (
                             <li 
                               className="timestamps-more clickable"
                               onClick={() => toggleTrackExpansion(result.id)}
                             >
-                              ... e altre {result.timestamps.length - 5} tracce (clicca per espandere)
+                              ... e altre {(parsedTimestamps[result.id] || result.timestamps || []).length - 5} tracce (clicca per espandere)
                             </li>
                           )}
-                          {expandedTracks[result.id] && result.timestamps.length > 5 && (
+                          {(parsedTimestamps[result.id] || result.timestamps || []).length > 5 && expandedTracks[result.id] && (
                             <li 
                               className="timestamps-more clickable"
                               onClick={() => toggleTrackExpansion(result.id)}
@@ -550,16 +631,41 @@ export default function Upload() {
                         </ul>
                       </div>
                     )}
-                    <button
-                      onClick={() => handleDownloadFromSearch(result)}
-                      disabled={queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading'))}
-                      className="result-download-btn"
-                    >
-                      <Download size={16} />
-                      {queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading')) 
-                        ? 'In coda...' 
-                        : result.isAlbum ? 'Scarica e dividi' : 'Scarica'}
-                    </button>
+                    <div className="result-actions">
+                      {/* Bottone "Parsa timestamp" - mostra solo se non è album automatico, ha descrizione con timestamp, e non è già stato parsato */}
+                      {!result.isAlbum && 
+                       result.full_description && 
+                       hasTimestampInDescription(result.full_description) && 
+                       !parsedTimestamps[result.id] && (
+                        <button
+                          onClick={() => handleParseTimestamps(result)}
+                          disabled={parsingTimestamps.has(result.id)}
+                          className="result-parse-btn"
+                        >
+                          {parsingTimestamps.has(result.id) ? (
+                            <>
+                              <Loader size={16} className="spinning" />
+                              Parsing...
+                            </>
+                          ) : (
+                            <>
+                              <Search size={16} />
+                              Parsa timestamp
+                            </>
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDownloadFromSearch(result)}
+                        disabled={queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading'))}
+                        className="result-download-btn"
+                      >
+                        <Download size={16} />
+                        {queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading')) 
+                          ? 'In coda...' 
+                          : (result.isAlbum || (parsedTimestamps[result.id] && parsedTimestamps[result.id].length > 0)) ? 'Scarica e dividi' : 'Scarica'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -757,7 +863,7 @@ export default function Upload() {
               "{selectedResult.title}"
             </p>
             <p className="modal-info">
-              {selectedTracks[selectedResult.id]?.size || selectedResult.timestamps?.length || 0} tracce selezionate su {selectedResult.timestamps?.length || 0} totali
+              {selectedTracks[selectedResult.id]?.size || (parsedTimestamps[selectedResult.id] || selectedResult.timestamps || []).length || 0} tracce selezionate su {(parsedTimestamps[selectedResult.id] || selectedResult.timestamps || []).length || 0} totali
             </p>
 
             <div className="playlist-options">

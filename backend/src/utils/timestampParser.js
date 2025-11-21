@@ -119,3 +119,23 @@ export function hasTimestamps(description) {
   return tracks.length >= 3;
 }
 
+/**
+ * Verifica se la descrizione contiene pattern timestamp senza fare parsing completo
+ * Usa regex semplice per rilevare presenza di timestamp (MM:SS o HH:MM:SS)
+ * @param {string} description - Descrizione da verificare
+ * @returns {boolean} - True se contiene almeno un pattern timestamp
+ */
+export function hasTimestampPattern(description) {
+  if (!description || typeof description !== 'string') {
+    return false;
+  }
+  
+  // Pattern semplice per rilevare timestamp: MM:SS o HH:MM:SS
+  // Cerca pattern come: (00:00), 00:00, 0:00, 00:00:00, ecc.
+  const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*\d{1,2}:\d{2}(?::\d{2})?\s*[-–—]?\s*[^\n\r\(\)\[\]]+/g;
+  
+  // Conta quanti match troviamo
+  const matches = description.match(timestampPattern);
+  return matches && matches.length > 0;
+}
+
