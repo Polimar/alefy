@@ -72,7 +72,7 @@ export function parseTimestampsFromDescription(description, totalDuration = null
   // Pattern 1: [HH:MM:SS] - N. Titolo - Artista (priorità alta)
   // Esempio: "[00:00:00] - 01. Yesterday - The Beatles"
   // Usa solo trattino ASCII per evitare problemi di encoding
-  const bracketPattern = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?)\]\s*-\s*(\d+)\.?\s*([^-]+?)(?:\s*-\s*([^\n\r\[\]]+?))?(?=\s*\[|\s*\d{1,2}:\d{2}|$|\n|\r)/gi;
+  const bracketPattern = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*-\s*(\d+)\.?\s*([^-]+?)(?:\s*-\s*([^\n\r\[\]]+?))?(?=\s*\[|\s*\d{1,2}:\d{2}|$|\n|\r)/gi;
   
   let bracketMatches = 0;
   while ((match = bracketPattern.exec(description)) !== null) {
