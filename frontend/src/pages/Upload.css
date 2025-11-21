@@ -597,3 +597,179 @@
   transition: width 0.3s;
 }
 
+/* Download Queue Styles */
+.download-queue-section {
+  margin-bottom: 48px;
+}
+
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.queue-item {
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+.queue-item-pending {
+  border-left: 4px solid var(--text-secondary);
+}
+
+.queue-item-downloading {
+  border-left: 4px solid var(--accent, #1db954);
+}
+
+.queue-item-completed {
+  border-left: 4px solid var(--accent, #1db954);
+  opacity: 0.8;
+}
+
+.queue-item-failed {
+  border-left: 4px solid var(--error, #ff4444);
+}
+
+.queue-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.queue-item-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.status-icon {
+  flex-shrink: 0;
+}
+
+.status-icon.completed {
+  color: var(--accent, #1db954);
+}
+
+.status-icon.failed {
+  color: var(--error, #ff4444);
+}
+
+.status-icon.downloading {
+  color: var(--accent, #1db954);
+}
+
+.status-icon.pending {
+  color: var(--text-secondary);
+}
+
+.status-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.queue-cancel-btn {
+  padding: 6px 8px;
+  background-color: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.queue-cancel-btn:hover {
+  background-color: var(--error, #ff4444);
+  border-color: var(--error, #ff4444);
+  color: white;
+}
+
+.queue-item-url {
+  font-size: 13px;
+  color: var(--text-secondary);
+  word-break: break-all;
+  margin-bottom: 12px;
+}
+
+.queue-item-progress {
+  margin-top: 12px;
+}
+
+.queue-item-progress .progress-bar {
+  margin-bottom: 8px;
+}
+
+.progress-info {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.progress-speed,
+.progress-eta {
+  font-weight: 500;
+}
+
+.queue-item-error {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: rgba(255, 68, 68, 0.1);
+  border-radius: 6px;
+  color: var(--error, #ff4444);
+  font-size: 13px;
+}
+
+.queue-item-success {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: rgba(29, 185, 84, 0.1);
+  border-radius: 6px;
+  color: var(--accent, #1db954);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .download-queue-section {
+    margin-bottom: 24px;
+  }
+
+  .queue-item {
+    padding: 12px;
+  }
+
+  .queue-item-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .queue-cancel-btn {
+    align-self: flex-end;
+  }
+
+  .progress-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+

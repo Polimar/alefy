@@ -1,24 +1,22 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
-import { Download, Music, Search } from 'lucide-react';
+import { Download, Music, Search, X, CheckCircle, XCircle, Clock, Loader } from 'lucide-react';
 import './Upload.css';
 
 export default function Upload() {
-  const navigate = useNavigate();
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({});
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [downloading, setDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(null);
   const [youtubeError, setYoutubeError] = useState(null);
-  const [downloadStartTime, setDownloadStartTime] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLimit, setSearchLimit] = useState('10');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
+  const [queue, setQueue] = useState([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const pollingIntervalRef = useRef(null);
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -75,77 +73,38 @@ export default function Upload() {
     e.preventDefault();
     if (!youtubeUrl.trim()) return;
 
-    let timeoutId = null;
-    let updateMessageInterval = null;
-
     try {
-      setDownloading(true);
       setYoutubeError(null);
-      const startTime = Date.now();
-      setDownloadStartTime(startTime);
       
-      // Stato iniziale
-      setDownloadProgress({ status: 'downloading', message: 'Connessione a YouTube...', stage: 'init' });
-
-      // Timeout di sicurezza (5 minuti)
-      timeoutId = setTimeout(() => {
-        setDownloadProgress({ status: 'error', message: 'Timeout: il download sta impiegando troppo tempo' });
-        setYoutubeError('Il download sta impiegando troppo tempo. Riprova più tardi.');
-        setDownloading(false);
-      }, 5 * 60 * 1000);
-
-      // Aggiorna il messaggio con il tempo trascorso
-      updateMessageInterval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        const stages = [
-          { stage: 'init', message: 'Connessione a YouTube...' },
-          { stage: 'download', message: 'Download audio in corso...' },
-          { stage: 'process', message: 'Elaborazione metadati...' },
-          { stage: 'save', message: 'Salvataggio nel database...' },
-        ];
-        const currentStage = stages[Math.min(Math.floor(elapsed / 10), stages.length - 1)];
-        setDownloadProgress(prev => {
-          if (prev && prev.status === 'downloading') {
-            return {
-              ...prev,
-              message: `${currentStage.message} (${elapsed}s)`,
-              stage: currentStage.stage
-            };
-          }
-          return prev;
-        });
-      }, 1000);
-
-      const response = await api.post('/youtube/download', {
+      await api.post('/youtube/download', {
         url: youtubeUrl.trim(),
       });
 
-      // Download completato con successo
-      if (timeoutId) clearTimeout(timeoutId);
-      if (updateMessageInterval) clearInterval(updateMessageInterval);
-      
-      setDownloadProgress({ status: 'success', message: 'Download completato!', stage: 'complete' });
       setYoutubeUrl('');
       
-      // Refresh library after a short delay
-      setTimeout(() => {
-        navigate('/');
-        window.location.reload();
-      }, 2000);
+      // Avvia il polling se non è già attivo
+      if (!pollingIntervalRef.current) {
+        const fetchQueue = async () => {
+          try {
+            const response = await api.get('/youtube/queue');
+            const jobs = response.data.data.jobs || [];
+            setQueue(jobs);
+
+            const hasActiveJobs = jobs.some(job => job.status === 'pending' || job.status === 'downloading');
+            if (!hasActiveJobs && pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+          } catch (error) {
+            console.error('Errore nel recupero della coda:', error);
+          }
+        };
+        pollingIntervalRef.current = setInterval(fetchQueue, 2000);
+      }
     } catch (error) {
       console.error('YouTube download error:', error);
-      if (timeoutId) clearTimeout(timeoutId);
-      if (updateMessageInterval) clearInterval(updateMessageInterval);
-      
       const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
       setYoutubeError(errorMessage);
-      setDownloadProgress({ status: 'error', message: errorMessage });
-    } finally {
-      setDownloading(false);
-      setTimeout(() => {
-        setDownloadProgress(null);
-        setDownloadStartTime(null);
-      }, 3000);
     }
   };
 
@@ -163,6 +122,80 @@ export default function Upload() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Polling per aggiornare lo stato della coda
+  useEffect(() => {
+    const fetchQueue = async () => {
+      try {
+        const response = await api.get('/youtube/queue');
+        const jobs = response.data.data.jobs || [];
+        setQueue(jobs);
+
+        // Continua il polling se ci sono job attivi (pending o downloading)
+        const hasActiveJobs = jobs.some(job => job.status === 'pending' || job.status === 'downloading');
+        if (!hasActiveJobs && pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+      } catch (error) {
+        console.error('Errore nel recupero della coda:', error);
+      }
+    };
+
+    // Fetch iniziale
+    fetchQueue();
+
+    // Avvia polling ogni 2 secondi
+    pollingIntervalRef.current = setInterval(fetchQueue, 2000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const cancelJob = async (jobId) => {
+    try {
+      await api.delete(`/youtube/queue/${jobId}`);
+      // Aggiorna la coda dopo la cancellazione
+      const response = await api.get('/youtube/queue');
+      setQueue(response.data.data.jobs || []);
+    } catch (error) {
+      console.error('Errore nella cancellazione del job:', error);
+      alert('Errore durante la cancellazione del job');
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle size={16} className="status-icon completed" />;
+      case 'failed':
+        return <XCircle size={16} className="status-icon failed" />;
+      case 'downloading':
+        return <Loader size={16} className="status-icon downloading spinning" />;
+      case 'pending':
+        return <Clock size={16} className="status-icon pending" />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'Completato';
+      case 'failed':
+        return 'Errore';
+      case 'downloading':
+        return 'Download in corso';
+      case 'pending':
+        return 'In attesa';
+      default:
+        return status;
+    }
   };
 
   const handleSearch = async (e) => {
@@ -191,16 +224,39 @@ export default function Upload() {
     }
   };
 
-  const handleDownloadFromSearch = async (url) => {
-    // Usa la stessa logica del download normale
-    setYoutubeUrl(url);
-    // Trigger del download dopo un breve delay per permettere l'aggiornamento dello stato
-    setTimeout(() => {
-      const form = document.querySelector('.youtube-form');
-      if (form) {
-        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  const handleDownloadFromSearch = async (url, thumbnailUrl) => {
+    try {
+      setYoutubeError(null);
+      
+      await api.post('/youtube/download', {
+        url: url,
+        thumbnailUrl: thumbnailUrl || null,
+      });
+
+      // Avvia il polling se non è già attivo
+      if (!pollingIntervalRef.current) {
+        const fetchQueue = async () => {
+          try {
+            const response = await api.get('/youtube/queue');
+            const jobs = response.data.data.jobs || [];
+            setQueue(jobs);
+
+            const hasActiveJobs = jobs.some(job => job.status === 'pending' || job.status === 'downloading');
+            if (!hasActiveJobs && pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+          } catch (error) {
+            console.error('Errore nel recupero della coda:', error);
+          }
+        };
+        pollingIntervalRef.current = setInterval(fetchQueue, 2000);
       }
-    }, 100);
+    } catch (error) {
+      console.error('YouTube download error:', error);
+      const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
+      setYoutubeError(errorMessage);
+    }
   };
 
   return (
@@ -278,12 +334,12 @@ export default function Upload() {
                       <p className="result-description">{result.description}</p>
                     )}
                     <button
-                      onClick={() => handleDownloadFromSearch(result.url)}
-                      disabled={downloading}
+                      onClick={() => handleDownloadFromSearch(result.url, result.thumbnail_url)}
+                      disabled={queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading'))}
                       className="result-download-btn"
                     >
                       <Download size={16} />
-                      Scarica
+                      {queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading')) ? 'In coda...' : 'Scarica'}
                     </button>
                   </div>
                 </div>
@@ -314,10 +370,10 @@ export default function Upload() {
             />
             <button
               type="submit"
-              disabled={downloading || !youtubeUrl.trim() || !isValidYouTubeUrl(youtubeUrl)}
+              disabled={!youtubeUrl.trim() || !isValidYouTubeUrl(youtubeUrl)}
               className="youtube-download-btn"
             >
-              {downloading ? 'Download...' : 'Scarica'}
+              Aggiungi alla coda
             </button>
           </div>
           {!isValidYouTubeUrl(youtubeUrl) && youtubeUrl.trim() && (
@@ -330,20 +386,63 @@ export default function Upload() {
               {youtubeError}
             </div>
           )}
-          {downloadProgress && (
-            <div className={`youtube-progress ${downloadProgress.status}`}>
-              <div className="progress-message">{downloadProgress.message}</div>
-              {downloadProgress.status === 'downloading' && (
-                <div className="progress-bar-container">
-                  <div className="progress-bar">
-                    <div className="progress-fill progress-indeterminate" />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </form>
       </div>
+
+      {/* Download Queue Section */}
+      {queue.length > 0 && (
+        <div className="download-queue-section">
+          <h2>
+            <Download size={20} />
+            Coda Download ({queue.length})
+          </h2>
+          <div className="queue-list">
+            {queue.map((job) => (
+              <div key={job.id} className={`queue-item queue-item-${job.status}`}>
+                <div className="queue-item-header">
+                  <div className="queue-item-status">
+                    {getStatusIcon(job.status)}
+                    <span>{getStatusLabel(job.status)}</span>
+                  </div>
+                  {job.status === 'pending' && (
+                    <button
+                      onClick={() => cancelJob(job.id)}
+                      className="queue-cancel-btn"
+                      title="Cancella"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+                <div className="queue-item-url">{job.url}</div>
+                {job.status === 'downloading' && (
+                  <div className="queue-item-progress">
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${job.progress || 0}%` }}
+                      />
+                    </div>
+                    <div className="progress-info">
+                      <span>{Math.round(job.progress || 0)}%</span>
+                      {job.speed && <span className="progress-speed">{job.speed}</span>}
+                      {job.eta && <span className="progress-eta">ETA: {job.eta}</span>}
+                    </div>
+                  </div>
+                )}
+                {job.status === 'failed' && job.error && (
+                  <div className="queue-item-error">{job.error}</div>
+                )}
+                {job.status === 'completed' && job.track && (
+                  <div className="queue-item-success">
+                    ✓ {job.track.title} - {job.track.artist}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* File Upload Section */}
       <div className="upload-section">

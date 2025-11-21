@@ -82,6 +82,13 @@ import playlistsRoutes from './routes/playlistsRoutes.js';
 import youtubeRoutes from './routes/youtubeRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import usersRoutes from './routes/usersRoutes.js';
+import downloadQueue from './utils/downloadQueue.js';
+import { processDownloadJob } from './controllers/youtubeController.js';
+
+// Registra listener per processare job dalla coda
+downloadQueue.on('job-ready', async (job) => {
+  await processDownloadJob(job);
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);

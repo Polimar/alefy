@@ -1,5 +1,5 @@
 import express from 'express';
-import { downloadYouTube, searchYouTube } from '../controllers/youtubeController.js';
+import { downloadYouTube, searchYouTube, getQueue, cancelJob } from '../controllers/youtubeController.js';
 import { authenticate } from '../middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 
@@ -31,6 +31,18 @@ router.get(
   authenticate,
   searchLimiter,
   searchYouTube
+);
+
+router.get(
+  '/queue',
+  authenticate,
+  getQueue
+);
+
+router.delete(
+  '/queue/:jobId',
+  authenticate,
+  cancelJob
 );
 
 export default router;
