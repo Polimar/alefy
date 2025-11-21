@@ -4,6 +4,7 @@ import {
   getCookies,
   updateCookies,
   deleteCookies,
+  testCookies,
   upload,
 } from '../controllers/youtubeCookiesController.js';
 import { authenticate } from '../middleware/auth.js';
@@ -39,6 +40,13 @@ router.delete(
   authenticate,
   requireAdmin,
   deleteCookies
+);
+
+router.post(
+  '/:id/test',
+  authenticate,
+  requireAdmin,
+  testCookies
 );
 
 export default router;

@@ -279,3 +279,106 @@ export const getActiveCookiesPath = async () => {
   }
 };
 
+// Test connessione YouTube con cookies
+export const testCookies = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    // Recupera il percorso del file cookies
+    const result = await pool.query(
+      'SELECT cookies_file_path FROM youtube_cookies WHERE id = $1',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      throw new AppError('Cookies non trovati', 404);
+    }
+
+    const cookiesFilePath = path.join(getStoragePath(), result.rows[0].cookies_file_path);
+    
+    // Verifica che il file esista
+    try {
+      await fs.access(cookiesFilePath);
+    } catch (error) {
+      throw new AppError('File cookies non trovato', 404);
+    }
+
+    // Test con una ricerca semplice su YouTube
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+
+    // Trova yt-dlp
+    let ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
+    try {
+      const { stdout } = await execAsync(`which ${ytdlpPath}`, { maxBuffer: 1024 });
+      ytdlpPath = stdout.trim();
+    } catch (error) {
+      throw new AppError('yt-dlp non trovato', 500);
+    }
+
+    // Esegui una ricerca di test semplice
+    const testQuery = 'ytsearch1:test';
+    const command = `${ytdlpPath} "${testQuery}" --dump-json --no-playlist --cookies "${cookiesFilePath}"`;
+    
+    console.log(`[YouTube Cookies Test] Test cookies ID ${id} con comando: ${command}`);
+
+    try {
+      const { stdout, stderr } = await execAsync(command, {
+        maxBuffer: 1024 * 1024, // 1MB
+        timeout: 15000 // 15 secondi
+      });
+
+      // Se otteniamo un risultato JSON, i cookies funzionano
+      if (stdout.trim()) {
+        try {
+          const result = JSON.parse(stdout.trim());
+          if (result.id && result.title) {
+            return res.json({
+              success: true,
+              message: 'Cookies funzionanti! Test riuscito.',
+              data: {
+                testVideo: {
+                  id: result.id,
+                  title: result.title,
+                },
+              },
+            });
+          }
+        } catch (parseError) {
+          // Se non è JSON valido, potrebbe essere un errore
+        }
+      }
+
+      // Se c'è stderr con errori di autenticazione, i cookies non funzionano
+      if (stderr && (stderr.includes('Sign in') || stderr.includes('confirm'))) {
+        return res.json({
+          success: false,
+          message: 'Cookies non validi o scaduti. YouTube richiede autenticazione.',
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Test completato, ma risultato non chiaro. Verifica i log per dettagli.',
+      });
+    } catch (error) {
+      const errorMessage = error.stderr || error.message || 'Errore sconosciuto';
+      
+      if (errorMessage.includes('Sign in') || errorMessage.includes('confirm')) {
+        return res.json({
+          success: false,
+          message: 'Cookies non validi o scaduti. YouTube richiede autenticazione.',
+        });
+      }
+
+      throw new AppError(`Errore durante il test: ${errorMessage.substring(0, 200)}`, 500);
+    }
+  } catch (error) {
+    if (error instanceof AppError) {
+      return next(error);
+    }
+    next(error);
+  }
+};
+

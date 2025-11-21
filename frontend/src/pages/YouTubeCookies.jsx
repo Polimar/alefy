@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { Upload, Trash2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Upload, Trash2, CheckCircle, XCircle, AlertCircle, Play } from 'lucide-react';
 import './YouTubeCookies.css';
 
 export default function YouTubeCookies() {
@@ -9,6 +9,8 @@ export default function YouTubeCookies() {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [description, setDescription] = useState('');
+  const [testingCookies, setTestingCookies] = useState(new Set());
+  const [testResults, setTestResults] = useState({});
 
   useEffect(() => {
     loadCookies();
@@ -94,6 +96,40 @@ export default function YouTubeCookies() {
     } catch (error) {
       console.error('Error deleting cookies:', error);
       alert('Errore nell\'eliminazione dei cookies');
+    }
+  };
+
+  const handleTestCookies = async (id) => {
+    if (testingCookies.has(id)) return;
+
+    setTestingCookies(prev => new Set(prev).add(id));
+    setTestResults(prev => ({ ...prev, [id]: null }));
+
+    try {
+      const response = await api.post(`/youtube/cookies/${id}/test`);
+      setTestResults(prev => ({
+        ...prev,
+        [id]: {
+          success: response.data.success,
+          message: response.data.message,
+        },
+      }));
+    } catch (error) {
+      console.error('Error testing cookies:', error);
+      const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il test';
+      setTestResults(prev => ({
+        ...prev,
+        [id]: {
+          success: false,
+          message: errorMessage,
+        },
+      }));
+    } finally {
+      setTestingCookies(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -213,6 +249,22 @@ export default function YouTubeCookies() {
                   <td>
                     <div className="actions">
                       <button
+                        onClick={() => handleTestCookies(cookie.id)}
+                        disabled={testingCookies.has(cookie.id)}
+                        className="test-btn"
+                        title="Testa connessione"
+                      >
+                        {testingCookies.has(cookie.id) ? (
+                          <>
+                            <Play size={14} className="spinning" /> Test...
+                          </>
+                        ) : (
+                          <>
+                            <Play size={14} /> Test
+                          </>
+                        )}
+                      </button>
+                      <button
                         onClick={() => handleToggleActive(cookie.id, cookie.is_active)}
                         className={`toggle-btn ${cookie.is_active ? 'deactivate' : 'activate'}`}
                         title={cookie.is_active ? 'Disattiva' : 'Attiva'}
@@ -227,6 +279,16 @@ export default function YouTubeCookies() {
                         <Trash2 size={16} />
                       </button>
                     </div>
+                    {testResults[cookie.id] && (
+                      <div className={`test-result ${testResults[cookie.id].success ? 'success' : 'error'}`}>
+                        {testResults[cookie.id].success ? (
+                          <CheckCircle size={14} />
+                        ) : (
+                          <XCircle size={14} />
+                        )}
+                        <span>{testResults[cookie.id].message}</span>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
