@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { Home, Upload, ListMusic, LogOut, Menu, X, Users } from 'lucide-react';
+import { Home, Upload, ListMusic, LogOut, Menu, X, Users, Settings } from 'lucide-react';
 import Player from './Player';
 import './Layout.css';
 
@@ -105,7 +105,7 @@ export default function Layout() {
                 className={`nav-item ${location.pathname === '/youtube-cookies' ? 'active' : ''}`}
                 onClick={() => isMobile && setSidebarOpen(false)}
               >
-                <Cookie size={20} />
+                <Settings size={20} />
                 <span>Cookies YouTube</span>
               </Link>
             </>
