@@ -408,3 +408,114 @@
   }
 }
 
+/* Offline Mode Styles */
+.offline-controls {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.offline-selection-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.offline-btn-small {
+  padding: 6px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.offline-btn-small:hover {
+  background-color: var(--bg-primary);
+  border-color: var(--accent, #1db954);
+}
+
+.offline-selected-count {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.offline-download-btn {
+  padding: 10px 20px;
+  background-color: var(--accent, #1db954);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.offline-download-btn:hover:not(:disabled) {
+  background-color: var(--accent-hover, #1ed760);
+  transform: scale(1.02);
+}
+
+.offline-download-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.track-offline-checkbox,
+.track-card-offline-checkbox {
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.offline-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  position: relative;
+}
+
+.offline-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent, #1db954);
+}
+
+.offline-checkbox-label input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.offline-indicator {
+  color: var(--accent, #1db954);
+  flex-shrink: 0;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+

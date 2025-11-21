@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import usePlayerStore from '../store/playerStore';
 import api from '../utils/api';
+import { getTrackOffline } from '../utils/offlineStorage';
 import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
 import './Player.css';
 
@@ -155,6 +156,18 @@ export default function Player() {
         // NON chiamare pause() qui - lascia che il controllo isPlaying gestisca la pausa
         // Se isPlaying è true, l'audio verrà riprodotto automaticamente quando è pronto
 
+        // Controlla prima se la traccia è disponibile offline
+        const offlineTrack = await getTrackOffline(currentTrack.id);
+        
+        if (offlineTrack) {
+          console.log(`[Player] Traccia ${currentTrack.id} trovata offline, uso versione locale`);
+          blobUrlRef.current = URL.createObjectURL(offlineTrack.audioBlob);
+          audio.src = blobUrlRef.current;
+          audio.load();
+          return;
+        }
+
+        // Se non è offline, carica normalmente dal server
         const token = localStorage.getItem('accessToken');
         const streamUrl = `${API_URL}/stream/tracks/${currentTrack.id}`;
 

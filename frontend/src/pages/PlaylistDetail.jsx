@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
-import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1 } from 'lucide-react';
+import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1, Download, CheckCircle2, Loader } from 'lucide-react';
+import { saveTrackOffline, isTrackOffline, removeTrackOffline, getOfflineTracksForPlaylist } from '../utils/offlineStorage';
 import './PlaylistDetail.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -14,6 +15,10 @@ export default function PlaylistDetail() {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [coverUrl, setCoverUrl] = useState(null);
+  const [offlineMode, setOfflineMode] = useState(false);
+  const [selectedTracks, setSelectedTracks] = useState(new Set());
+  const [downloadingTracks, setDownloadingTracks] = useState(new Set());
+  const [offlineTracks, setOfflineTracks] = useState(new Set());
   const { 
     setCurrentTrack, 
     setQueue, 
@@ -27,6 +32,21 @@ export default function PlaylistDetail() {
   useEffect(() => {
     loadPlaylist();
   }, [id]);
+
+  // Carica tracce offline quando cambia la playlist
+  useEffect(() => {
+    const loadOfflineTracks = async () => {
+      if (!id) return;
+      try {
+        const offlineTracksList = await getOfflineTracksForPlaylist(parseInt(id));
+        const offlineIds = new Set(offlineTracksList.map(t => t.trackId));
+        setOfflineTracks(offlineIds);
+      } catch (error) {
+        console.error('Error loading offline tracks:', error);
+      }
+    };
+    loadOfflineTracks();
+  }, [id, tracks]);
 
   // Carica la cover art della prima traccia quando cambiano le tracce
   useEffect(() => {
@@ -161,6 +181,82 @@ export default function PlaylistDetail() {
     return `${mins}m`;
   };
 
+  const toggleTrackSelection = (trackId) => {
+    setSelectedTracks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(trackId)) {
+        newSet.delete(trackId);
+      } else {
+        newSet.add(trackId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllTracks = () => {
+    setSelectedTracks(new Set(tracks.map(t => t.id)));
+  };
+
+  const deselectAllTracks = () => {
+    setSelectedTracks(new Set());
+  };
+
+  const downloadSelectedTracks = async () => {
+    if (selectedTracks.size === 0) return;
+
+    const tracksToDownload = tracks.filter(t => selectedTracks.has(t.id));
+    setDownloadingTracks(new Set(tracksToDownload.map(t => t.id)));
+
+    try {
+      for (const track of tracksToDownload) {
+        try {
+          const token = localStorage.getItem('accessToken');
+          const streamUrl = `${API_URL}/stream/tracks/${track.id}`;
+          
+          const response = await fetch(streamUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Errore ${response.status}`);
+          }
+
+          const audioBlob = await response.blob();
+          await saveTrackOffline(track.id, audioBlob, track, parseInt(id));
+          
+          setOfflineTracks(prev => new Set(prev).add(track.id));
+        } catch (error) {
+          console.error(`Error downloading track ${track.id}:`, error);
+          alert(`Errore nel download di "${track.title}"`);
+        }
+      }
+
+      setSelectedTracks(new Set());
+      alert(`${tracksToDownload.length} traccia/e scaricate offline con successo!`);
+    } catch (error) {
+      console.error('Error downloading tracks:', error);
+      alert('Errore nel download delle tracce');
+    } finally {
+      setDownloadingTracks(new Set());
+    }
+  };
+
+  const removeOfflineTrack = async (trackId) => {
+    try {
+      await removeTrackOffline(trackId);
+      setOfflineTracks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(trackId);
+        return newSet;
+      });
+    } catch (error) {
+      console.error('Error removing offline track:', error);
+      alert('Errore nella rimozione della traccia offline');
+    }
+  };
+
   if (loading) {
     return (
       <div className="playlist-detail">
@@ -229,7 +325,46 @@ export default function PlaylistDetail() {
             >
               {repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
             </button>
+            <button 
+              className={`control-btn ${offlineMode ? 'active' : ''}`}
+              onClick={() => setOfflineMode(!offlineMode)}
+              title="Modalità offline"
+            >
+              <Download size={18} />
+            </button>
           </div>
+          {offlineMode && (
+            <div className="offline-controls">
+              <div className="offline-selection-controls">
+                <button onClick={selectAllTracks} className="offline-btn-small">
+                  Seleziona tutte
+                </button>
+                <button onClick={deselectAllTracks} className="offline-btn-small">
+                  Deseleziona tutte
+                </button>
+                <span className="offline-selected-count">
+                  {selectedTracks.size} selezionate
+                </span>
+              </div>
+              <button 
+                onClick={downloadSelectedTracks}
+                disabled={selectedTracks.size === 0 || downloadingTracks.size > 0}
+                className="offline-download-btn"
+              >
+                {downloadingTracks.size > 0 ? (
+                  <>
+                    <Loader size={16} className="spinning" />
+                    Download in corso...
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} />
+                    Scarica offline ({selectedTracks.size})
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -245,6 +380,7 @@ export default function PlaylistDetail() {
             <table className="tracks-table tracks-table-desktop">
               <thead>
                 <tr>
+                  {offlineMode && <th></th>}
                   <th>#</th>
                   <th>Titolo</th>
                   <th>Album</th>
@@ -255,6 +391,21 @@ export default function PlaylistDetail() {
               <tbody>
                 {tracks.map((track, index) => (
                   <tr key={track.id} className="track-row">
+                    {offlineMode && (
+                      <td className="track-offline-checkbox">
+                        <label className="offline-checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={selectedTracks.has(track.id)}
+                            onChange={() => toggleTrackSelection(track.id)}
+                            disabled={downloadingTracks.has(track.id)}
+                          />
+                          {offlineTracks.has(track.id) && (
+                            <CheckCircle2 size={16} className="offline-indicator" title="Disponibile offline" />
+                          )}
+                        </label>
+                      </td>
+                    )}
                     <td className="track-number">{index + 1}</td>
                     <td className="track-info">
                       <div className="track-title">{track.title}</div>
@@ -270,13 +421,24 @@ export default function PlaylistDetail() {
                       >
                         <Play size={16} />
                       </button>
-                      <button
-                        className="action-btn"
-                        onClick={() => handleRemoveTrack(track.id)}
-                        title="Rimuovi"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {offlineMode && offlineTracks.has(track.id) && (
+                        <button
+                          className="action-btn"
+                          onClick={() => removeOfflineTrack(track.id)}
+                          title="Rimuovi offline"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                      {!offlineMode && (
+                        <button
+                          className="action-btn"
+                          onClick={() => handleRemoveTrack(track.id)}
+                          title="Rimuovi"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -287,6 +449,21 @@ export default function PlaylistDetail() {
             <div className="tracks-table-mobile">
               {tracks.map((track, index) => (
                 <div key={track.id} className="track-card">
+                  {offlineMode && (
+                    <div className="track-card-offline-checkbox">
+                      <label className="offline-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={selectedTracks.has(track.id)}
+                          onChange={() => toggleTrackSelection(track.id)}
+                          disabled={downloadingTracks.has(track.id)}
+                        />
+                        {offlineTracks.has(track.id) && (
+                          <CheckCircle2 size={16} className="offline-indicator" title="Disponibile offline" />
+                        )}
+                      </label>
+                    </div>
+                  )}
                   <div className="track-card-number">{index + 1}</div>
                   <div className="track-card-info">
                     <div className="track-card-title">{track.title}</div>
@@ -301,13 +478,24 @@ export default function PlaylistDetail() {
                     >
                       <Play size={18} />
                     </button>
-                    <button
-                      className="action-btn"
-                      onClick={() => handleRemoveTrack(track.id)}
-                      title="Rimuovi"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    {offlineMode && offlineTracks.has(track.id) && (
+                      <button
+                        className="action-btn"
+                        onClick={() => removeOfflineTrack(track.id)}
+                        title="Rimuovi offline"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                    {!offlineMode && (
+                      <button
+                        className="action-btn"
+                        onClick={() => handleRemoveTrack(track.id)}
+                        title="Rimuovi"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

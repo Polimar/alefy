@@ -245,8 +245,71 @@ export function parseTimestampsFromDescription(description, totalDuration = null
   
   console.log(`[Timestamp Parser] Tracce dopo normalizzazione: ${foundTimestamps.length}`);
   
-  // Pattern 2: Standard con parentesi o senza: (HH:MM:SS) o HH:MM:SS seguito da titolo
+  // Pattern 2: Formato "N. TITOLO MM'SS"" (es. "1. CITTÀ VUOTA 2'39" (2025 Remaster)")
+  // Questo pattern calcola lo startTime accumulando le durate delle tracce precedenti
   // Solo se non abbiamo trovato nulla con le parentesi quadre
+  if (foundTimestamps.length === 0) {
+    console.log(`[Timestamp Parser] Nessun match con pattern bracket, provo pattern durata accumulata`);
+    
+    // Pattern per: N. TITOLO MM'SS" o N. TITOLO M'SS"
+    // Esempi:
+    // - "1. CITTÀ VUOTA 2'39" (2025 Remaster)
+    // - "2. È L'UOMO PER ME 2'23" (2025 Remaster)
+    // - "14. TITOLO 3'45"
+    const durationPattern = /(\d+)\.\s+([^0-9]+?)\s+(\d{1,2})[''](\d{1,2})[""]/gi;
+    
+    const durationTracks = [];
+    let accumulatedTime = 0;
+    
+    while ((match = durationPattern.exec(description)) !== null) {
+      const trackNumber = parseInt(match[1], 10);
+      let title = (match[2] || '').trim();
+      const minutes = parseInt(match[3], 10);
+      const seconds = parseInt(match[4], 10);
+      const duration = minutes * 60 + seconds;
+      
+      // Pulisci il titolo: rimuovi note tra parentesi alla fine (es. "(2025 Remaster)")
+      title = title.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      title = cleanTrackTitle(title);
+      
+      if (title && title.length > 0 && duration > 0) {
+        durationTracks.push({
+          trackNumber,
+          title,
+          duration,
+          startTime: accumulatedTime,
+          index: match.index,
+        });
+        
+        console.log(`[Timestamp Parser] Trovato con pattern durata: traccia ${trackNumber}, startTime=${accumulatedTime}s, durata=${duration}s, titolo="${title}"`);
+        
+        // Accumula la durata per la prossima traccia
+        accumulatedTime += duration;
+      }
+    }
+    
+    if (durationTracks.length >= 3) {
+      // Abbiamo trovato almeno 3 tracce con questo formato, usiamole
+      console.log(`[Timestamp Parser] Pattern durata trovati: ${durationTracks.length} tracce`);
+      
+      for (let i = 0; i < durationTracks.length; i++) {
+        const current = durationTracks[i];
+        const next = durationTracks[i + 1];
+        
+        foundTimestamps.push({
+          timestamp: `${current.trackNumber}. ${current.title} ${Math.floor(current.duration / 60)}'${current.duration % 60}"`,
+          startTime: current.startTime,
+          title: current.title,
+          index: current.index,
+        });
+      }
+    } else if (durationTracks.length > 0) {
+      console.log(`[Timestamp Parser] Pattern durata trovati solo ${durationTracks.length} tracce, non sufficienti per considerarlo valido`);
+    }
+  }
+  
+  // Pattern 3: Standard con parentesi o senza: (HH:MM:SS) o HH:MM:SS seguito da titolo
+  // Solo se non abbiamo trovato nulla con i pattern precedenti
   if (foundTimestamps.length === 0) {
     console.log(`[Timestamp Parser] Nessun match con pattern bracket, provo pattern standard`);
     // Usa solo trattino ASCII per evitare problemi di encoding
@@ -337,13 +400,19 @@ export function hasTimestampPattern(description) {
     return false;
   }
   
-  // Pattern semplice per rilevare timestamp: MM:SS o HH:MM:SS
+  // Pattern 1: Timestamp standard: MM:SS o HH:MM:SS
   // Cerca pattern come: (00:00), 00:00, 0:00, 00:00:00, ecc.
   // Usa solo trattino ASCII per evitare problemi di encoding
   const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*\d{1,2}:\d{2}(?::\d{2})?\s*-?\s*[^\n\r\(\)\[\]]+/g;
+  const timestampMatches = description.match(timestampPattern);
   
-  // Conta quanti match troviamo
-  const matches = description.match(timestampPattern);
-  return matches && matches.length > 0;
+  // Pattern 2: Formato durata "MM'SS"" (es. "2'39"", "12'45"")
+  // Cerca pattern come: N. TITOLO MM'SS" o N. TITOLO M'SS"
+  const durationPattern = /\d+\.\s+[^0-9]+?\s+\d{1,2}['']\d{1,2}[""]/gi;
+  const durationMatches = description.match(durationPattern);
+  
+  // Ritorna true se troviamo almeno un match con uno dei pattern
+  return (timestampMatches && timestampMatches.length > 0) || 
+         (durationMatches && durationMatches.length >= 3); // Almeno 3 tracce per formato durata
 }
 

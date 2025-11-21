@@ -124,12 +124,19 @@ export default function Upload() {
       return false;
     }
     
-    // Pattern semplice per rilevare timestamp: MM:SS o HH:MM:SS
+    // Pattern 1: Timestamp standard: MM:SS o HH:MM:SS
     // Cerca pattern come: (00:00), 00:00, 0:00, 00:00:00, ecc.
     const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*\d{1,2}:\d{2}(?::\d{2})?\s*[-–—]?\s*[^\n\r\(\)\[\]]+/g;
+    const timestampMatches = description.match(timestampPattern);
     
-    const matches = description.match(timestampPattern);
-    return matches && matches.length > 0;
+    // Pattern 2: Formato durata "MM'SS"" (es. "2'39"", "12'45"")
+    // Cerca pattern come: N. TITOLO MM'SS" o N. TITOLO M'SS"
+    const durationPattern = /\d+\.\s+[^0-9]+?\s+\d{1,2}['']\d{1,2}[""]/gi;
+    const durationMatches = description.match(durationPattern);
+    
+    // Ritorna true se troviamo almeno un match con uno dei pattern
+    return (timestampMatches && timestampMatches.length > 0) || 
+           (durationMatches && durationMatches.length >= 3); // Almeno 3 tracce per formato durata
   };
 
   // Polling per aggiornare lo stato della coda (solo quando ci sono job attivi)
