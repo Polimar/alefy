@@ -44,22 +44,38 @@ app.use(morgan('combined', {
   }
 }));
 
-// Rate limiting generale più permissivo
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 500, // Aumentato a 500
+// Rate limiting più permissivo per GET (richieste di lettura)
+const getLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuti
+  max: 1000, // 1000 richieste GET ogni 15 minuti
+  message: 'Troppe richieste da questo IP, riprova più tardi.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: false,
+});
+
+// Rate limiting per POST/PUT/DELETE (più restrittivo)
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuti
+  max: 200, // 200 richieste di scrittura ogni 15 minuti
   message: 'Troppe richieste da questo IP, riprova più tardi.',
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Applica rate limiting generale a tutte le API tranne auth (che ha il suo rate limiter)
+// Applica rate limiting differenziato per metodo HTTP
 app.use('/api/', (req, res, next) => {
   // Skip rate limiting per login e register (hanno il loro rate limiter nelle route)
   if (req.path === '/auth/login' || req.path === '/auth/register') {
     return next();
   }
-  limiter(req, res, next);
+  
+  // Applica rate limiting basato sul metodo HTTP
+  if (req.method === 'GET') {
+    getLimiter(req, res, next);
+  } else {
+    writeLimiter(req, res, next);
+  }
 });
 
 // Disabilita cache per tutte le risposte API

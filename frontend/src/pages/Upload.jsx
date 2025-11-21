@@ -124,7 +124,7 @@ export default function Upload() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Polling per aggiornare lo stato della coda
+  // Polling per aggiornare lo stato della coda (solo quando ci sono job attivi)
   useEffect(() => {
     const fetchQueue = async () => {
       try {
@@ -132,26 +132,57 @@ export default function Upload() {
         const jobs = response.data.data.jobs || [];
         setQueue(jobs);
 
-        // Continua il polling se ci sono job attivi (pending o downloading)
-        const hasActiveJobs = jobs.some(job => job.status === 'pending' || job.status === 'downloading');
+        // Continua il polling solo se ci sono job attivi (pending, downloading, o paused)
+        const hasActiveJobs = jobs.some(job => 
+          job.status === 'pending' || 
+          job.status === 'downloading' || 
+          job.status === 'paused'
+        );
+        
         if (!hasActiveJobs && pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
         }
       } catch (error) {
         console.error('Errore nel recupero della coda:', error);
+        // In caso di errore, ferma il polling per evitare richieste continue
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
       }
     };
 
     // Fetch iniziale
-    fetchQueue();
-
-    // Avvia polling ogni 2 secondi
-    pollingIntervalRef.current = setInterval(fetchQueue, 2000);
+    fetchQueue().then(() => {
+      // Controlla se ci sono job attivi dopo il fetch iniziale
+      const checkAndStartPolling = async () => {
+        try {
+          const response = await api.get('/youtube/queue');
+          const jobs = response.data.data.jobs || [];
+          const hasActiveJobs = jobs.some(job => 
+            job.status === 'pending' || 
+            job.status === 'downloading' || 
+            job.status === 'paused'
+          );
+          
+          // Avvia polling solo se ci sono job attivi, ogni 5 secondi invece di 2
+          if (hasActiveJobs && !pollingIntervalRef.current) {
+            pollingIntervalRef.current = setInterval(fetchQueue, 5000);
+          }
+        } catch (error) {
+          console.error('Errore nel controllo iniziale della coda:', error);
+        }
+      };
+      
+      // Controlla dopo un breve delay
+      setTimeout(checkAndStartPolling, 1000);
+    });
 
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
   }, []);
