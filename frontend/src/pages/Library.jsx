@@ -51,12 +51,34 @@ export default function Library() {
   }, [search]);
 
   useEffect(() => {
-    // Load cover arts for tracks that have them
-    tracks.forEach(track => {
-      if (track.cover_art_path && !coverUrls[track.id]) {
-        getCoverArtUrl(track).catch(err => console.error('Error loading cover:', err));
-      }
+    // Load cover arts for tracks that have them - batch loading per evitare troppe richieste simultanee
+    const tracksToLoad = tracks.filter(track => 
+      track.cover_art_path && 
+      !coverUrls[track.id] && 
+      !loadingCoversRef.current.has(track.id)
+    );
+    
+    // Carica massimo 5 cover alla volta per evitare sovraccarico
+    const MAX_CONCURRENT_LOADS = 5;
+    const tracksToLoadNow = tracksToLoad.slice(0, MAX_CONCURRENT_LOADS);
+    
+    tracksToLoadNow.forEach(track => {
+      getCoverArtUrl(track).catch(err => console.error('Error loading cover:', err));
     });
+    
+    // Se ci sono altre cover da caricare, le carica dopo un breve delay
+    if (tracksToLoad.length > MAX_CONCURRENT_LOADS) {
+      const remainingTracks = tracksToLoad.slice(MAX_CONCURRENT_LOADS);
+      const delay = 1000; // 1 secondo di delay tra batch
+      
+      remainingTracks.forEach((track, index) => {
+        setTimeout(() => {
+          if (!coverUrls[track.id] && !loadingCoversRef.current.has(track.id)) {
+            getCoverArtUrl(track).catch(err => console.error('Error loading cover:', err));
+          }
+        }, delay * (Math.floor(index / MAX_CONCURRENT_LOADS) + 1));
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tracks]);
 
@@ -103,10 +125,18 @@ export default function Library() {
   };
 
   const [coverUrls, setCoverUrls] = useState({});
+  const loadingCoversRef = useRef(new Set()); // Traccia le cover in caricamento per evitare chiamate duplicate
 
   const getCoverArtUrl = async (track) => {
     if (!track.cover_art_path) return null;
     if (coverUrls[track.id]) return coverUrls[track.id];
+    
+    // Evita chiamate duplicate se già in caricamento
+    if (loadingCoversRef.current.has(track.id)) {
+      return null;
+    }
+
+    loadingCoversRef.current.add(track.id);
 
     try {
       const token = localStorage.getItem('accessToken');
@@ -124,6 +154,8 @@ export default function Library() {
       }
     } catch (error) {
       console.error('Error loading cover art:', error);
+    } finally {
+      loadingCoversRef.current.delete(track.id);
     }
     return null;
   };
@@ -313,9 +345,8 @@ export default function Library() {
               <tbody>
                 {tracks.map((track) => {
                   const coverUrl = coverUrls[track.id];
-                  if (track.cover_art_path && !coverUrl) {
-                    getCoverArtUrl(track);
-                  }
+                  // RIMOSSO: chiamata durante il render (anti-pattern)
+                  // Le cover vengono caricate nel useEffect sopra
                   return (
                     <tr
                       key={track.id}
@@ -405,9 +436,8 @@ export default function Library() {
           <div className="tracks-table-mobile">
             {tracks.map((track) => {
               const coverUrl = coverUrls[track.id];
-              if (track.cover_art_path && !coverUrl) {
-                getCoverArtUrl(track);
-              }
+              // RIMOSSO: chiamata durante il render (anti-pattern)
+              // Le cover vengono caricate nel useEffect sopra
               return (
                 <div
                   key={track.id}
