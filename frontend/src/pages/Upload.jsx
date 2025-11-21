@@ -90,33 +90,8 @@ export default function Upload() {
 
       setYoutubeUrl('');
       
-      // Avvia il polling se non è già attivo (ogni 5 secondi)
-      if (!pollingIntervalRef.current) {
-        const fetchQueue = async () => {
-          try {
-            const response = await api.get('/youtube/queue');
-            const jobs = response.data.data.jobs || [];
-            setQueue(jobs);
-
-            const hasActiveJobs = jobs.some(job => 
-              job.status === 'pending' || 
-              job.status === 'downloading' || 
-              job.status === 'paused'
-            );
-            if (!hasActiveJobs && pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-          } catch (error) {
-            console.error('Errore nel recupero della coda:', error);
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-          }
-        };
-        pollingIntervalRef.current = setInterval(fetchQueue, 5000);
-      }
+      // Il polling viene gestito automaticamente dal useEffect quando ci sono job attivi
+      // Non serve avviarlo manualmente qui
     } catch (error) {
       console.error('YouTube download error:', error);
       const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
