@@ -53,7 +53,11 @@ export async function splitAudioFile(inputPath, tracks, outputDir, progressCallb
     const outputPath = path.join(outputDir, outputFilename);
 
     await new Promise((resolve, reject) => {
-      const duration = endTime ? endTime - startTime : null;
+      // Calcola durata: se endTime è null, usa durata fino alla fine del file
+      // Altrimenti calcola la differenza tra endTime e startTime
+      const duration = endTime && endTime > startTime ? endTime - startTime : null;
+      
+      console.log(`[Audio Splitter] Traccia "${title}": startTime=${startTime}s, endTime=${endTime || 'null'}s, duration=${duration || 'fino alla fine'}s`);
       
       const command = ffmpeg(inputPath)
         .seekInput(startTime)
@@ -61,7 +65,7 @@ export async function splitAudioFile(inputPath, tracks, outputDir, progressCallb
         .audioCodec('libmp3lame')
         .audioBitrate('192k');
       
-      if (duration) {
+      if (duration && duration > 0) {
         command.duration(duration);
       }
       

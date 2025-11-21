@@ -320,7 +320,7 @@ export async function processDownloadJob(job) {
       const duration = videoInfo?.duration || metadata.duration || 0;
       tracksToSplit = selectedTracks.map((st, index) => {
         let endTime = st.endTime;
-        if (!endTime) {
+        if (!endTime || endTime === null) {
           // Se non c'è endTime, usa quello della traccia successiva o la durata totale
           const nextTrack = selectedTracks[index + 1];
           endTime = nextTrack ? nextTrack.startTime : (duration || null);
@@ -332,11 +332,13 @@ export async function processDownloadJob(job) {
         };
       });
       console.log(`[YouTube Download] Job ${jobId}: Usando ${tracksToSplit.length} tracce selezionate manualmente (parsing manuale)`);
+      console.log(`[YouTube Download] Job ${jobId}: Durata video: ${duration}s`);
+      console.log(`[YouTube Download] Job ${jobId}: Tracce con endTime:`, tracksToSplit.map(t => `${t.startTime}s-${t.endTime || 'null'}s: ${t.title}`).join(', '));
     }
     
     if (tracksToSplit && tracksToSplit.length > 0) {
-      
-      console.log(`[YouTube Download] Job ${jobId}: Divisione album in ${tracksToSplit.length} tracce...`);
+      console.log(`[YouTube Download] Job ${jobId}: Divisione in ${tracksToSplit.length} tracce...`);
+      console.log(`[YouTube Download] Job ${jobId}: Tracce da dividere:`, tracksToSplit.map(t => `${t.startTime}s - ${t.title}`).join(', '));
       downloadQueue.updateJob(jobId, { 
         progress: 92,
         statusMessage: `Divisione album in ${tracksToSplit.length} tracce...`
