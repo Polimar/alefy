@@ -91,14 +91,24 @@ export default function Layout() {
             <span>Playlist</span>
           </Link>
           {user?.is_admin && (
-            <Link
-              to="/users"
-              className={`nav-item ${location.pathname === '/users' ? 'active' : ''}`}
-              onClick={() => isMobile && setSidebarOpen(false)}
-            >
-              <Users size={20} />
-              <span>Utenti</span>
-            </Link>
+            <>
+              <Link
+                to="/users"
+                className={`nav-item ${location.pathname === '/users' ? 'active' : ''}`}
+                onClick={() => isMobile && setSidebarOpen(false)}
+              >
+                <Users size={20} />
+                <span>Utenti</span>
+              </Link>
+              <Link
+                to="/youtube-cookies"
+                className={`nav-item ${location.pathname === '/youtube-cookies' ? 'active' : ''}`}
+                onClick={() => isMobile && setSidebarOpen(false)}
+              >
+                <Cookie size={20} />
+                <span>Cookies YouTube</span>
+              </Link>
+            </>
           )}
         </nav>
         <div className="sidebar-footer">

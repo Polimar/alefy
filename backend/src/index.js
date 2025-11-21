@@ -108,6 +108,7 @@ import playlistsRoutes from './routes/playlistsRoutes.js';
 import youtubeRoutes from './routes/youtubeRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import usersRoutes from './routes/usersRoutes.js';
+import youtubeCookiesRoutes from './routes/youtubeCookiesRoutes.js';
 import downloadQueue from './utils/downloadQueue.js';
 import { processDownloadJob } from './controllers/youtubeController.js';
 
@@ -122,6 +123,7 @@ app.use('/api/stream', streamRoutes);
 app.use('/api/tracks', tracksRoutes);
 app.use('/api/playlists', playlistsRoutes);
 app.use('/api/youtube', youtubeRoutes);
+app.use('/api/youtube/cookies', youtubeCookiesRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/users', usersRoutes);
 

@@ -8,6 +8,7 @@ import Upload from './pages/Upload';
 import Playlists from './pages/Playlists';
 import PlaylistDetail from './pages/PlaylistDetail';
 import Users from './pages/Users';
+import YouTubeCookies from './pages/YouTubeCookies';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -50,6 +51,14 @@ function App() {
           element={
             <ProtectedRoute requireAdmin={true}>
               <Users />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="youtube-cookies" 
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <YouTubeCookies />
             </ProtectedRoute>
           } 
         />

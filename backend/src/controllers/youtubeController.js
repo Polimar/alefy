@@ -11,6 +11,7 @@ import { detectAlbum } from '../utils/albumDetector.js';
 import { parseTimestampsFromDescription } from '../utils/timestampParser.js';
 import { splitAudioFile } from '../utils/audioSplitter.js';
 import { searchTrackMetadata } from '../utils/metadataSearch.js';
+import { getActiveCookiesPath } from './youtubeCookiesController.js';
 import { z } from 'zod';
 
 const execAsync = promisify(exec);
@@ -92,7 +93,11 @@ export async function processDownloadJob(job) {
     let finalPlaylistId = playlistId || null;
     
     try {
-      const infoCommand = `${ytdlpPath} "${url}" --dump-json --no-playlist`;
+      // Ottieni cookies attivi se disponibili
+      const cookiesPath = await getActiveCookiesPath();
+      const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
+      
+      const infoCommand = `${ytdlpPath} "${url}" --dump-json --no-playlist ${cookiesFlag}`.trim();
       const { stdout: infoStdout } = await execAsync(infoCommand, {
         maxBuffer: 5 * 1024 * 1024,
         timeout: 30000,
@@ -782,9 +787,13 @@ export const searchYouTube = async (req, res, next) => {
     const ytdlpPath = await getYtdlpPath();
     console.log(`[YouTube Search] yt-dlp path: ${ytdlpPath}`);
 
+    // Ottieni cookies attivi se disponibili
+    const cookiesPath = await getActiveCookiesPath();
+    const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
+    
     // Usa ytsearch per cercare senza scaricare
     const searchQuery = `ytsearch${maxResults}:${query}`;
-    const command = `${ytdlpPath} "${searchQuery}" --dump-json --no-playlist`;
+    const command = `${ytdlpPath} "${searchQuery}" --dump-json --no-playlist ${cookiesFlag}`.trim();
 
     console.log(`[YouTube Search] Esecuzione comando yt-dlp...`);
     const startTime = Date.now();
@@ -1075,7 +1084,10 @@ export const parseTimestampsFromVideo = async (req, res, next) => {
     const ytdlpPath = await getYtdlpPath();
     
     // Ottieni informazioni video con descrizione completa
-    const command = `${ytdlpPath} "${url}" --dump-json --no-playlist`;
+            // Ottieni cookies attivi se disponibili
+            const cookiesPath = await getActiveCookiesPath();
+            const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
+            const command = `${ytdlpPath} "${url}" --dump-json --no-playlist ${cookiesFlag}`.trim();
     
     try {
       const { stdout } = await execAsync(command, {

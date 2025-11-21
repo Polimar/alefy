@@ -1,0 +1,226 @@
+import pool from '../database/db.js';
+import { AppError } from '../middleware/errorHandler.js';
+import { getStoragePath, ensureDirectoryExists } from '../utils/storage.js';
+import path from 'path';
+import fs from 'fs/promises';
+import multer from 'multer';
+import { z } from 'zod';
+
+const updateCookiesSchema = z.object({
+  description: z.string().optional(),
+  is_active: z.boolean().optional(),
+});
+
+// Configurazione multer per upload file cookies
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const storagePath = getStoragePath();
+    const cookiesDir = path.join(storagePath, 'youtube_cookies');
+    await ensureDirectoryExists(cookiesDir);
+    cb(null, cookiesDir);
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `cookies-${timestamp}.txt`);
+  },
+});
+
+export const upload = multer({
+  storage,
+  limits: {
+    fileSize: 100 * 1024, // 100KB max per file cookies
+  },
+  fileFilter: (req, file, cb) => {
+    // Accetta solo file .txt (formato Netscape cookies)
+    if (file.mimetype === 'text/plain' || file.originalname.endsWith('.txt')) {
+      cb(null, true);
+    } else {
+      cb(new AppError('Solo file .txt sono supportati per i cookies', 400));
+    }
+  },
+});
+
+export const uploadCookies = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    
+    if (!req.file) {
+      throw new AppError('File cookies richiesto', 400);
+    }
+
+    const cookiesFilePath = path.relative(getStoragePath(), req.file.path);
+    const description = req.body.description || null;
+
+    // Disattiva tutti gli altri cookies attivi
+    await pool.query(
+      'UPDATE youtube_cookies SET is_active = false WHERE is_active = true'
+    );
+
+    // Salva nel database
+    const result = await pool.query(
+      `INSERT INTO youtube_cookies (cookies_file_path, uploaded_by, description, is_active)
+       VALUES ($1, $2, $3, true)
+       RETURNING id, cookies_file_path, uploaded_at, description, is_active`,
+      [cookiesFilePath, userId, description]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: {
+        cookies: result.rows[0],
+      },
+    });
+  } catch (error) {
+    // Elimina il file se c'è stato un errore
+    if (req.file) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (unlinkError) {
+        console.error('Errore eliminazione file cookies:', unlinkError);
+      }
+    }
+    next(error);
+  }
+};
+
+export const getCookies = async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT yc.*, u.username as uploaded_by_username
+       FROM youtube_cookies yc
+       LEFT JOIN users u ON yc.uploaded_by = u.id
+       ORDER BY yc.uploaded_at DESC`
+    );
+
+    res.json({
+      success: true,
+      data: {
+        cookies: result.rows,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateCookies = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const validatedData = updateCookiesSchema.parse(req.body);
+
+    // Verifica che il cookies esista
+    const checkResult = await pool.query(
+      'SELECT id FROM youtube_cookies WHERE id = $1',
+      [id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      throw new AppError('Cookies non trovati', 404);
+    }
+
+    // Se si sta attivando questo cookies, disattiva gli altri
+    if (validatedData.is_active === true) {
+      await pool.query(
+        'UPDATE youtube_cookies SET is_active = false WHERE id != $1',
+        [id]
+      );
+    }
+
+    // Aggiorna
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    Object.keys(validatedData).forEach(key => {
+      if (validatedData[key] !== undefined) {
+        updates.push(`${key} = $${paramIndex}`);
+        values.push(validatedData[key]);
+        paramIndex++;
+      }
+    });
+
+    if (updates.length === 0) {
+      throw new AppError('Nessun campo da aggiornare', 400);
+    }
+
+    values.push(id);
+    const query = `UPDATE youtube_cookies SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+
+    const result = await pool.query(query, values);
+
+    res.json({
+      success: true,
+      data: {
+        cookies: result.rows[0],
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+};
+
+export const deleteCookies = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Recupera il percorso del file
+    const result = await pool.query(
+      'SELECT cookies_file_path FROM youtube_cookies WHERE id = $1',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      throw new AppError('Cookies non trovati', 404);
+    }
+
+    const cookiesFilePath = path.join(getStoragePath(), result.rows[0].cookies_file_path);
+
+    // Elimina dal database
+    await pool.query('DELETE FROM youtube_cookies WHERE id = $1', [id]);
+
+    // Elimina il file
+    try {
+      await fs.unlink(cookiesFilePath);
+    } catch (unlinkError) {
+      console.error('Errore eliminazione file cookies:', unlinkError);
+      // Non fallire se il file non esiste
+    }
+
+    res.json({
+      success: true,
+      message: 'Cookies eliminati con successo',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Helper per ottenere il percorso del cookies attivo
+export const getActiveCookiesPath = async () => {
+  try {
+    const result = await pool.query(
+      'SELECT cookies_file_path FROM youtube_cookies WHERE is_active = true LIMIT 1'
+    );
+
+    if (result.rows.length > 0) {
+      const cookiesFilePath = path.join(getStoragePath(), result.rows[0].cookies_file_path);
+      // Verifica che il file esista
+      try {
+        await fs.access(cookiesFilePath);
+        return cookiesFilePath;
+      } catch (error) {
+        console.error(`[YouTube Cookies] File cookies non trovato: ${cookiesFilePath}`);
+        return null;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[YouTube Cookies] Errore recupero cookies attivi:', error);
+    return null;
+  }
+};
+
