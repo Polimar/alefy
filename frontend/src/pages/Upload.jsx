@@ -17,6 +17,14 @@ export default function Upload() {
   const [queue, setQueue] = useState([]);
   const [queueLoading, setQueueLoading] = useState(false);
   const pollingIntervalRef = useRef(null);
+  const [playlists, setPlaylists] = useState([]);
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  const [selectedResult, setSelectedResult] = useState(null);
+  const [playlistOption, setPlaylistOption] = useState('none'); // 'none', 'existing', 'new'
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [expandedTracks, setExpandedTracks] = useState({}); // Map<resultId, boolean>
+  const [selectedTracks, setSelectedTracks] = useState({}); // Map<resultId, Set<trackIndex>>
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -265,6 +273,34 @@ export default function Upload() {
     }
   };
 
+  // Carica playlists al mount
+  useEffect(() => {
+    const loadPlaylists = async () => {
+      try {
+        const response = await api.get('/playlists');
+        setPlaylists(response.data.data.playlists || []);
+      } catch (error) {
+        console.error('Error loading playlists:', error);
+      }
+    };
+    loadPlaylists();
+  }, []);
+
+  // Inizializza tracce selezionate quando vengono caricati i risultati
+  useEffect(() => {
+    searchResults.forEach(result => {
+      if (result.isAlbum && result.timestamps && result.timestamps.length > 0) {
+        if (!selectedTracks[result.id]) {
+          // Tutte le tracce selezionate di default
+          setSelectedTracks(prev => ({
+            ...prev,
+            [result.id]: new Set(result.timestamps.map((_, idx) => idx))
+          }));
+        }
+      }
+    });
+  }, [searchResults]);
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
@@ -272,6 +308,8 @@ export default function Upload() {
     setSearching(true);
     setSearchError(null);
     setSearchResults([]);
+    setExpandedTracks({});
+    setSelectedTracks({});
 
     try {
       const response = await api.get('/youtube/search', {
@@ -281,7 +319,17 @@ export default function Upload() {
         },
       });
 
-      setSearchResults(response.data.data.results || []);
+      const results = response.data.data.results || [];
+      setSearchResults(results);
+      
+      // Inizializza tutte le tracce come selezionate per ogni album
+      const initialSelected = {};
+      results.forEach(result => {
+        if (result.isAlbum && result.timestamps && result.timestamps.length > 0) {
+          initialSelected[result.id] = new Set(result.timestamps.map((_, idx) => idx));
+        }
+      });
+      setSelectedTracks(initialSelected);
     } catch (error) {
       console.error('YouTube search error:', error);
       const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante la ricerca';
@@ -291,42 +339,124 @@ export default function Upload() {
     }
   };
 
-  const handleDownloadFromSearch = async (url, thumbnailUrl) => {
+  const toggleTrackExpansion = (resultId) => {
+    setExpandedTracks(prev => ({
+      ...prev,
+      [resultId]: !prev[resultId]
+    }));
+  };
+
+  const toggleTrackSelection = (resultId, trackIndex) => {
+    setSelectedTracks(prev => {
+      const current = prev[resultId] || new Set();
+      const updated = new Set(current);
+      if (updated.has(trackIndex)) {
+        updated.delete(trackIndex);
+      } else {
+        updated.add(trackIndex);
+      }
+      return {
+        ...prev,
+        [resultId]: updated
+      };
+    });
+  };
+
+  const startPolling = () => {
+    if (!pollingIntervalRef.current) {
+      const fetchQueue = async () => {
+        try {
+          const response = await api.get('/youtube/queue');
+          const jobs = response.data.data.jobs || [];
+          setQueue(jobs);
+
+          const hasActiveJobs = jobs.some(job => 
+            job.status === 'pending' || 
+            job.status === 'downloading' || 
+            job.status === 'paused'
+          );
+          if (!hasActiveJobs && pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+        } catch (error) {
+          console.error('Errore nel recupero della coda:', error);
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+        }
+      };
+      pollingIntervalRef.current = setInterval(fetchQueue, 5000);
+    }
+  };
+
+  const handleDownloadFromSearch = async (result) => {
     try {
       setYoutubeError(null);
       
-      await api.post('/youtube/download', {
-        url: url,
-        thumbnailUrl: thumbnailUrl || null,
-      });
-
-      // Avvia il polling se non è già attivo (ogni 5 secondi)
-      if (!pollingIntervalRef.current) {
-        const fetchQueue = async () => {
-          try {
-            const response = await api.get('/youtube/queue');
-            const jobs = response.data.data.jobs || [];
-            setQueue(jobs);
-
-            const hasActiveJobs = jobs.some(job => 
-              job.status === 'pending' || 
-              job.status === 'downloading' || 
-              job.status === 'paused'
-            );
-            if (!hasActiveJobs && pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-          } catch (error) {
-            console.error('Errore nel recupero della coda:', error);
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-          }
-        };
-        pollingIntervalRef.current = setInterval(fetchQueue, 5000);
+      // Se è un album, mostra modal per playlist e tracce
+      if (result.isAlbum && result.timestamps && result.timestamps.length > 0) {
+        setSelectedResult(result);
+        setShowPlaylistModal(true);
+        
+        // Suggerisci nome playlist dal canale/artista se disponibile
+        const suggestedName = result.channel || result.title.split(' - ')[0] || '';
+        setNewPlaylistName(suggestedName);
+        return;
       }
+      
+      // Download normale per non-album
+      await api.post('/youtube/download', {
+        url: result.url,
+        thumbnailUrl: result.thumbnail_url || null,
+      });
+      
+      startPolling();
+    } catch (error) {
+      console.error('YouTube download error:', error);
+      const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
+      setYoutubeError(errorMessage);
+    }
+  };
+
+  const handleConfirmDownload = async () => {
+    if (!selectedResult) return;
+    
+    // Ottieni tracce selezionate
+    const selectedIndices = selectedTracks[selectedResult.id] || new Set();
+    const tracksToDownload = selectedResult.timestamps.filter((_, idx) => selectedIndices.has(idx));
+    
+    if (tracksToDownload.length === 0) {
+      alert('Seleziona almeno una traccia da scaricare');
+      return;
+    }
+    
+    try {
+      setYoutubeError(null);
+      
+      const downloadData = {
+        url: selectedResult.url,
+        thumbnailUrl: selectedResult.thumbnail_url || null,
+        selectedTracks: tracksToDownload.length < selectedResult.timestamps.length ? tracksToDownload : null,
+      };
+      
+      // Aggiungi playlist se specificata
+      if (playlistOption === 'existing' && selectedPlaylistId) {
+        downloadData.playlistId = selectedPlaylistId;
+      } else if (playlistOption === 'new' && newPlaylistName.trim()) {
+        downloadData.playlistName = newPlaylistName.trim();
+      }
+      
+      await api.post('/youtube/download', downloadData);
+      
+      setShowPlaylistModal(false);
+      setSelectedResult(null);
+      setPlaylistOption('none');
+      setSelectedPlaylistId(null);
+      setNewPlaylistName('');
+      
+      startPolling();
     } catch (error) {
       console.error('YouTube download error:', error);
       const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
@@ -417,23 +547,53 @@ export default function Upload() {
                     )}
                     {result.isAlbum && result.timestamps && result.timestamps.length > 0 && (
                       <div className="result-timestamps">
-                        <strong>Tracce rilevate ({result.timestamps.length}):</strong>
+                        <strong>
+                          Tracce rilevate ({result.timestamps.length}):
+                          {selectedTracks[result.id] && (
+                            <span className="selected-count">
+                              {' '}({selectedTracks[result.id].size} selezionate)
+                            </span>
+                          )}
+                        </strong>
                         <ul className="timestamps-list">
-                          {result.timestamps.slice(0, 5).map((ts, idx) => (
-                            <li key={idx}>
-                              {formatDuration(ts.startTime)} - {ts.title}
+                          {(expandedTracks[result.id] ? result.timestamps : result.timestamps.slice(0, 5)).map((ts, idx) => {
+                            const isSelected = selectedTracks[result.id]?.has(idx) !== false; // Default true
+                            return (
+                              <li key={idx} className={isSelected ? 'track-selected' : ''}>
+                                <label className="track-checkbox-label">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleTrackSelection(result.id, idx)}
+                                    className="track-checkbox"
+                                  />
+                                  <span className="track-time">{formatDuration(ts.startTime)}</span>
+                                  <span className="track-title">{ts.title}</span>
+                                </label>
+                              </li>
+                            );
+                          })}
+                          {result.timestamps.length > 5 && !expandedTracks[result.id] && (
+                            <li 
+                              className="timestamps-more clickable"
+                              onClick={() => toggleTrackExpansion(result.id)}
+                            >
+                              ... e altre {result.timestamps.length - 5} tracce (clicca per espandere)
                             </li>
-                          ))}
-                          {result.timestamps.length > 5 && (
-                            <li className="timestamps-more">
-                              ... e altre {result.timestamps.length - 5} tracce
+                          )}
+                          {expandedTracks[result.id] && result.timestamps.length > 5 && (
+                            <li 
+                              className="timestamps-more clickable"
+                              onClick={() => toggleTrackExpansion(result.id)}
+                            >
+                              Nascondi tracce
                             </li>
                           )}
                         </ul>
                       </div>
                     )}
                     <button
-                      onClick={() => handleDownloadFromSearch(result.url, result.thumbnail_url)}
+                      onClick={() => handleDownloadFromSearch(result)}
                       disabled={queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading'))}
                       className="result-download-btn"
                     >
@@ -546,6 +706,11 @@ export default function Upload() {
                 <div className="queue-item-url">{job.url}</div>
                 {(job.status === 'downloading' || job.status === 'paused') && (
                   <div className="queue-item-progress">
+                    {job.statusMessage && (
+                      <div className="progress-status-message">
+                        {job.statusMessage}
+                      </div>
+                    )}
                     <div className="progress-bar">
                       <div
                         className="progress-fill"
@@ -618,6 +783,106 @@ export default function Upload() {
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal selezione playlist per album */}
+      {showPlaylistModal && selectedResult && (
+        <div className="modal-overlay" onClick={() => {
+          setShowPlaylistModal(false);
+          setSelectedResult(null);
+          setPlaylistOption('none');
+        }}>
+          <div className="modal-content playlist-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Scarica Album</h2>
+            <p className="modal-subtitle">
+              "{selectedResult.title}"
+            </p>
+            <p className="modal-info">
+              {selectedTracks[selectedResult.id]?.size || selectedResult.timestamps?.length || 0} tracce selezionate su {selectedResult.timestamps?.length || 0} totali
+            </p>
+
+            <div className="playlist-options">
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="playlist-option"
+                  value="none"
+                  checked={playlistOption === 'none'}
+                  onChange={(e) => setPlaylistOption(e.target.value)}
+                />
+                <span>Non aggiungere a playlist</span>
+              </label>
+
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="playlist-option"
+                  value="existing"
+                  checked={playlistOption === 'existing'}
+                  onChange={(e) => setPlaylistOption(e.target.value)}
+                />
+                <span>Aggiungi a playlist esistente</span>
+              </label>
+              {playlistOption === 'existing' && (
+                <select
+                  value={selectedPlaylistId || ''}
+                  onChange={(e) => setSelectedPlaylistId(e.target.value ? parseInt(e.target.value) : null)}
+                  className="playlist-select"
+                >
+                  <option value="">Seleziona playlist...</option>
+                  {playlists.map(playlist => (
+                    <option key={playlist.id} value={playlist.id}>
+                      {playlist.name} ({playlist.track_count || 0} brani)
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="playlist-option"
+                  value="new"
+                  checked={playlistOption === 'new'}
+                  onChange={(e) => setPlaylistOption(e.target.value)}
+                />
+                <span>Crea nuova playlist</span>
+              </label>
+              {playlistOption === 'new' && (
+                <input
+                  type="text"
+                  value={newPlaylistName}
+                  onChange={(e) => setNewPlaylistName(e.target.value)}
+                  placeholder="Nome playlist..."
+                  className="playlist-name-input"
+                />
+              )}
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => {
+                  setShowPlaylistModal(false);
+                  setSelectedResult(null);
+                  setPlaylistOption('none');
+                }}
+              >
+                Annulla
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleConfirmDownload}
+                disabled={
+                  (playlistOption === 'existing' && !selectedPlaylistId) ||
+                  (playlistOption === 'new' && !newPlaylistName.trim())
+                }
+              >
+                Scarica
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

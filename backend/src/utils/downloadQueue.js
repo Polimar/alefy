@@ -33,6 +33,7 @@ class DownloadQueue extends EventEmitter {
       eta: null,
       error: null,
       track: null,
+      statusMessage: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...jobData,

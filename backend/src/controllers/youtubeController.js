@@ -18,7 +18,17 @@ const execAsync = promisify(exec);
 const downloadSchema = z.object({
   url: z.string().url('URL non valido'),
   thumbnailUrl: z.string().url().optional().nullable(),
-});
+  playlistId: z.number().int().positive().optional(),
+  playlistName: z.string().min(1).max(255).optional(),
+  selectedTracks: z.array(z.object({
+    startTime: z.number().min(0),
+    endTime: z.number().min(0).nullable(),
+    title: z.string().min(1),
+  })).optional(),
+}).refine(
+  (data) => !(data.playlistId && data.playlistName),
+  { message: 'playlistId e playlistName non possono essere entrambi specificati' }
+);
 
 const searchSchema = z.object({
   q: z.string().min(1, 'Query di ricerca non può essere vuota'),
@@ -29,7 +39,7 @@ export const downloadYouTube = async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const validatedData = downloadSchema.parse(req.body);
-    const { url, thumbnailUrl } = validatedData;
+    const { url, thumbnailUrl, playlistId, playlistName, selectedTracks } = validatedData;
 
     console.log(`[YouTube Download] Aggiunta job alla coda per URL: ${url}, User ID: ${userId}`);
 
@@ -37,6 +47,9 @@ export const downloadYouTube = async (req, res, next) => {
     const jobId = downloadQueue.addJob(userId, {
       url,
       thumbnailUrl: thumbnailUrl || null,
+      playlistId: playlistId || null,
+      playlistName: playlistName || null,
+      selectedTracks: selectedTracks || null,
     });
 
     res.status(202).json({
@@ -58,10 +71,14 @@ export const downloadYouTube = async (req, res, next) => {
  * Processa un job di download dalla coda usando spawn per progresso reale
  */
 export async function processDownloadJob(job) {
-  const { id: jobId, userId, url, thumbnailUrl } = job;
+  const { id: jobId, userId, url, thumbnailUrl, playlistId, playlistName, selectedTracks } = job;
 
   try {
-    downloadQueue.updateJob(jobId, { status: 'downloading', progress: 0 });
+    downloadQueue.updateJob(jobId, { 
+      status: 'downloading', 
+      progress: 0,
+      statusMessage: 'Rilevamento album...'
+    });
 
     console.log(`[YouTube Download] Inizio download job ${jobId} per URL: ${url}, User ID: ${userId}`);
 
@@ -72,6 +89,7 @@ export async function processDownloadJob(job) {
     console.log(`[YouTube Download] Job ${jobId}: Rilevamento album...`);
     let videoInfo = null;
     let albumInfo = null;
+    let finalPlaylistId = playlistId || null;
     
     try {
       const infoCommand = `${ytdlpPath} "${url}" --dump-json --no-playlist`;
@@ -92,6 +110,7 @@ export async function processDownloadJob(job) {
           downloadQueue.updateJob(jobId, { 
             isAlbum: true,
             tracksCount: albumInfo.tracks.length,
+            statusMessage: `Album rilevato con ${albumInfo.tracks.length} tracce`,
           });
         }
       }
@@ -129,6 +148,10 @@ export async function processDownloadJob(job) {
     const outputPath = path.join(tempDir, `%(title)s-${timestamp}.%(ext)s`);
 
     console.log(`[YouTube Download] Job ${jobId}: Esecuzione yt-dlp con spawn...`);
+    downloadQueue.updateJob(jobId, { 
+      progress: 5,
+      statusMessage: 'Download in corso...'
+    });
 
     // Usa spawn invece di exec per leggere progresso in tempo reale
     const args = [
@@ -161,7 +184,12 @@ export async function processDownloadJob(job) {
         const progressMatch = output.match(/\[download\]\s+(\d+\.?\d*)%/);
         if (progressMatch) {
           const progress = parseFloat(progressMatch[1]);
-          downloadQueue.updateJob(jobId, { progress: Math.min(progress, 99) });
+          // Scala il progresso tra 5% e 90% (download effettivo)
+          const scaledProgress = 5 + (progress * 0.85);
+          downloadQueue.updateJob(jobId, { 
+            progress: Math.min(scaledProgress, 90),
+            statusMessage: 'Download in corso...'
+          });
         }
 
         // Estrai velocità e ETA
@@ -225,12 +253,61 @@ export async function processDownloadJob(job) {
 
     // Estrai metadati base
     console.log(`[YouTube Download] Job ${jobId}: Estrazione metadati...`);
-    downloadQueue.updateJob(jobId, { progress: 95 });
+    downloadQueue.updateJob(jobId, { 
+      progress: 90,
+      statusMessage: 'Estrazione metadati...'
+    });
     const metadata = await extractMetadata(filePath);
+    
+    // Gestisci creazione playlist se necessario
+    if (playlistName && !finalPlaylistId) {
+      console.log(`[YouTube Download] Job ${jobId}: Creazione playlist "${playlistName}"...`);
+      downloadQueue.updateJob(jobId, { 
+        statusMessage: `Creazione playlist "${playlistName}"...`
+      });
+      
+      const playlistResult = await pool.query(
+        'INSERT INTO playlists (user_id, name, description, is_public) VALUES ($1, $2, $3, $4) RETURNING id',
+        [userId, playlistName, null, false]
+      );
+      finalPlaylistId = playlistResult.rows[0].id;
+    }
+    
+    // Verifica playlist esistente se necessario
+    if (finalPlaylistId) {
+      const playlistCheck = await pool.query(
+        'SELECT id FROM playlists WHERE id = $1 AND user_id = $2',
+        [finalPlaylistId, userId]
+      );
+      if (playlistCheck.rows.length === 0) {
+        console.warn(`[YouTube Download] Job ${jobId}: Playlist ${finalPlaylistId} non trovata o non autorizzata`);
+        finalPlaylistId = null;
+      }
+    }
 
     // Se è un album, dividilo in tracce
     if (albumInfo && albumInfo.isAlbum && albumInfo.tracks.length > 0) {
-      console.log(`[YouTube Download] Job ${jobId}: Divisione album in ${albumInfo.tracks.length} tracce...`);
+      // Usa tracce selezionate se fornite, altrimenti usa tutte quelle rilevate
+      let tracksToSplit = albumInfo.tracks;
+      if (selectedTracks && selectedTracks.length > 0) {
+        // Filtra le tracce rilevate per includere solo quelle selezionate
+        tracksToSplit = albumInfo.tracks.filter(track => 
+          selectedTracks.some(st => 
+            Math.abs(st.startTime - track.startTime) < 1 && st.title === track.title
+          )
+        );
+        console.log(`[YouTube Download] Job ${jobId}: Usando ${tracksToSplit.length} tracce selezionate su ${albumInfo.tracks.length} totali`);
+      }
+      
+      if (tracksToSplit.length === 0) {
+        throw new Error('Nessuna traccia selezionata per la divisione');
+      }
+      
+      console.log(`[YouTube Download] Job ${jobId}: Divisione album in ${tracksToSplit.length} tracce...`);
+      downloadQueue.updateJob(jobId, { 
+        progress: 92,
+        statusMessage: `Divisione album in ${tracksToSplit.length} tracce...`
+      });
       
       const splitDir = path.join(tempDir, `split-${jobId}`);
       await ensureDirectoryExists(splitDir);
@@ -238,12 +315,13 @@ export async function processDownloadJob(job) {
       // Dividi il file audio
       const splitTracks = await splitAudioFile(
         filePath,
-        albumInfo.tracks,
+        tracksToSplit,
         splitDir,
         (progress) => {
-          const totalProgress = 95 + (progress.current / albumInfo.tracks.length) * 5;
+          const totalProgress = 92 + (progress.current / tracksToSplit.length) * 5;
           downloadQueue.updateJob(jobId, { 
-            progress: Math.min(totalProgress, 99),
+            progress: Math.min(totalProgress, 97),
+            statusMessage: `Ricerca metadati traccia ${progress.current}/${tracksToSplit.length}...`,
             splittingTrack: progress.track,
           });
         }
@@ -269,6 +347,11 @@ export async function processDownloadJob(job) {
       }
       
       // Per ogni traccia divisa: cerca metadati e salva nel database
+      downloadQueue.updateJob(jobId, { 
+        progress: 97,
+        statusMessage: 'Salvataggio tracce nel database...'
+      });
+      
       const savedTracks = [];
       const albumArtist = metadata.artist || videoInfo?.uploader || 'Unknown Artist';
       const albumName = metadata.album || videoInfo?.title || 'Unknown Album';
@@ -350,11 +433,23 @@ export async function processDownloadJob(job) {
         console.warn(`[YouTube Download] Job ${jobId}: Errore pulizia file temporanei: ${cleanupError.message}`);
       }
       
+      // Aggiungi tracce alla playlist se specificata
+      if (finalPlaylistId && savedTracks.length > 0) {
+        console.log(`[YouTube Download] Job ${jobId}: Aggiunta ${savedTracks.length} tracce alla playlist ${finalPlaylistId}...`);
+        downloadQueue.updateJob(jobId, { 
+          progress: 99,
+          statusMessage: `Aggiunta tracce alla playlist...`
+        });
+        
+        await addTracksToPlaylist(userId, finalPlaylistId, savedTracks.map(t => t.id));
+      }
+      
       console.log(`[YouTube Download] Job ${jobId}: Album diviso e salvato. ${savedTracks.length} tracce create`);
       
       downloadQueue.updateJob(jobId, {
         status: 'completed',
         progress: 100,
+        statusMessage: 'Completato!',
         track: savedTracks[0], // Ritorna la prima traccia come riferimento
         tracks: savedTracks, // Tutte le tracce create
       });
@@ -424,6 +519,7 @@ export async function processDownloadJob(job) {
       downloadQueue.updateJob(jobId, {
         status: 'completed',
         progress: 100,
+        statusMessage: 'Completato!',
         track: result.rows[0],
       });
 
@@ -434,8 +530,48 @@ export async function processDownloadJob(job) {
     downloadQueue.updateJob(jobId, {
       status: 'failed',
       error: error.message,
+      statusMessage: `Errore: ${error.message}`,
     });
     downloadQueue.jobFinished(userId, jobId);
+  }
+}
+
+/**
+ * Helper function per aggiungere multiple tracce a una playlist
+ */
+async function addTracksToPlaylist(userId, playlistId, trackIds) {
+  // Verifica che la playlist appartenga all'utente
+  const playlistCheck = await pool.query(
+    'SELECT id FROM playlists WHERE id = $1 AND user_id = $2',
+    [playlistId, userId]
+  );
+  
+  if (playlistCheck.rows.length === 0) {
+    throw new Error('Playlist non trovata o non autorizzata');
+  }
+  
+  // Ottieni la posizione massima attuale
+  const maxResult = await pool.query(
+    'SELECT COALESCE(MAX(position), -1) + 1 as next_position FROM playlist_tracks WHERE playlist_id = $1',
+    [playlistId]
+  );
+  let position = parseInt(maxResult.rows[0].next_position);
+  
+  // Aggiungi ogni traccia alla playlist
+  for (const trackId of trackIds) {
+    // Verifica che la traccia non sia già nella playlist
+    const existingCheck = await pool.query(
+      'SELECT id FROM playlist_tracks WHERE playlist_id = $1 AND track_id = $2',
+      [playlistId, trackId]
+    );
+    
+    if (existingCheck.rows.length === 0) {
+      await pool.query(
+        'INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES ($1, $2, $3)',
+        [playlistId, trackId, position]
+      );
+      position++;
+    }
   }
 }
 
@@ -484,6 +620,7 @@ export const getQueue = async (req, res, next) => {
           eta: job.eta,
           error: job.error,
           track: job.track,
+          statusMessage: job.statusMessage || null,
           createdAt: job.createdAt,
           updatedAt: job.updatedAt,
         })),
