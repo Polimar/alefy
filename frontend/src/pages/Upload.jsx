@@ -11,6 +11,7 @@ export default function Upload() {
   const [youtubeError, setYoutubeError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLimit, setSearchLimit] = useState('10');
+  const [albumOnly, setAlbumOnly] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
@@ -290,6 +291,7 @@ export default function Upload() {
         params: {
           q: searchQuery.trim(),
           limit: searchLimit,
+          albumOnly: albumOnly ? 'true' : 'false',
         },
       });
 
@@ -535,6 +537,16 @@ export default function Upload() {
               <option value="20">20 risultati</option>
               <option value="50">50 risultati</option>
             </select>
+            <label className="album-only-checkbox-label">
+              <input
+                type="checkbox"
+                checked={albumOnly}
+                onChange={(e) => setAlbumOnly(e.target.checked)}
+                disabled={searching}
+                className="album-only-checkbox"
+              />
+              <span>Solo album (&gt;20 min)</span>
+            </label>
             <button
               type="submit"
               disabled={searching || !searchQuery.trim()}

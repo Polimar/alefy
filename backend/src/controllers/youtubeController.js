@@ -34,6 +34,7 @@ const downloadSchema = z.object({
 const searchSchema = z.object({
   q: z.string().min(1, 'Query di ricerca non può essere vuota'),
   limit: z.enum(['5', '10', '20', '50']).default('10'),
+  albumOnly: z.enum(['true', 'false']).optional().default('false'),
 });
 
 export const downloadYouTube = async (req, res, next) => {
@@ -783,8 +784,9 @@ export const resumeJob = async (req, res, next) => {
 export const searchYouTube = async (req, res, next) => {
   try {
     const validatedData = searchSchema.parse(req.query);
-    const { q: query, limit } = validatedData;
+    const { q: query, limit, albumOnly } = validatedData;
     const maxResults = parseInt(limit, 10);
+    const filterAlbumsOnly = albumOnly === 'true';
 
     console.log(`[YouTube Search] Ricerca: "${query}", Limite: ${maxResults}`);
 
@@ -873,14 +875,23 @@ export const searchYouTube = async (req, res, next) => {
         }
       }
 
-      console.log(`[YouTube Search] Trovati ${results.length} risultati`);
+      // Filtra per durata > 20 minuti se albumOnly è attivo
+      let filteredResults = results;
+      if (filterAlbumsOnly) {
+        const minDurationSeconds = 20 * 60; // 20 minuti = 1200 secondi
+        filteredResults = results.filter(result => result.duration >= minDurationSeconds);
+        console.log(`[YouTube Search] Filtro album attivo: ${results.length} risultati totali, ${filteredResults.length} con durata >= 20 minuti`);
+      }
+
+      console.log(`[YouTube Search] Trovati ${filteredResults.length} risultati${filterAlbumsOnly ? ' (filtrati per album)' : ''}`);
 
       res.json({
         success: true,
         data: {
-          results,
-          count: results.length,
+          results: filteredResults,
+          count: filteredResults.length,
           query,
+          albumOnly: filterAlbumsOnly,
         },
       });
     } catch (error) {
