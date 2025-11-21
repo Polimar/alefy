@@ -814,15 +814,23 @@ export const searchYouTube = async (req, res, next) => {
           const fullDescription = videoData.description || '';
           const duration = videoData.duration || 0;
           
-          // Rileva se è un album e estrai timestamp
-          const albumInfo = detectAlbum(duration, fullDescription);
-          const timestamps = albumInfo.tracks.length > 0 
-            ? albumInfo.tracks.map(t => ({
-                startTime: t.startTime,
-                endTime: t.endTime,
-                title: t.title,
-              }))
-            : [];
+          // Rileva se è un album e estrai timestamp (con gestione errori)
+          let albumInfo = { isAlbum: false, tracks: [] };
+          let timestamps = [];
+          
+          try {
+            albumInfo = detectAlbum(duration, fullDescription);
+            timestamps = albumInfo.tracks.length > 0 
+              ? albumInfo.tracks.map(t => ({
+                  startTime: t.startTime,
+                  endTime: t.endTime,
+                  title: t.title,
+                }))
+              : [];
+          } catch (albumError) {
+            console.error(`[YouTube Search] Errore rilevamento album per video ${videoData.id}:`, albumError.message);
+            // Continua senza album detection se c'è un errore
+          }
           
           // Estrai informazioni essenziali
           const result = {
