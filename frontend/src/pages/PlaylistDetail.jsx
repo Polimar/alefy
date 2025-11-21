@@ -5,12 +5,15 @@ import usePlayerStore from '../store/playerStore';
 import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1 } from 'lucide-react';
 import './PlaylistDetail.css';
 
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
 export default function PlaylistDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [playlist, setPlaylist] = useState(null);
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [coverUrl, setCoverUrl] = useState(null);
   const { 
     setCurrentTrack, 
     setQueue, 
@@ -24,6 +27,53 @@ export default function PlaylistDetail() {
   useEffect(() => {
     loadPlaylist();
   }, [id]);
+
+  // Carica la cover art della prima traccia quando cambiano le tracce
+  useEffect(() => {
+    let currentBlobUrl = null;
+
+    const loadCoverArt = async () => {
+      // Revoca il vecchio blob URL se esiste
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+        currentBlobUrl = null;
+      }
+
+      if (tracks.length > 0 && tracks[0].cover_art_path && tracks[0].id) {
+        try {
+          const token = localStorage.getItem('accessToken');
+          const response = await fetch(`${API_URL}/stream/tracks/${tracks[0].id}/cover`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (response.ok) {
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            currentBlobUrl = blobUrl;
+            setCoverUrl(blobUrl);
+          } else {
+            setCoverUrl(null);
+          }
+        } catch (error) {
+          console.error('Error loading cover art:', error);
+          setCoverUrl(null);
+        }
+      } else {
+        setCoverUrl(null);
+      }
+    };
+
+    loadCoverArt();
+
+    // Cleanup: revoca il blob URL quando il componente si smonta o cambiano le tracce
+    return () => {
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+      }
+    };
+  }, [tracks]);
 
   const loadPlaylist = async () => {
     try {
@@ -136,9 +186,9 @@ export default function PlaylistDetail() {
 
       <div className="playlist-header">
         <div className="playlist-cover">
-          {tracks.length > 0 && tracks[0].cover_art_path ? (
+          {coverUrl ? (
             <img
-              src={`${import.meta.env.VITE_API_URL || '/api'}/stream/tracks/${tracks[0].id}/cover`}
+              src={coverUrl}
               alt={playlist.name}
             />
           ) : (
