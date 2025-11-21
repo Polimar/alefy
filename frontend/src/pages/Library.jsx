@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
 import { Play, Music, MoreVertical, Plus, Trash2 } from 'lucide-react';
@@ -15,10 +15,28 @@ export default function Library() {
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [menuOpen, setMenuOpen] = useState(null);
   const { setCurrentTrack, setQueue, play } = usePlayerStore();
+  const searchTimeoutRef = useRef(null);
 
+  // Debounce per la ricerca - evita troppe richieste durante la digitazione
   useEffect(() => {
-    loadTracks();
+    // Carica playlists subito
     loadPlaylists();
+    
+    // Cancella timeout precedente
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Imposta nuovo timeout per la ricerca
+    searchTimeoutRef.current = setTimeout(() => {
+      loadTracks();
+    }, 500); // Attendi 500ms dopo l'ultima digitazione
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
   }, [search]);
 
   useEffect(() => {
