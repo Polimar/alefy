@@ -52,9 +52,15 @@ export function parseTimestampsFromDescription(description, totalDuration = null
 
   const tracks = [];
   
-  // Pattern per trovare timestamp seguiti da titoli
-  // Supporta: MM:SS, HH:MM:SS, con o senza parentesi, con trattini vari
-  const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*[-–—]?\s*([^\n\r\(\)\[\]]+?)(?=\s*(?:\d{1,2}:\d{2})|$|\(|\[|\n|\r)/g;
+  // Pattern migliorato per trovare timestamp seguiti da titoli
+  // Supporta vari formati:
+  // - MM:SS Titolo
+  // - MM:SS - Titolo
+  // - MM:SS N. Titolo (es. "2:50 2. Dear Prudence")
+  // - (MM:SS) Titolo
+  // - HH:MM:SS Titolo
+  // Pattern più flessibile che cattura anche numeri prima del titolo
+  const timestampPattern = /(?:^|\n|\r|\t|\(|\[)\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:[-–—]?\s*(?:\d+\.?\s*)?)?([^\n\r\(\)\[\]]+?)(?=\s*(?:\d{1,2}:\d{2})|$|\(|\[|\n|\r)/g;
   
   let match;
   const foundTimestamps = [];
@@ -68,7 +74,11 @@ export function parseTimestampsFromDescription(description, totalDuration = null
       ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
       : `${minutes}:${seconds.toString().padStart(2, '0')}`;
     
-    const title = cleanTrackTitle(match[4] || match[3] ? match[4] : match[2]);
+    // Pulisci il titolo: rimuovi numeri iniziali (es. "2. " o "2 ") e caratteri indesiderati
+    let title = match[4] || '';
+    // Rimuovi numeri seguiti da punto o spazio all'inizio (es. "2. " o "2 ")
+    title = title.replace(/^\d+\.?\s*/, '');
+    title = cleanTrackTitle(title);
     
     if (title && title.length > 0) {
       foundTimestamps.push({

@@ -285,23 +285,56 @@ export async function processDownloadJob(job) {
       }
     }
 
-    // Se è un album, dividilo in tracce
+    // Se è un album O se ci sono tracce selezionate manualmente, dividilo in tracce
+    let tracksToSplit = null;
+    
     if (albumInfo && albumInfo.isAlbum && albumInfo.tracks.length > 0) {
-      // Usa tracce selezionate se fornite, altrimenti usa tutte quelle rilevate
-      let tracksToSplit = albumInfo.tracks;
+      // Album rilevato automaticamente
+      tracksToSplit = albumInfo.tracks;
       if (selectedTracks && selectedTracks.length > 0) {
         // Filtra le tracce rilevate per includere solo quelle selezionate
+        // Matching più flessibile: confronta startTime (tolleranza 2 secondi) e titolo (case-insensitive, rimuovi spazi extra)
         tracksToSplit = albumInfo.tracks.filter(track => 
-          selectedTracks.some(st => 
-            Math.abs(st.startTime - track.startTime) < 1 && st.title === track.title
-          )
+          selectedTracks.some(st => {
+            const timeMatch = Math.abs(st.startTime - track.startTime) < 2; // Tolleranza 2 secondi
+            const titleMatch = st.title.trim().toLowerCase().replace(/\s+/g, ' ') === 
+                              track.title.trim().toLowerCase().replace(/\s+/g, ' ');
+            return timeMatch && titleMatch;
+          })
         );
         console.log(`[YouTube Download] Job ${jobId}: Usando ${tracksToSplit.length} tracce selezionate su ${albumInfo.tracks.length} totali`);
+        
+        // Se nessuna traccia corrisponde, usa direttamente selectedTracks (potrebbero essere da parsing manuale)
+        if (tracksToSplit.length === 0) {
+          console.log(`[YouTube Download] Job ${jobId}: Nessuna corrispondenza con tracce rilevate, uso tracce selezionate direttamente`);
+          tracksToSplit = selectedTracks.map(st => ({
+            startTime: st.startTime,
+            endTime: st.endTime || null,
+            title: st.title,
+          }));
+        }
       }
-      
-      if (tracksToSplit.length === 0) {
-        throw new Error('Nessuna traccia selezionata per la divisione');
-      }
+    } else if (selectedTracks && selectedTracks.length > 0) {
+      // Non è album automatico ma ci sono tracce selezionate manualmente (parsing manuale)
+      // Usa direttamente le tracce selezionate e calcola endTime se mancante
+      const duration = videoInfo?.duration || metadata.duration || 0;
+      tracksToSplit = selectedTracks.map((st, index) => {
+        let endTime = st.endTime;
+        if (!endTime) {
+          // Se non c'è endTime, usa quello della traccia successiva o la durata totale
+          const nextTrack = selectedTracks[index + 1];
+          endTime = nextTrack ? nextTrack.startTime : (duration || null);
+        }
+        return {
+          startTime: st.startTime,
+          endTime: endTime,
+          title: st.title,
+        };
+      });
+      console.log(`[YouTube Download] Job ${jobId}: Usando ${tracksToSplit.length} tracce selezionate manualmente (parsing manuale)`);
+    }
+    
+    if (tracksToSplit && tracksToSplit.length > 0) {
       
       console.log(`[YouTube Download] Job ${jobId}: Divisione album in ${tracksToSplit.length} tracce...`);
       downloadQueue.updateJob(jobId, { 
