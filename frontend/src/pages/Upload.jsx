@@ -366,7 +366,6 @@ export default function Upload() {
               }}
               placeholder="Incolla qui l'URL del video YouTube..."
               className="youtube-input"
-              disabled={downloading}
             />
             <button
               type="submit"
