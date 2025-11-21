@@ -44,16 +44,33 @@ app.use(morgan('combined', {
   }
 }));
 
-// Rate limiting
+// Rate limiting più permissivo per autenticazione
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuti
+  max: 20, // 20 tentativi di login ogni 15 minuti
+  message: 'Troppi tentativi di login, riprova più tardi.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // Non conta le richieste riuscite
+});
+
+// Rate limiting generale più permissivo
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 500, // Aumentato a 500
   message: 'Troppe richieste da questo IP, riprova più tardi.',
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-app.use('/api/', limiter);
+// Applica rate limiting generale a tutte le API tranne auth
+app.use('/api/', (req, res, next) => {
+  // Skip rate limiting per login e register
+  if (req.path === '/auth/login' || req.path === '/auth/register') {
+    return next();
+  }
+  limiter(req, res, next);
+});
 
 // Disabilita cache per tutte le risposte API
 app.use('/api', (req, res, next) => {

@@ -1,11 +1,22 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { register, login, refresh, logout, me } from '../controllers/authController.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.post('/register', register);
-router.post('/login', login);
+// Rate limiting per autenticazione (più permissivo)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuti
+  max: 20, // 20 tentativi ogni 15 minuti
+  message: 'Troppi tentativi di login, riprova più tardi.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // Non conta le richieste riuscite
+});
+
+router.post('/register', authLimiter, register);
+router.post('/login', authLimiter, login);
 router.post('/refresh', refresh);
 router.post('/logout', logout);
 router.get('/me', authenticate, me);
