@@ -15,8 +15,10 @@ function App() {
   const { checkAuth, isAuthenticated, loading } = useAuthStore();
 
   useEffect(() => {
+    // Chiama checkAuth solo una volta al mount
     checkAuth();
-  }, [checkAuth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Array vuoto per chiamare solo al mount
 
   if (loading) {
     return (

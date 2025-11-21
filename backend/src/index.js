@@ -47,7 +47,7 @@ app.use(morgan('combined', {
 // Rate limiting più permissivo per GET (richieste di lettura)
 const getLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minuti
-  max: 1000, // 1000 richieste GET ogni 15 minuti
+  max: 2000, // 2000 richieste GET ogni 15 minuti (aumentato per evitare 429)
   message: 'Troppe richieste da questo IP, riprova più tardi.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -57,7 +57,7 @@ const getLimiter = rateLimit({
 // Rate limiting per POST/PUT/DELETE (più restrittivo)
 const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minuti
-  max: 200, // 200 richieste di scrittura ogni 15 minuti
+  max: 500, // 500 richieste di scrittura ogni 15 minuti (aumentato)
   message: 'Troppe richieste da questo IP, riprova più tardi.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -65,8 +65,11 @@ const writeLimiter = rateLimit({
 
 // Applica rate limiting differenziato per metodo HTTP
 app.use('/api/', (req, res, next) => {
-  // Skip rate limiting per login e register (hanno il loro rate limiter nelle route)
-  if (req.path === '/auth/login' || req.path === '/auth/register') {
+  // Skip rate limiting per route di autenticazione (hanno il loro rate limiter nelle route)
+  if (req.path === '/auth/login' || 
+      req.path === '/auth/register' || 
+      req.path === '/auth/me' ||
+      req.path === '/auth/refresh') {
     return next();
   }
   
