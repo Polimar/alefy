@@ -158,10 +158,13 @@ export default function Upload() {
         if (!hasActiveJobs && pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
+        } else if (hasActiveJobs && !pollingIntervalRef.current) {
+          // Se ci sono job attivi ma il polling non è attivo, avvialo
+          pollingIntervalRef.current = setInterval(fetchQueue, 5000);
         }
       } catch (error) {
         console.error('Errore nel recupero della coda:', error);
-        // In caso di errore, ferma il polling per evitare richieste continue
+        // In caso di errore 429 o altri errori, ferma il polling per evitare richieste continue
         if (pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
@@ -169,31 +172,8 @@ export default function Upload() {
       }
     };
 
-    // Fetch iniziale
-    fetchQueue().then(() => {
-      // Controlla se ci sono job attivi dopo il fetch iniziale
-      const checkAndStartPolling = async () => {
-        try {
-          const response = await api.get('/youtube/queue');
-          const jobs = response.data.data.jobs || [];
-          const hasActiveJobs = jobs.some(job => 
-            job.status === 'pending' || 
-            job.status === 'downloading' || 
-            job.status === 'paused'
-          );
-          
-          // Avvia polling solo se ci sono job attivi, ogni 5 secondi invece di 2
-          if (hasActiveJobs && !pollingIntervalRef.current) {
-            pollingIntervalRef.current = setInterval(fetchQueue, 5000);
-          }
-        } catch (error) {
-          console.error('Errore nel controllo iniziale della coda:', error);
-        }
-      };
-      
-      // Controlla dopo un breve delay
-      setTimeout(checkAndStartPolling, 1000);
-    });
+    // Fetch iniziale una sola volta
+    fetchQueue();
 
     return () => {
       if (pollingIntervalRef.current) {
@@ -206,9 +186,8 @@ export default function Upload() {
   const cancelJob = async (jobId) => {
     try {
       await api.delete(`/youtube/queue/${jobId}`);
-      // Aggiorna la coda dopo la cancellazione
-      const response = await api.get('/youtube/queue');
-      setQueue(response.data.data.jobs || []);
+      // Rimuovi il job dalla coda locale invece di fare una nuova chiamata
+      setQueue(prev => prev.filter(job => job.id !== jobId));
     } catch (error) {
       console.error('Errore nella cancellazione del job:', error);
       alert('Errore durante la cancellazione del job');
@@ -252,9 +231,10 @@ export default function Upload() {
   const pauseJob = async (jobId) => {
     try {
       await api.post(`/youtube/queue/${jobId}/pause`);
-      // Aggiorna la coda dopo la pausa
-      const response = await api.get('/youtube/queue');
-      setQueue(response.data.data.jobs || []);
+      // Aggiorna lo stato localmente invece di fare una nuova chiamata
+      setQueue(prev => prev.map(job => 
+        job.id === jobId ? { ...job, status: 'paused' } : job
+      ));
     } catch (error) {
       console.error('Errore nella pausa del job:', error);
       alert('Errore durante la pausa del job');
@@ -264,9 +244,12 @@ export default function Upload() {
   const resumeJob = async (jobId) => {
     try {
       await api.post(`/youtube/queue/${jobId}/resume`);
-      // Aggiorna la coda dopo la ripresa
-      const response = await api.get('/youtube/queue');
-      setQueue(response.data.data.jobs || []);
+      // Aggiorna lo stato localmente e riavvia il polling se necessario
+      setQueue(prev => prev.map(job => 
+        job.id === jobId ? { ...job, status: 'pending' } : job
+      ));
+      // Riavvia il polling se non è già attivo
+      startPolling();
     } catch (error) {
       console.error('Errore nella ripresa del job:', error);
       alert('Errore durante la ripresa del job');

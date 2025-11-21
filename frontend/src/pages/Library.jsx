@@ -21,10 +21,17 @@ export default function Library() {
   const { setCurrentTrack, setQueue, play } = usePlayerStore();
   const searchTimeoutRef = useRef(null);
 
+  // Carica playlists solo al mount
+  useEffect(() => {
+    loadPlaylists();
+    // Carica anche le tracce iniziali
+    loadTracks();
+  }, []);
+
   // Debounce per la ricerca - evita troppe richieste durante la digitazione
   useEffect(() => {
-    // Carica playlists subito
-    loadPlaylists();
+    // Non fare nulla se è il mount iniziale (search è vuoto)
+    if (search === '') return;
     
     // Cancella timeout precedente
     if (searchTimeoutRef.current) {
