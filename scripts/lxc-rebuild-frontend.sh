@@ -12,6 +12,7 @@ NC='\033[0m'
 ALEFY_USER="alefy"
 ALEFY_HOME="/opt/alefy"
 DOMAIN="${DOMAIN:-alevale.iliadboxos.it}"
+REPO_DIR="${REPO_DIR:-/tmp/alefy}"
 
 echo -e "${YELLOW}=== Ricostruzione Frontend ===${NC}\n"
 
@@ -33,36 +34,28 @@ if [ ! -d "$ALEFY_HOME/frontend" ]; then
     exit 1
 fi
 
-# Aggiorna repository
+# Aggiorna repository e copia frontend
 echo -e "${YELLOW}Aggiornamento repository...${NC}"
-if [ -d "$ALEFY_HOME/repo" ]; then
-    cd "$ALEFY_HOME/repo"
+if [ ! -d "$REPO_DIR" ]; then
+    echo -e "${YELLOW}Clone repository in $REPO_DIR...${NC}"
+    mkdir -p "$(dirname "$REPO_DIR")"
+    run_as_user "$ALEFY_USER" git clone https://github.com/Polimar/alefy.git "$REPO_DIR" || git clone https://github.com/Polimar/alefy.git "$REPO_DIR"
+    chown -R "$ALEFY_USER:$ALEFY_USER" "$REPO_DIR"
+else
+    cd "$REPO_DIR"
     run_as_user "$ALEFY_USER" git pull || git pull
     echo -e "${GREEN}✓ Repository aggiornato${NC}"
-    
-    # Copia frontend aggiornato
-    echo -e "\n${YELLOW}Copia frontend aggiornato...${NC}"
-    # Rimuovi vecchia directory se esiste
-    if [ -d "$ALEFY_HOME/frontend" ]; then
-        chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/frontend" 2>/dev/null || true
-    fi
-    cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
-    chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/frontend"
-    echo -e "${GREEN}✓ Frontend copiato${NC}"
-else
-    echo -e "${RED}✗ Repository non trovato in $ALEFY_HOME/repo${NC}"
-    echo -e "${YELLOW}Clone repository...${NC}"
-    mkdir -p "$ALEFY_HOME/repo"
-    run_as_user "$ALEFY_USER" git clone https://github.com/Polimar/alefy.git "$ALEFY_HOME/repo" || git clone https://github.com/Polimar/alefy.git "$ALEFY_HOME/repo"
-    chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/repo"
-    echo -e "${GREEN}✓ Repository clonato${NC}"
-    
-    # Copia frontend
-    echo -e "\n${YELLOW}Copia frontend...${NC}"
-    cp -r "$ALEFY_HOME/repo/frontend" "$ALEFY_HOME/"
-    chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/frontend"
-    echo -e "${GREEN}✓ Frontend copiato${NC}"
 fi
+
+# Copia frontend aggiornato
+echo -e "\n${YELLOW}Copia frontend aggiornato...${NC}"
+# Rimuovi vecchia directory se esiste
+if [ -d "$ALEFY_HOME/frontend" ]; then
+    chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/frontend" 2>/dev/null || true
+fi
+cp -r "$REPO_DIR/frontend"/* "$ALEFY_HOME/frontend/"
+chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/frontend"
+echo -e "${GREEN}✓ Frontend copiato${NC}"
 
 # Vai nella directory frontend
 cd "$ALEFY_HOME/frontend"

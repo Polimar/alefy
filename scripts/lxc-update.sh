@@ -76,7 +76,7 @@ echo -e "\n${YELLOW}3. Ricostruzione frontend...${NC}"
 cd "$REPO_DIR"
 if [ -f "scripts/lxc-rebuild-frontend.sh" ]; then
     chmod +x scripts/lxc-rebuild-frontend.sh
-    DOMAIN="$DOMAIN" ./scripts/lxc-rebuild-frontend.sh
+    DOMAIN="$DOMAIN" REPO_DIR="$REPO_DIR" ./scripts/lxc-rebuild-frontend.sh
 else
     echo -e "${RED}✗ Script lxc-rebuild-frontend.sh non trovato${NC}"
     exit 1
