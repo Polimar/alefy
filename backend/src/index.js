@@ -44,16 +44,31 @@ const corsOrigins = process.env.CORS_ORIGIN
     ? [process.env.FRONTEND_URL]
     : ['http://localhost:5173', 'https://alefy.duckdns.org', 'http://alefy.duckdns.org'];
 
+logger.info('[CORS] Origins permessi:', corsOrigins);
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Permetti richieste senza origin (es. Postman, mobile apps)
+    // Permetti richieste senza origin (es. Postman, mobile apps, same-origin)
     if (!origin) {
+      logger.info('[CORS] Richiesta senza origin, permessa');
       return callback(null, true);
     }
-    // Verifica se l'origin è nella lista permessa
-    if (corsOrigins.includes(origin) || corsOrigins.some(allowed => origin.startsWith(allowed))) {
+    
+    logger.info('[CORS] Verifica origin:', origin);
+    
+    // Verifica se l'origin è nella lista permessa (match esatto o inizia con)
+    const isAllowed = corsOrigins.some(allowed => {
+      const match = origin === allowed || origin.startsWith(allowed);
+      if (match) {
+        logger.info('[CORS] Origin permessa:', origin, 'match con:', allowed);
+      }
+      return match;
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
+      logger.warn('[CORS] Origin non permessa:', origin, 'Origins permessi:', corsOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
