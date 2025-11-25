@@ -146,15 +146,13 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Error handling
-app.use(errorHandler);
-
 // Serve frontend static files (solo in produzione o se FRONTEND_STATIC_PATH è definito)
+// IMPORTANTE: Questo deve essere DOPO le route API ma PRIMA dell'error handler
 const frontendStaticPath = process.env.FRONTEND_STATIC_PATH || '/var/www/alefy';
 if (process.env.NODE_ENV === 'production' || process.env.FRONTEND_STATIC_PATH) {
   try {
     if (fs.existsSync(frontendStaticPath)) {
-      // Serve file statici del frontend
+      // Serve file statici del frontend (CSS, JS, immagini, ecc.)
       app.use(express.static(frontendStaticPath, {
         maxAge: '1y',
         etag: true,
@@ -162,13 +160,19 @@ if (process.env.NODE_ENV === 'production' || process.env.FRONTEND_STATIC_PATH) {
       }));
       
       // Per SPA: tutte le route non-API servono index.html
+      // Questo deve essere DOPO express.static ma PRIMA dell'error handler
       app.get('*', (req, res, next) => {
-        // Se è una richiesta API, passa al prossimo middleware
+        // Se è una richiesta API, passa al prossimo middleware (404 handler)
         if (req.path.startsWith('/api')) {
           return next();
         }
         // Altrimenti serve index.html per React Router
-        res.sendFile(path.join(frontendStaticPath, 'index.html'));
+        const indexPath = path.join(frontendStaticPath, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          res.sendFile(indexPath);
+        } else {
+          res.status(404).send('Frontend non trovato');
+        }
       });
       
       logger.info(`Frontend static files serviti da: ${frontendStaticPath}`);
@@ -176,11 +180,11 @@ if (process.env.NODE_ENV === 'production' || process.env.FRONTEND_STATIC_PATH) {
       logger.warn(`Frontend static path non trovato: ${frontendStaticPath}`);
     }
   } catch (error) {
-    logger.warn(`Errore nel servire file statici frontend: ${error.message}`);
+    logger.error(`Errore nel servire file statici frontend: ${error.message}`);
   }
 }
 
-// 404 handler (solo per API se frontend non è servito)
+// 404 handler per API
 app.use('/api', (req, res) => {
   res.status(404).json({
     success: false,
@@ -189,6 +193,9 @@ app.use('/api', (req, res) => {
     },
   });
 });
+
+// Error handling (deve essere l'ultimo middleware)
+app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {
