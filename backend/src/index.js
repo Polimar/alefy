@@ -29,8 +29,25 @@ app.use(helmet({
 }));
 
 // CORS
+const corsOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+  : process.env.FRONTEND_URL 
+    ? [process.env.FRONTEND_URL]
+    : ['http://localhost:5173', 'https://alefy.duckdns.org', 'http://alefy.duckdns.org'];
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Permetti richieste senza origin (es. Postman, mobile apps)
+    if (!origin) {
+      return callback(null, true);
+    }
+    // Verifica se l'origin è nella lista permessa
+    if (corsOrigins.includes(origin) || corsOrigins.some(allowed => origin.startsWith(allowed))) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
