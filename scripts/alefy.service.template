@@ -15,6 +15,7 @@ Group={{ALEFY_USER}}
 WorkingDirectory={{ALEFY_HOME}}/backend
 Environment="NODE_ENV=production"
 Environment="PORT=3000"
+Environment="FRONTEND_STATIC_PATH=/var/www/alefy"
 EnvironmentFile={{ALEFY_HOME}}/backend/.env
 
 # Comando di avvio
