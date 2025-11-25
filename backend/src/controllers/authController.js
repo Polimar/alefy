@@ -97,6 +97,7 @@ export const register = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
+    console.log('[Login] Tentativo login per email:', req.body.email);
     logger.info('[Login] Tentativo login per email:', req.body.email);
     const validatedData = loginSchema.parse(req.body);
     const { email, password } = validatedData;
@@ -153,6 +154,8 @@ export const login = async (req, res, next) => {
       },
     });
   } catch (error) {
+    console.error('[Login] Errore durante login:', error.message);
+    console.error('[Login] Stack:', error.stack);
     logger.error('[Login] Errore durante login:', {
       message: error.message,
       stack: error.stack,
