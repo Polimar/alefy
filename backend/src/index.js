@@ -17,6 +17,15 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+// Verifica variabili ambiente critiche
+const requiredEnvVars = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingVars.length > 0) {
+  logger.error(`Variabili ambiente mancanti: ${missingVars.join(', ')}`);
+  logger.error('Assicurati che il file .env contenga tutte le variabili necessarie');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 

@@ -16,6 +16,13 @@ const loginSchema = z.object({
 });
 
 const generateTokens = (userId) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET non configurato nel file .env');
+  }
+  if (!process.env.JWT_REFRESH_SECRET) {
+    throw new Error('JWT_REFRESH_SECRET non configurato nel file .env');
+  }
+
   const accessToken = jwt.sign(
     { userId },
     process.env.JWT_SECRET,
