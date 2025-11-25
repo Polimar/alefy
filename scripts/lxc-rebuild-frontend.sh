@@ -12,7 +12,7 @@ NC='\033[0m'
 
 ALEFY_USER="alefy"
 ALEFY_HOME="/opt/alefy"
-DOMAIN="${DOMAIN:-alevale.iliadboxos.it}"
+DOMAIN="${DOMAIN:-alefy.duckdns.org}"
 REPO_DIR="${REPO_DIR:-/tmp/alefy}"
 
 echo -e "${YELLOW}=== Ricostruzione Frontend ===${NC}\n"

@@ -63,9 +63,9 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0',
     allowedHosts: [
-      'alevale.iliadboxos.it',
+      'alefy.duckdns.org',
       'localhost',
-      '.iliadboxos.it'
+      '.duckdns.org'
     ],
     proxy: {
       '^/api': {

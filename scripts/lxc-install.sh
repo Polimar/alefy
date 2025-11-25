@@ -17,7 +17,7 @@ ALEFY_REPO_URL="https://github.com/Polimar/alefy.git"
 NODE_VERSION="20"
 POSTGRES_USER="alefy"
 POSTGRES_DB="alefy_db"
-DOMAIN="${DOMAIN:-alevale.iliadboxos.it}"
+DOMAIN="${DOMAIN:-alefy.duckdns.org}"
 EMAIL="${EMAIL:-valerio@free-ware.it}"
 
 echo -e "${GREEN}=== Installazione Alefy su LXC ===${NC}"

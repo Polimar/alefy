@@ -11,7 +11,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-DOMAIN="${DOMAIN:-alevale.iliadboxos.it}"
+DOMAIN="${DOMAIN:-alefy.duckdns.org}"
 
 echo -e "${YELLOW}=== Correzione configurazione Nginx ===${NC}\n"
 

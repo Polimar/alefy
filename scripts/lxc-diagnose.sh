@@ -12,7 +12,7 @@ NC='\033[0m'
 ALEFY_USER="alefy"
 ALEFY_HOME="/opt/alefy"
 ALEFY_REPO_URL="https://github.com/Polimar/alefy.git"
-DOMAIN="${DOMAIN:-alevale.iliadboxos.it}"
+DOMAIN="${DOMAIN:-alefy.duckdns.org}"
 
 echo -e "${YELLOW}=== Diagnostica Alefy ===${NC}\n"
 
