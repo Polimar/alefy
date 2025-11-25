@@ -73,11 +73,11 @@ apt-get install -y \
     ffmpeg \
     python3 \
     python3-pip \
-    nginx \
+    # nginx \  # Non necessario se si usa Nginx Proxy Manager esterno
     postgresql \
     postgresql-contrib \
-    certbot \
-    python3-certbot-nginx \
+    # certbot \  # SSL gestito da Nginx Proxy Manager
+    # python3-certbot-nginx \  # SSL gestito da Nginx Proxy Manager
     ufw
 
 # Installazione Node.js 20.x
@@ -290,9 +290,9 @@ systemctl start alefy
 
 echo -e "${GREEN}Servizio Systemd configurato e avviato${NC}"
 
-# Setup Nginx
-echo -e "${YELLOW}Setup Nginx...${NC}"
-cat > /etc/nginx/sites-available/alefy <<'NGINX_EOF'
+# Setup Nginx (DISABILITATO - Usa Nginx Proxy Manager esterno)
+# echo -e "${YELLOW}Setup Nginx...${NC}"
+# cat > /etc/nginx/sites-available/alefy <<'NGINX_EOF'
 server {
     listen 80;
     listen [::]:80;
@@ -390,25 +390,31 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
 }
-NGINX_EOF
+# NGINX_EOF
 
-# Sostituisci il dominio se specificato
-if [ "$DOMAIN" != "_" ]; then
-    sed -i "s/server_name _;/server_name $DOMAIN;/g" /etc/nginx/sites-available/alefy
-fi
+# # Sostituisci il dominio se specificato
+# if [ "$DOMAIN" != "_" ]; then
+#     sed -i "s/server_name _;/server_name $DOMAIN;/g" /etc/nginx/sites-available/alefy
+# fi
 
-# Abilita sito
-ln -sf /etc/nginx/sites-available/alefy /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
+# # Abilita sito
+# ln -sf /etc/nginx/sites-available/alefy /etc/nginx/sites-enabled/
+# rm -f /etc/nginx/sites-enabled/default
 
-# Test configurazione Nginx
-nginx -t
+# # Test configurazione Nginx
+# nginx -t
 
-# Riavvia Nginx
-systemctl restart nginx
-systemctl enable nginx
+# # Riavvia Nginx
+# systemctl restart nginx
+# systemctl enable nginx
 
-echo -e "${GREEN}Nginx configurato${NC}"
+# echo -e "${GREEN}Nginx configurato${NC}"
+
+echo -e "${YELLOW}Nota: Nginx è gestito esternamente tramite Nginx Proxy Manager${NC}"
+echo -e "${YELLOW}Assicurati di configurare il proxy per:${NC}"
+echo -e "  - Frontend: /var/www/alefy (root directory)"
+echo -e "  - Backend API: http://localhost:3000/api"
+echo -e "  - Streaming: http://localhost:3000/api/stream"
 
 # Setup firewall (opzionale)
 echo -e "${YELLOW}Configurazione firewall...${NC}"
@@ -419,23 +425,25 @@ if command -v ufw &> /dev/null; then
     ufw --force enable || true
 fi
 
-# Setup SSL con Certbot (opzionale, richiede dominio valido)
-if [ "$DOMAIN" != "_" ] && [ -n "$EMAIL" ]; then
-    echo -e "${YELLOW}Setup SSL con Let's Encrypt...${NC}"
-    echo -e "${YELLOW}Assicurati che il dominio $DOMAIN punti a questo server prima di continuare${NC}"
-    read -p "Procedere con setup SSL? (s/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Ss]$ ]]; then
-        # Modifica Nginx per permettere certificazione
-        sed -i 's/# return 301/return 301/g' /etc/nginx/sites-available/alefy || true
-        systemctl reload nginx
-        
-        certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "$EMAIL" || {
-            echo -e "${YELLOW}Certbot fallito. Puoi eseguirlo manualmente più tardi con:${NC}"
-            echo -e "certbot --nginx -d $DOMAIN"
-        }
-    fi
-fi
+# Setup SSL con Certbot (DISABILITATO - SSL gestito da Nginx Proxy Manager)
+# if [ "$DOMAIN" != "_" ] && [ -n "$EMAIL" ]; then
+#     echo -e "${YELLOW}Setup SSL con Let's Encrypt...${NC}"
+#     echo -e "${YELLOW}Assicurati che il dominio $DOMAIN punti a questo server prima di continuare${NC}"
+#     read -p "Procedere con setup SSL? (s/N): " -n 1 -r
+#     echo
+#     if [[ $REPLY =~ ^[Ss]$ ]]; then
+#         # Modifica Nginx per permettere certificazione
+#         sed -i 's/# return 301/return 301/g' /etc/nginx/sites-available/alefy || true
+#         systemctl reload nginx
+#         
+#         certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "$EMAIL" || {
+#             echo -e "${YELLOW}Certbot fallito. Puoi eseguirlo manualmente più tardi con:${NC}"
+#             echo -e "certbot --nginx -d $DOMAIN"
+#         }
+#     fi
+# fi
+
+echo -e "${YELLOW}Nota: SSL è gestito da Nginx Proxy Manager esterno${NC}"
 
 # Riepilogo
 echo -e "${GREEN}=== Installazione completata! ===${NC}"
@@ -454,7 +462,11 @@ echo -e "${YELLOW}Comandi utili:${NC}"
 echo -e "  Status backend: systemctl status alefy"
 echo -e "  Log backend: journalctl -u alefy -f"
 echo -e "  Riavvia backend: systemctl restart alefy"
-echo -e "  Status Nginx: systemctl status nginx"
-echo -e "  Test Nginx: nginx -t"
+echo -e "  Test API: curl http://localhost:3000/api/health"
+echo -e ""
+echo -e "${YELLOW}Configurazione Nginx Proxy Manager:${NC}"
+echo -e "  Frontend: Root directory -> /var/www/alefy"
+echo -e "  Backend API: Proxy host -> http://localhost:3000/api"
+echo -e "  Streaming: Proxy host -> http://localhost:3000/api/stream"
 
 

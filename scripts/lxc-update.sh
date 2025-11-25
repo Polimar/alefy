@@ -1,7 +1,8 @@
 #!/bin/bash
 # Script completo per aggiornare backend e frontend su LXC
 # Eseguire come root
-# Uso: DOMAIN=alevale.iliadboxos.it ./scripts/lxc-update.sh
+# Uso: DOMAIN=alefy.duckdns.org ./scripts/lxc-update.sh
+# Nota: Nginx è gestito esternamente tramite Nginx Proxy Manager
 
 set -e
 
@@ -94,7 +95,6 @@ fi
 # 4. Riavvia servizi
 echo -e "\n${YELLOW}4. Riavvio servizi...${NC}"
 systemctl restart alefy
-systemctl reload nginx
 echo -e "${GREEN}✓ Servizi riavviati${NC}"
 
 # 5. Verifica

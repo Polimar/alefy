@@ -1,5 +1,7 @@
 #!/bin/bash
 # Script per correggere problemi di redirect infinito in Nginx
+# DEPRECATO: Nginx è ora gestito esternamente tramite Nginx Proxy Manager
+# Questo script è mantenuto solo come riferimento
 # Eseguire come root
 
 set -e

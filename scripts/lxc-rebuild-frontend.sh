@@ -1,6 +1,7 @@
 #!/bin/bash
-# Script per ricostruire il frontend e aggiornare Nginx
+# Script per ricostruire il frontend
 # Eseguire come root
+# Nota: Nginx è gestito esternamente tramite Nginx Proxy Manager
 
 set -e
 
@@ -64,12 +65,13 @@ cd "$ALEFY_HOME/frontend"
 chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/frontend" 2>/dev/null || true
 
 # Crea/aggiorna .env.production
+# Nota: DOMAIN dovrebbe essere il FQDN pubblico gestito da Nginx Proxy Manager (es. alefy.duckdns.org)
 echo -e "\n${YELLOW}Configurazione ambiente...${NC}"
 cat > .env.production <<EOF
 VITE_API_URL=https://$DOMAIN/api
 EOF
 chown "$ALEFY_USER:$ALEFY_USER" .env.production
-echo -e "${GREEN}✓ File .env.production configurato${NC}"
+echo -e "${GREEN}✓ File .env.production configurato con dominio: $DOMAIN${NC}"
 
 # Installa dipendenze se necessario
 echo -e "\n${YELLOW}Verifica dipendenze...${NC}"
@@ -115,7 +117,7 @@ else
     echo -e "${GREEN}✓ Trovati $CSS_COUNT file CSS${NC}"
 fi
 
-# Copia build in directory Nginx
+# Copia build in directory web
 echo -e "\n${YELLOW}Copia build in /var/www/alefy...${NC}"
 mkdir -p /var/www/alefy
 rm -rf /var/www/alefy/*
@@ -131,14 +133,9 @@ echo -e "${GREEN}✓ Permessi configurati${NC}"
 echo -e "\n${YELLOW}File CSS copiati:${NC}"
 find /var/www/alefy -name "*.css" -exec ls -lh {} \;
 
-# Riavvia Nginx
-echo -e "\n${YELLOW}Riavvio Nginx...${NC}"
-systemctl reload nginx
-echo -e "${GREEN}✓ Nginx riavviato${NC}"
-
 echo -e "\n${GREEN}=== Ricostruzione completata! ===${NC}"
+echo -e "\n${YELLOW}Nota:${NC} Frontend servito tramite Nginx Proxy Manager esterno"
 echo -e "\n${YELLOW}Verifica:${NC}"
 echo -e "  - File CSS: ls -lh /var/www/alefy/assets/*.css"
-echo -e "  - Test: curl -I http://localhost/assets/index-*.css"
-echo -e "  - Log: tail -f /var/log/nginx/alefy-error.log"
+echo -e "  - Test locale: curl -I http://localhost/assets/index-*.css"
 

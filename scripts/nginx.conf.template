@@ -1,5 +1,7 @@
 # Template configurazione Nginx per Alefy
-# Questo file viene generato automaticamente da lxc-install.sh
+# DEPRECATO: Nginx è ora gestito esternamente tramite Nginx Proxy Manager
+# Questo file è mantenuto solo come riferimento per configurazione proxy esterno
+# Questo file viene generato automaticamente da lxc-install.sh (ora disabilitato)
 # Modifiche manuali verranno sovrascritte
 
 server {
@@ -100,4 +102,5 @@ server {
 
 # Configurazione HTTPS (generata automaticamente da Certbot)
 # Dopo l'esecuzione di certbot, questa sezione verrà aggiunta automaticamente
+
 
