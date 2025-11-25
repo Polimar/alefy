@@ -38,13 +38,24 @@ app.use(helmet({
 }));
 
 // CORS
-const corsOrigins = process.env.CORS_ORIGIN 
-  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-  : process.env.FRONTEND_URL 
-    ? [process.env.FRONTEND_URL]
-    : ['http://localhost:5173', 'https://alefy.duckdns.org', 'http://alefy.duckdns.org'];
+let corsOrigins = [];
+if (process.env.CORS_ORIGIN) {
+  corsOrigins = process.env.CORS_ORIGIN.split(',').map(origin => origin.trim());
+} else if (process.env.FRONTEND_URL) {
+  corsOrigins = [process.env.FRONTEND_URL];
+} else {
+  corsOrigins = ['http://localhost:5173'];
+}
 
-logger.info('[CORS] Origins permessi:', corsOrigins);
+// Aggiungi sempre alefy.duckdns.org se non è già presente
+const alefyDuckdns = ['https://alefy.duckdns.org', 'http://alefy.duckdns.org'];
+alefyDuckdns.forEach(origin => {
+  if (!corsOrigins.includes(origin)) {
+    corsOrigins.push(origin);
+  }
+});
+
+logger.info('[CORS] Origins permessi:', JSON.stringify(corsOrigins));
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -54,13 +65,13 @@ app.use(cors({
       return callback(null, true);
     }
     
-    logger.info('[CORS] Verifica origin:', origin);
+    logger.info('[CORS] Verifica origin:', JSON.stringify(origin));
     
     // Verifica se l'origin è nella lista permessa (match esatto o inizia con)
     const isAllowed = corsOrigins.some(allowed => {
       const match = origin === allowed || origin.startsWith(allowed);
       if (match) {
-        logger.info('[CORS] Origin permessa:', origin, 'match con:', allowed);
+        logger.info('[CORS] Origin permessa:', JSON.stringify(origin), 'match con:', JSON.stringify(allowed));
       }
       return match;
     });
@@ -68,7 +79,7 @@ app.use(cors({
     if (isAllowed) {
       callback(null, true);
     } else {
-      logger.warn('[CORS] Origin non permessa:', origin, 'Origins permessi:', corsOrigins);
+      logger.warn('[CORS] Origin non permessa:', JSON.stringify(origin), 'Origins permessi:', JSON.stringify(corsOrigins));
       callback(new Error('Not allowed by CORS'));
     }
   },
