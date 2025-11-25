@@ -5,9 +5,15 @@ import compression from 'compression';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { errorHandler } from './middleware/errorHandler.js';
 import logger from './utils/logger.js';
 import pool from './database/db.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -143,8 +149,39 @@ app.get('/api', (req, res) => {
 // Error handling
 app.use(errorHandler);
 
-// 404 handler
-app.use((req, res) => {
+// Serve frontend static files (solo in produzione o se FRONTEND_STATIC_PATH è definito)
+const frontendStaticPath = process.env.FRONTEND_STATIC_PATH || '/var/www/alefy';
+if (process.env.NODE_ENV === 'production' || process.env.FRONTEND_STATIC_PATH) {
+  try {
+    if (fs.existsSync(frontendStaticPath)) {
+      // Serve file statici del frontend
+      app.use(express.static(frontendStaticPath, {
+        maxAge: '1y',
+        etag: true,
+        lastModified: true,
+      }));
+      
+      // Per SPA: tutte le route non-API servono index.html
+      app.get('*', (req, res, next) => {
+        // Se è una richiesta API, passa al prossimo middleware
+        if (req.path.startsWith('/api')) {
+          return next();
+        }
+        // Altrimenti serve index.html per React Router
+        res.sendFile(path.join(frontendStaticPath, 'index.html'));
+      });
+      
+      logger.info(`Frontend static files serviti da: ${frontendStaticPath}`);
+    } else {
+      logger.warn(`Frontend static path non trovato: ${frontendStaticPath}`);
+    }
+  } catch (error) {
+    logger.warn(`Errore nel servire file statici frontend: ${error.message}`);
+  }
+}
+
+// 404 handler (solo per API se frontend non è servito)
+app.use('/api', (req, res) => {
   res.status(404).json({
     success: false,
     error: {
