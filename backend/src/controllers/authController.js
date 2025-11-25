@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../database/db.js';
 import { AppError } from '../middleware/errorHandler.js';
+import logger from '../utils/logger.js';
 import { z } from 'zod';
 
 const registerSchema = z.object({
@@ -96,30 +97,39 @@ export const register = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
+    logger.info('[Login] Tentativo login per email:', req.body.email);
     const validatedData = loginSchema.parse(req.body);
     const { email, password } = validatedData;
 
     // Find user
+    logger.info('[Login] Ricerca utente nel database...');
     const result = await pool.query(
       'SELECT id, email, password_hash, username FROM users WHERE email = $1',
       [email]
     );
 
     if (result.rows.length === 0) {
+      logger.warn('[Login] Utente non trovato:', email);
       throw new AppError('Credenziali non valide', 401);
     }
 
     const user = result.rows[0];
+    logger.info('[Login] Utente trovato, ID:', user.id);
 
     // Verify password
+    logger.info('[Login] Verifica password...');
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
+      logger.warn('[Login] Password non valida per utente:', email);
       throw new AppError('Credenziali non valide', 401);
     }
 
+    logger.info('[Login] Password valida, generazione token...');
     const { accessToken, refreshToken } = generateTokens(user.id);
+    logger.info('[Login] Token generati con successo');
 
     // Store refresh token
+    logger.info('[Login] Salvataggio refresh token nel database...');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -127,7 +137,9 @@ export const login = async (req, res, next) => {
       'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
       [user.id, refreshToken, expiresAt]
     );
+    logger.info('[Login] Refresh token salvato nel database');
 
+    logger.info('[Login] Login completato con successo per utente:', email);
     res.json({
       success: true,
       data: {
@@ -141,6 +153,11 @@ export const login = async (req, res, next) => {
       },
     });
   } catch (error) {
+    logger.error('[Login] Errore durante login:', {
+      message: error.message,
+      stack: error.stack,
+      email: req.body?.email,
+    });
     if (error instanceof z.ZodError) {
       return next(new AppError(error.errors[0].message, 400));
     }
