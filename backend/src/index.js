@@ -207,9 +207,10 @@ app.use('/api', (req, res) => {
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   logger.info(`Server avviato sulla porta ${PORT}`);
   logger.info(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`Server in ascolto su tutte le interfacce (0.0.0.0:${PORT})`);
 });
 
 // Graceful shutdown
