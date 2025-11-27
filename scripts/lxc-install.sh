@@ -103,6 +103,11 @@ fi
 # Installazione chromaprint (necessario per fingerprint audio)
 echo -e "${YELLOW}Installazione chromaprint...${NC}"
 if ! command -v fpcalc &> /dev/null && ! command -v chromaprint &> /dev/null; then
+    # Abilita repository universe se disponibile (Ubuntu)
+    if command -v add-apt-repository &> /dev/null; then
+        add-apt-repository -y universe 2>/dev/null || true
+    fi
+    
     apt-get update -qq
     
     # Prova installazione da repository
