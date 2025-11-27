@@ -205,6 +205,17 @@ YTDLP_PATH=yt-dlp
 # MusicBrainz API (opzionale)
 MUSICBRAINZ_USER_AGENT=ALEFY/1.0.0
 
+# Last.fm API (opzionale, per metadati genere)
+LASTFM_API_KEY=155937c90c65c12774b9c5f9784b1d90
+
+# AcoustID API (opzionale, migliora rate limit)
+ACOUSTID_API_KEY=fDqV1xMrc5
+
+# Metadata Batch Processing
+METADATA_BATCH_INTERVAL=24
+METADATA_BATCH_BATCH_SIZE=10
+METADATA_BATCH_RATE_LIMIT_MS=6000
+
 # CORS
 CORS_ORIGIN=https://$DOMAIN
 

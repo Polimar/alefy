@@ -83,8 +83,17 @@ fi
 run_as_user "$ALEFY_USER" npm list uuid || true
 echo -e "${GREEN}✓ Backend aggiornato${NC}"
 
-# 2.5. Esegui migration database
-echo -e "\n${YELLOW}2.5. Esecuzione migration database...${NC}"
+# 2.5. Aggiorna variabili d'ambiente se necessario
+echo -e "\n${YELLOW}2.5. Aggiornamento variabili d'ambiente...${NC}"
+if [ -f "$REPO_DIR/scripts/lxc-update-env.sh" ]; then
+    chmod +x "$REPO_DIR/scripts/lxc-update-env.sh"
+    "$REPO_DIR/scripts/lxc-update-env.sh" || echo -e "${YELLOW}⚠ Errore aggiornamento env (potrebbe essere già aggiornato)${NC}"
+else
+    echo -e "${YELLOW}⚠ Script lxc-update-env.sh non trovato, skip${NC}"
+fi
+
+# 2.6. Esegui migration database
+echo -e "\n${YELLOW}2.6. Esecuzione migration database...${NC}"
 cd "$ALEFY_HOME/backend"
 if run_as_user "$ALEFY_USER" npm run migrate 2>&1; then
     echo -e "${GREEN}✓ Migration completate${NC}"
