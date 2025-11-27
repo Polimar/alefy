@@ -11,7 +11,7 @@ export default function Layout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [metadataStats, setMetadataStats] = useState(null);
+  const [metadataStats, setMetadataStats] = useState({ total: 0, processed: 0, recognized: 0 });
 
   useEffect(() => {
     const handleResize = () => {
