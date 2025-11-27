@@ -59,8 +59,48 @@ echo -e "${YELLOW}Verifica chromaprint...${NC}"
 if ! command -v fpcalc &> /dev/null && ! command -v chromaprint &> /dev/null; then
     echo -e "${YELLOW}Installazione chromaprint...${NC}"
     apt-get update -qq
-    apt-get install -y chromaprint-tools || apt-get install -y chromaprint
-    echo -e "${GREEN}✓ chromaprint installato${NC}"
+    
+    # Chromaprint potrebbe non essere nei repository standard
+    # Prova installazione da repository universe (Ubuntu) o contrib (Debian)
+    if apt-get install -y libchromaprint-tools 2>/dev/null; then
+        echo -e "${GREEN}✓ chromaprint installato (libchromaprint-tools)${NC}"
+    elif apt-get install -y chromaprint-tools 2>/dev/null; then
+        echo -e "${GREEN}✓ chromaprint installato (chromaprint-tools)${NC}"
+    elif apt-get install -y chromaprint 2>/dev/null; then
+        echo -e "${GREEN}✓ chromaprint installato (chromaprint)${NC}"
+    else
+        echo -e "${YELLOW}⚠ chromaprint non disponibile nei repository standard${NC}"
+        echo -e "${YELLOW}  Tentativo installazione da source...${NC}"
+        
+        # Installa dipendenze per compilazione
+        apt-get install -y build-essential cmake libavcodec-dev libavformat-dev libavutil-dev libavresample-dev
+        
+        # Scarica e compila chromaprint
+        CHROMAPRINT_VERSION="1.5.1"
+        CHROMAPRINT_DIR="/tmp/chromaprint-${CHROMAPRINT_VERSION}"
+        
+        if [ ! -d "$CHROMAPRINT_DIR" ]; then
+            cd /tmp
+            wget -q "https://github.com/acoustid/chromaprint/releases/download/v${CHROMAPRINT_VERSION}/chromaprint-${CHROMAPRINT_VERSION}.tar.gz" -O chromaprint.tar.gz
+            if [ $? -eq 0 ]; then
+                tar -xzf chromaprint.tar.gz
+                cd chromaprint-${CHROMAPRINT_VERSION}
+                cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=ON .
+                make -j$(nproc)
+                make install
+                ldconfig
+                cd /
+                rm -rf "$CHROMAPRINT_DIR" chromaprint.tar.gz
+                echo -e "${GREEN}✓ chromaprint installato da source${NC}"
+            else
+                echo -e "${YELLOW}⚠ Impossibile scaricare chromaprint da source${NC}"
+                echo -e "${YELLOW}  Il riconoscimento audio fingerprint sarà limitato${NC}"
+                echo -e "${YELLOW}  Per installarlo manualmente:${NC}"
+                echo -e "${YELLOW}    - Abilita repository universe: add-apt-repository universe && apt-get update${NC}"
+                echo -e "${YELLOW}    - Poi: apt-get install libchromaprint-tools${NC}"
+            fi
+        fi
+    fi
 else
     echo -e "${GREEN}✓ chromaprint già installato${NC}"
 fi

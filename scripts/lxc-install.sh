@@ -100,6 +100,42 @@ if ! command -v yt-dlp &> /dev/null; then
     fi
 fi
 
+# Installazione chromaprint (necessario per fingerprint audio)
+echo -e "${YELLOW}Installazione chromaprint...${NC}"
+if ! command -v fpcalc &> /dev/null && ! command -v chromaprint &> /dev/null; then
+    apt-get update -qq
+    
+    # Prova installazione da repository
+    if apt-get install -y libchromaprint-tools 2>/dev/null; then
+        echo -e "${GREEN}✓ chromaprint installato${NC}"
+    elif apt-get install -y chromaprint-tools 2>/dev/null; then
+        echo -e "${GREEN}✓ chromaprint installato${NC}"
+    else
+        echo -e "${YELLOW}⚠ chromaprint non disponibile nei repository standard${NC}"
+        echo -e "${YELLOW}  Installazione da source...${NC}"
+        apt-get install -y build-essential cmake libavcodec-dev libavformat-dev libavutil-dev libavresample-dev wget
+        
+        CHROMAPRINT_VERSION="1.5.1"
+        cd /tmp
+        wget -q "https://github.com/acoustid/chromaprint/releases/download/v${CHROMAPRINT_VERSION}/chromaprint-${CHROMAPRINT_VERSION}.tar.gz" -O chromaprint.tar.gz
+        if [ $? -eq 0 ]; then
+            tar -xzf chromaprint.tar.gz
+            cd chromaprint-${CHROMAPRINT_VERSION}
+            cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=ON .
+            make -j$(nproc)
+            make install
+            ldconfig
+            cd /
+            rm -rf chromaprint-${CHROMAPRINT_VERSION} chromaprint.tar.gz
+            echo -e "${GREEN}✓ chromaprint installato da source${NC}"
+        else
+            echo -e "${YELLOW}⚠ Impossibile installare chromaprint, il riconoscimento audio sarà limitato${NC}"
+        fi
+    fi
+else
+    echo -e "${GREEN}✓ chromaprint già installato${NC}"
+fi
+
 # Creazione utente alefy
 echo -e "${YELLOW}Creazione utente ${ALEFY_USER}...${NC}"
 if ! id "$ALEFY_USER" &>/dev/null; then
