@@ -13,15 +13,22 @@ export const getStats = async (req, res, next) => {
     );
     const trackCount = parseInt(trackCountResult.rows[0].count);
     
-    // Get metadata processing stats
-    const metadataStatsResult = await pool.query(
-      `SELECT 
-        COUNT(*) FILTER (WHERE metadata_processed_at IS NOT NULL) as processed_count,
-        COUNT(*) FILTER (WHERE metadata_source IS NOT NULL AND metadata_source != 'manual') as recognized_count,
-        COUNT(*) FILTER (WHERE acoustid IS NOT NULL) as acoustid_count
-       FROM tracks`
-    );
-    const metadataStats = metadataStatsResult.rows[0];
+    // Get metadata processing stats (con gestione errori se colonne non esistono)
+    let metadataStats = { processed_count: 0, recognized_count: 0, acoustid_count: 0 };
+    try {
+      const metadataStatsResult = await pool.query(
+        `SELECT 
+          COUNT(*) FILTER (WHERE metadata_processed_at IS NOT NULL) as processed_count,
+          COUNT(*) FILTER (WHERE metadata_source IS NOT NULL AND metadata_source != 'manual') as recognized_count,
+          COUNT(*) FILTER (WHERE acoustid IS NOT NULL) as acoustid_count
+         FROM tracks`
+      );
+      metadataStats = metadataStatsResult.rows[0] || metadataStats;
+    } catch (error) {
+      // Se le colonne non esistono (migrazione non eseguita), usa valori di default
+      console.warn('[Stats] Colonne metadati non trovate, eseguire migrazione 004:', error.message);
+      metadataStats = { processed_count: 0, recognized_count: 0, acoustid_count: 0 };
+    }
 
     // Get total storage
     const storageResult = await pool.query(

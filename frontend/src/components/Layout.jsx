@@ -38,11 +38,23 @@ export default function Layout() {
     const loadMetadataStats = async () => {
       try {
         const response = await api.get('/stats');
-        if (response.data.success && response.data.data.metadataStats) {
-          setMetadataStats(response.data.data.metadataStats);
+        if (response.data.success && response.data.data) {
+          // Usa metadataStats se disponibile, altrimenti crea oggetto con valori di default
+          const stats = response.data.data.metadataStats || {
+            total: response.data.data.trackCount || 0,
+            processed: 0,
+            recognized: 0,
+          };
+          setMetadataStats(stats);
         }
       } catch (error) {
         console.error('Errore caricamento statistiche metadati:', error);
+        // In caso di errore, mostra comunque valori di default
+        setMetadataStats({
+          total: 0,
+          processed: 0,
+          recognized: 0,
+        });
       }
     };
     
@@ -132,7 +144,7 @@ export default function Layout() {
             </>
           )}
         </nav>
-        {metadataStats && (
+        {metadataStats !== null && (
           <div className="metadata-stats">
             <div className="metadata-stats-header">
               <Music size={16} />
