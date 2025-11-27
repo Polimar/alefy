@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { Home, Upload, ListMusic, LogOut, Menu, X, Users, Settings } from 'lucide-react';
+import { Home, Upload, ListMusic, LogOut, Menu, X, Users, Settings, Music } from 'lucide-react';
 import Player from './Player';
+import api from '../utils/api';
 import './Layout.css';
 
 export default function Layout() {
@@ -10,6 +11,7 @@ export default function Layout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [metadataStats, setMetadataStats] = useState(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -30,6 +32,25 @@ export default function Layout() {
       setSidebarOpen(false);
     }
   }, [location.pathname, isMobile]);
+
+  useEffect(() => {
+    // Carica statistiche metadati
+    const loadMetadataStats = async () => {
+      try {
+        const response = await api.get('/stats');
+        if (response.data.success && response.data.data.metadataStats) {
+          setMetadataStats(response.data.data.metadataStats);
+        }
+      } catch (error) {
+        console.error('Errore caricamento statistiche metadati:', error);
+      }
+    };
+    
+    loadMetadataStats();
+    // Aggiorna ogni 30 secondi
+    const interval = setInterval(loadMetadataStats, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -111,6 +132,28 @@ export default function Layout() {
             </>
           )}
         </nav>
+        {metadataStats && (
+          <div className="metadata-stats">
+            <div className="metadata-stats-header">
+              <Music size={16} />
+              <span>Metadati</span>
+            </div>
+            <div className="metadata-stats-content">
+              <div className="metadata-stat-item">
+                <span className="metadata-stat-label">Totali:</span>
+                <span className="metadata-stat-value">{metadataStats.total}</span>
+              </div>
+              <div className="metadata-stat-item">
+                <span className="metadata-stat-label">Processate:</span>
+                <span className="metadata-stat-value">{metadataStats.processed}</span>
+              </div>
+              <div className="metadata-stat-item">
+                <span className="metadata-stat-label">Riconosciute:</span>
+                <span className="metadata-stat-value metadata-stat-recognized">{metadataStats.recognized}</span>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="sidebar-footer">
           <div className="user-info">
             <div className="user-avatar">

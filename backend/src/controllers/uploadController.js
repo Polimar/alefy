@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { extractMetadata, saveCoverArt } from '../utils/audioMetadata.js';
 import { getTrackStoragePath, ensureDirectoryExists, getStoragePath, getFileStats } from '../utils/storage.js';
 import { addTracksToPlaylist } from './youtubeController.js';
+import { processTrack } from '../services/metadataBatchService.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
@@ -94,6 +95,11 @@ export const uploadTracks = async (req, res, next) => {
         );
 
         uploadedTracks.push(result.rows[0]);
+        
+        // Trigger processing metadati in background (non bloccante)
+        processTrack(result.rows[0].id).catch(error => {
+          console.error(`[Upload] Errore processing metadati per traccia ${result.rows[0].id}:`, error.message);
+        });
       } catch (error) {
         // Clean up file on error
         try {

@@ -189,12 +189,42 @@ import youtubeRoutes from './routes/youtubeRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import usersRoutes from './routes/usersRoutes.js';
 import youtubeCookiesRoutes from './routes/youtubeCookiesRoutes.js';
+import metadataRoutes from './routes/metadataRoutes.js';
 import downloadQueue from './utils/downloadQueue.js';
 import { processDownloadJob } from './controllers/youtubeController.js';
+import cron from 'node-cron';
+import { processMissingMetadata } from './services/metadataBatchService.js';
 
 // Registra listener per processare job dalla coda
 downloadQueue.on('job-ready', async (job) => {
   await processDownloadJob(job);
+});
+
+// Scheduler periodico per processing metadati
+const metadataBatchInterval = process.env.METADATA_BATCH_INTERVAL || '24'; // Ore (default: 24)
+const metadataBatchSize = parseInt(process.env.METADATA_BATCH_BATCH_SIZE || '10', 10);
+const metadataRateLimit = parseInt(process.env.METADATA_BATCH_RATE_LIMIT_MS || '6000', 10);
+
+// Converti ore in formato cron (ogni X ore)
+const hours = parseInt(metadataBatchInterval, 10);
+const cronExpression = hours >= 24 
+  ? `0 0 */${Math.floor(hours / 24)} * * *` // Ogni X giorni alle 00:00
+  : `0 */${hours} * * * *`; // Ogni X ore
+
+logger.info(`[Metadata Batch] Scheduler configurato: ogni ${metadataBatchInterval} ore (${cronExpression})`);
+
+// Esegui batch periodico
+cron.schedule(cronExpression, async () => {
+  logger.info('[Metadata Batch] Avvio batch periodico...');
+  try {
+    const stats = await processMissingMetadata(metadataBatchSize, metadataRateLimit);
+    logger.info(`[Metadata Batch] Batch completato: ${stats.processed} processate, ${stats.updated} aggiornate, ${stats.errors} errori`);
+  } catch (error) {
+    logger.error('[Metadata Batch] Errore batch periodico:', error.message);
+  }
+}, {
+  scheduled: true,
+  timezone: 'UTC'
 });
 
 app.use('/api/auth', authRoutes);
@@ -204,6 +234,7 @@ app.use('/api/tracks', tracksRoutes);
 app.use('/api/playlists', playlistsRoutes);
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/youtube/cookies', youtubeCookiesRoutes);
+app.use('/api/metadata', metadataRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/users', usersRoutes);
 

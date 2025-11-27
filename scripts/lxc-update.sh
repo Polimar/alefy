@@ -54,6 +54,17 @@ fi
 cp -r "$REPO_DIR/backend"/* "$ALEFY_HOME/backend/"
 chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/backend"
 
+# Verifica/Installa chromaprint (necessario per fingerprint audio)
+echo -e "${YELLOW}Verifica chromaprint...${NC}"
+if ! command -v fpcalc &> /dev/null && ! command -v chromaprint &> /dev/null; then
+    echo -e "${YELLOW}Installazione chromaprint...${NC}"
+    apt-get update -qq
+    apt-get install -y chromaprint-tools || apt-get install -y chromaprint
+    echo -e "${GREEN}✓ chromaprint installato${NC}"
+else
+    echo -e "${GREEN}✓ chromaprint già installato${NC}"
+fi
+
 # Installa nuove dipendenze
 cd "$ALEFY_HOME/backend"
 echo -e "${YELLOW}Installazione dipendenze backend...${NC}"

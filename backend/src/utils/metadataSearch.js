@@ -2,6 +2,57 @@ import https from 'https';
 import http from 'http';
 
 /**
+ * Cerca metadati di una traccia usando MusicBrainz API per recordingid
+ * 
+ * @param {string} recordingid - MusicBrainz recording ID
+ * @returns {Promise<Object|null>}
+ */
+async function searchMusicBrainzByRecordingId(recordingid) {
+  try {
+    const url = `https://musicbrainz.org/ws/2/recording/${encodeURIComponent(recordingid)}?inc=artist-credits+releases+tags&fmt=json`;
+
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, {
+        headers: {
+          'User-Agent': 'ALEFY/1.0.0 (https://github.com/Polimar/alefy)',
+        },
+      }, (res) => {
+        let body = '';
+        res.on('data', (chunk) => body += chunk);
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }).on('error', reject);
+    });
+
+    if (data.id) {
+      const recording = data;
+      
+      // Estrai informazioni utili
+      const result = {
+        title: recording.title || null,
+        artist: recording['artist-credit']?.[0]?.name || null,
+        album: recording.releases?.[0]?.title || null,
+        year: recording.releases?.[0]?.date ? parseInt(recording.releases[0].date.substring(0, 4)) : null,
+        genre: recording.tags?.[0]?.name || null,
+        trackNumber: null, // Richiederebbe query aggiuntiva
+      };
+
+      return result;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[Metadata Search] Errore MusicBrainz per recordingid:', error.message);
+    return null;
+  }
+}
+
+/**
  * Cerca metadati di una traccia usando MusicBrainz API
  * 
  * @param {string} artist - Nome dell'artista
@@ -106,6 +157,35 @@ async function searchLastFM(artist, title) {
     console.error('[Metadata Search] Errore Last.fm:', error.message);
     return null;
   }
+}
+
+/**
+ * Cerca metadati usando recordingid da AcoustID
+ * 
+ * @param {string} recordingid - MusicBrainz recording ID
+ * @returns {Promise<Object|null>}
+ */
+export async function searchTrackMetadataByRecordingId(recordingid) {
+  if (!recordingid) {
+    return null;
+  }
+
+  // Cerca su MusicBrainz usando recordingid
+  let metadata = await searchMusicBrainzByRecordingId(recordingid);
+  
+  if (!metadata) {
+    return null;
+  }
+
+  // Se MusicBrainz non ha genere, prova Last.fm
+  if (!metadata.genre && metadata.artist && metadata.title) {
+    const lastfmMetadata = await searchLastFM(metadata.artist, metadata.title);
+    if (lastfmMetadata && lastfmMetadata.genre) {
+      metadata.genre = lastfmMetadata.genre;
+    }
+  }
+
+  return metadata;
 }
 
 /**

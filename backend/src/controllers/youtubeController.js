@@ -12,6 +12,7 @@ import { parseTimestampsFromDescription } from '../utils/timestampParser.js';
 import { splitAudioFile } from '../utils/audioSplitter.js';
 import { searchTrackMetadata } from '../utils/metadataSearch.js';
 import { getActiveCookiesPath } from './youtubeCookiesController.js';
+import { processTrack } from '../services/metadataBatchService.js';
 import { z } from 'zod';
 
 const execAsync = promisify(exec);
@@ -468,6 +469,11 @@ export async function processDownloadJob(job) {
         );
         
         savedTracks.push(result.rows[0]);
+        
+        // Trigger processing metadati in background (non bloccante)
+        processTrack(result.rows[0].id).catch(error => {
+          console.error(`[YouTube Download] Errore processing metadati per traccia ${result.rows[0].id}:`, error.message);
+        });
       }
       
       // Rimuovi file originale e directory split
@@ -569,6 +575,11 @@ export async function processDownloadJob(job) {
       });
 
       downloadQueue.jobFinished(userId, jobId);
+      
+      // Trigger processing metadati in background (non bloccante)
+      processTrack(result.rows[0].id).catch(error => {
+        console.error(`[YouTube Download] Errore processing metadati per traccia ${result.rows[0].id}:`, error.message);
+      });
     }
   } catch (error) {
     console.error(`[YouTube Download] Job ${jobId}: Errore:`, error.message);

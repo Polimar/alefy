@@ -7,12 +7,21 @@ export const getStats = async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
-    // Get track count
+    // Get track count (tutte le tracce, non solo dell'utente)
     const trackCountResult = await pool.query(
-      'SELECT COUNT(*) as count FROM tracks WHERE user_id = $1',
-      [userId]
+      'SELECT COUNT(*) as count FROM tracks'
     );
     const trackCount = parseInt(trackCountResult.rows[0].count);
+    
+    // Get metadata processing stats
+    const metadataStatsResult = await pool.query(
+      `SELECT 
+        COUNT(*) FILTER (WHERE metadata_processed_at IS NOT NULL) as processed_count,
+        COUNT(*) FILTER (WHERE metadata_source IS NOT NULL AND metadata_source != 'manual') as recognized_count,
+        COUNT(*) FILTER (WHERE acoustid IS NOT NULL) as acoustid_count
+       FROM tracks`
+    );
+    const metadataStats = metadataStatsResult.rows[0];
 
     // Get total storage
     const storageResult = await pool.query(
@@ -59,6 +68,12 @@ export const getStats = async (req, res, next) => {
         trackCount,
         totalSize,
         totalSizeFormatted: formatBytes(totalSize),
+        metadataStats: {
+          total: trackCount,
+          processed: parseInt(metadataStats.processed_count || 0),
+          recognized: parseInt(metadataStats.recognized_count || 0),
+          withAcoustid: parseInt(metadataStats.acoustid_count || 0),
+        },
         mostPlayed: mostPlayedResult.rows,
         topGenres: topGenresResult.rows,
         recentPlays: recentPlaysResult.rows,
