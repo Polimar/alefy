@@ -584,7 +584,7 @@ export async function processDownloadJob(job) {
 /**
  * Helper function per aggiungere multiple tracce a una playlist
  */
-async function addTracksToPlaylist(userId, playlistId, trackIds) {
+export async function addTracksToPlaylist(userId, playlistId, trackIds) {
   // Verifica che la playlist appartenga all'utente
   const playlistCheck = await pool.query(
     'SELECT id FROM playlists WHERE id = $1 AND user_id = $2',
@@ -807,13 +807,26 @@ export const searchYouTube = async (req, res, next) => {
     const searchQuery = `ytsearch${maxResults}:${query}`;
     const command = `${ytdlpPath} "${searchQuery}" --dump-json --no-playlist ${cookiesFlag}`.trim();
 
-    console.log(`[YouTube Search] Esecuzione comando yt-dlp...`);
+    // Timeout dinamico basato sul numero di risultati richiesti
+    // Con cookies YouTube, le ricerche possono richiedere più tempo
+    let timeoutMs = 30000; // Default 30s per 5-10 risultati
+    let maxBufferSize = 5 * 1024 * 1024; // 5MB default
+    
+    if (maxResults === 20) {
+      timeoutMs = 60000; // 60s per 20 risultati
+      maxBufferSize = 10 * 1024 * 1024; // 10MB per più risultati
+    } else if (maxResults === 50) {
+      timeoutMs = 90000; // 90s per 50 risultati
+      maxBufferSize = 20 * 1024 * 1024; // 20MB per molti risultati
+    }
+    
+    console.log(`[YouTube Search] Esecuzione comando yt-dlp... (timeout: ${timeoutMs}ms, buffer: ${maxBufferSize / 1024 / 1024}MB)`);
     const startTime = Date.now();
 
     try {
       const { stdout, stderr } = await execAsync(command, {
-        maxBuffer: 5 * 1024 * 1024, // 5MB per i risultati JSON
-        timeout: 30000 // 30 secondi timeout
+        maxBuffer: maxBufferSize,
+        timeout: timeoutMs
       });
 
       const duration = Date.now() - startTime;
@@ -853,13 +866,33 @@ export const searchYouTube = async (req, res, next) => {
             // Continua senza album detection se c'è un errore
           }
           
+          // Estrai thumbnail con fallback multipli
+          let thumbnailUrl = null;
+          if (videoData.thumbnail) {
+            thumbnailUrl = videoData.thumbnail;
+          } else if (videoData.thumbnails && Array.isArray(videoData.thumbnails) && videoData.thumbnails.length > 0) {
+            // Prova prima la thumbnail più grande disponibile
+            const sortedThumbnails = videoData.thumbnails
+              .filter(t => t.url)
+              .sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0));
+            thumbnailUrl = sortedThumbnails[0]?.url || null;
+          } else if (videoData.id) {
+            // Fallback: usa thumbnail standard YouTube se disponibile
+            thumbnailUrl = `https://img.youtube.com/vi/${videoData.id}/maxresdefault.jpg`;
+          }
+          
+          if (!thumbnailUrl && videoData.id) {
+            console.warn(`[YouTube Search] Thumbnail non trovata per video ${videoData.id}, usando fallback`);
+            thumbnailUrl = `https://img.youtube.com/vi/${videoData.id}/hqdefault.jpg`;
+          }
+          
           // Estrai informazioni essenziali
           const result = {
             id: videoData.id || null,
             title: videoData.title || 'Senza titolo',
             channel: videoData.channel || videoData.uploader || 'Canale sconosciuto',
             duration: duration,
-            thumbnail_url: videoData.thumbnail || videoData.thumbnails?.[0]?.url || null,
+            thumbnail_url: thumbnailUrl,
             description: fullDescription.substring(0, 500), // Mostra primi 500 caratteri per preview
             full_description: fullDescription, // Descrizione completa per parsing
             view_count: videoData.view_count || 0,

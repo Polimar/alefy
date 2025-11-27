@@ -2,13 +2,35 @@ import pool from '../database/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { extractMetadata, saveCoverArt } from '../utils/audioMetadata.js';
 import { getTrackStoragePath, ensureDirectoryExists, getStoragePath, getFileStats } from '../utils/storage.js';
+import { addTracksToPlaylist } from './youtubeController.js';
 import fs from 'fs/promises';
 import path from 'path';
+import { z } from 'zod';
+
+const uploadTracksSchema = z.object({
+  playlistId: z.number().int().positive().optional(),
+  playlistName: z.string().min(1).max(255).optional(),
+}).refine(
+  (data) => !(data.playlistId && data.playlistName),
+  { message: 'playlistId e playlistName non possono essere entrambi specificati' }
+);
 
 export const uploadTracks = async (req, res, next) => {
   try {
     if (!req.files || req.files.length === 0) {
       throw new AppError('Nessun file caricato', 400);
+    }
+
+    // Valida parametri playlist se presenti
+    let playlistId = null;
+    let playlistName = null;
+    if (req.body.playlistId || req.body.playlistName) {
+      const validatedData = uploadTracksSchema.parse({
+        playlistId: req.body.playlistId ? parseInt(req.body.playlistId, 10) : undefined,
+        playlistName: req.body.playlistName || undefined,
+      });
+      playlistId = validatedData.playlistId || null;
+      playlistName = validatedData.playlistName || null;
     }
 
     const userId = req.user.userId;
@@ -89,11 +111,34 @@ export const uploadTracks = async (req, res, next) => {
       throw new AppError('Nessun file processato con successo', 500);
     }
 
+    // Gestisci playlist se specificata
+    let finalPlaylistId = playlistId || null;
+    if (playlistName) {
+      // Crea nuova playlist
+      const playlistResult = await pool.query(
+        'INSERT INTO playlists (user_id, name, description, is_public) VALUES ($1, $2, $3, $4) RETURNING id',
+        [userId, playlistName.trim(), null, false]
+      );
+      finalPlaylistId = playlistResult.rows[0].id;
+    }
+
+    // Aggiungi tracce alla playlist se specificata
+    if (finalPlaylistId) {
+      const trackIds = uploadedTracks.map(track => track.id);
+      try {
+        await addTracksToPlaylist(userId, finalPlaylistId, trackIds);
+      } catch (playlistError) {
+        console.error('Errore aggiunta tracce a playlist:', playlistError);
+        // Non fallire l'upload se l'aggiunta alla playlist fallisce
+      }
+    }
+
     res.status(201).json({
       success: true,
       data: {
         tracks: uploadedTracks,
         count: uploadedTracks.length,
+        playlistId: finalPlaylistId || null,
       },
     });
   } catch (error) {

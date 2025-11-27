@@ -28,6 +28,11 @@ export default function Upload() {
   const [selectedTracks, setSelectedTracks] = useState({}); // Map<resultId, Set<trackIndex>>
   const [parsedTimestamps, setParsedTimestamps] = useState({}); // Map<resultId, timestamps[]>
   const [parsingTimestamps, setParsingTimestamps] = useState(new Set()); // Set<resultId> per tracciare parsing in corso
+  // Stati per modal upload playlist
+  const [showUploadPlaylistModal, setShowUploadPlaylistModal] = useState(false);
+  const [uploadPlaylistOption, setUploadPlaylistOption] = useState('none'); // 'none', 'existing', 'new'
+  const [uploadSelectedPlaylistId, setUploadSelectedPlaylistId] = useState(null);
+  const [uploadNewPlaylistName, setUploadNewPlaylistName] = useState('');
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -51,11 +56,25 @@ export default function Upload() {
   const handleUpload = async () => {
     if (files.length === 0) return;
 
+    // Mostra modal playlist prima di caricare
+    setShowUploadPlaylistModal(true);
+  };
+
+  const handleConfirmUpload = async () => {
+    if (files.length === 0) return;
+
     setUploading(true);
     const formData = new FormData();
     files.forEach((file) => {
       formData.append('files', file);
     });
+
+    // Aggiungi parametri playlist se specificati
+    if (uploadPlaylistOption === 'existing' && uploadSelectedPlaylistId) {
+      formData.append('playlistId', uploadSelectedPlaylistId.toString());
+    } else if (uploadPlaylistOption === 'new' && uploadNewPlaylistName.trim()) {
+      formData.append('playlistName', uploadNewPlaylistName.trim());
+    }
 
     try {
       await api.post('/upload/tracks', formData, {
@@ -71,6 +90,10 @@ export default function Upload() {
       });
       setFiles([]);
       setProgress({});
+      setShowUploadPlaylistModal(false);
+      setUploadPlaylistOption('none');
+      setUploadSelectedPlaylistId(null);
+      setUploadNewPlaylistName('');
       alert('Upload completato!');
     } catch (error) {
       console.error('Upload error:', error);
@@ -963,6 +986,105 @@ export default function Upload() {
                 }
               >
                 Scarica
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal selezione playlist per upload manuale */}
+      {showUploadPlaylistModal && (
+        <div className="modal-overlay" onClick={() => {
+          setShowUploadPlaylistModal(false);
+          setUploadPlaylistOption('none');
+        }}>
+          <div className="modal-content playlist-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Carica File Audio</h2>
+            <p className="modal-subtitle">
+              {files.length} file{files.length > 1 ? 's' : ''} selezionato{files.length > 1 ? 'i' : ''}
+            </p>
+            <p className="modal-info">
+              Seleziona una playlist per aggiungere i file caricati
+            </p>
+
+            <div className="playlist-options">
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="upload-playlist-option"
+                  value="none"
+                  checked={uploadPlaylistOption === 'none'}
+                  onChange={(e) => setUploadPlaylistOption(e.target.value)}
+                />
+                <span>Non aggiungere a playlist</span>
+              </label>
+
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="upload-playlist-option"
+                  value="existing"
+                  checked={uploadPlaylistOption === 'existing'}
+                  onChange={(e) => setUploadPlaylistOption(e.target.value)}
+                />
+                <span>Aggiungi a playlist esistente</span>
+              </label>
+              {uploadPlaylistOption === 'existing' && (
+                <select
+                  value={uploadSelectedPlaylistId || ''}
+                  onChange={(e) => setUploadSelectedPlaylistId(e.target.value ? parseInt(e.target.value) : null)}
+                  className="playlist-select"
+                >
+                  <option value="">Seleziona playlist...</option>
+                  {playlists.map(playlist => (
+                    <option key={playlist.id} value={playlist.id}>
+                      {playlist.name} ({playlist.track_count || 0} brani)
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="upload-playlist-option"
+                  value="new"
+                  checked={uploadPlaylistOption === 'new'}
+                  onChange={(e) => setUploadPlaylistOption(e.target.value)}
+                />
+                <span>Crea nuova playlist</span>
+              </label>
+              {uploadPlaylistOption === 'new' && (
+                <input
+                  type="text"
+                  value={uploadNewPlaylistName}
+                  onChange={(e) => setUploadNewPlaylistName(e.target.value)}
+                  placeholder="Nome playlist..."
+                  className="playlist-name-input"
+                />
+              )}
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => {
+                  setShowUploadPlaylistModal(false);
+                  setUploadPlaylistOption('none');
+                }}
+              >
+                Annulla
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleConfirmUpload}
+                disabled={
+                  uploading ||
+                  (uploadPlaylistOption === 'existing' && !uploadSelectedPlaylistId) ||
+                  (uploadPlaylistOption === 'new' && !uploadNewPlaylistName.trim())
+                }
+              >
+                {uploading ? 'Caricamento...' : 'Carica'}
               </button>
             </div>
           </div>
