@@ -192,7 +192,6 @@ import youtubeCookiesRoutes from './routes/youtubeCookiesRoutes.js';
 import metadataRoutes from './routes/metadataRoutes.js';
 import downloadQueue from './utils/downloadQueue.js';
 import { processDownloadJob } from './controllers/youtubeController.js';
-import cron from 'node-cron';
 import { processMissingMetadata } from './services/metadataBatchService.js';
 
 // Registra listener per processare job dalla coda
@@ -200,21 +199,18 @@ downloadQueue.on('job-ready', async (job) => {
   await processDownloadJob(job);
 });
 
-// Scheduler periodico per processing metadati
-const metadataBatchInterval = process.env.METADATA_BATCH_INTERVAL || '24'; // Ore (default: 24)
+// Scheduler periodico per processing metadati usando setInterval
+const metadataBatchInterval = parseInt(process.env.METADATA_BATCH_INTERVAL || '24', 10); // Ore (default: 24)
 const metadataBatchSize = parseInt(process.env.METADATA_BATCH_BATCH_SIZE || '10', 10);
 const metadataRateLimit = parseInt(process.env.METADATA_BATCH_RATE_LIMIT_MS || '6000', 10);
 
-// Converti ore in formato cron (ogni X ore)
-const hours = parseInt(metadataBatchInterval, 10);
-const cronExpression = hours >= 24 
-  ? `0 0 */${Math.floor(hours / 24)} * * *` // Ogni X giorni alle 00:00
-  : `0 */${hours} * * * *`; // Ogni X ore
+// Converti ore in millisecondi
+const intervalMs = metadataBatchInterval * 60 * 60 * 1000;
 
-logger.info(`[Metadata Batch] Scheduler configurato: ogni ${metadataBatchInterval} ore (${cronExpression})`);
+logger.info(`[Metadata Batch] Scheduler configurato: ogni ${metadataBatchInterval} ore (${intervalMs}ms)`);
 
-// Esegui batch periodico
-cron.schedule(cronExpression, async () => {
+// Esegui batch periodico con setInterval
+let batchInterval = setInterval(async () => {
   logger.info('[Metadata Batch] Avvio batch periodico...');
   try {
     const stats = await processMissingMetadata(metadataBatchSize, metadataRateLimit);
@@ -222,10 +218,7 @@ cron.schedule(cronExpression, async () => {
   } catch (error) {
     logger.error('[Metadata Batch] Errore batch periodico:', error.message);
   }
-}, {
-  scheduled: true,
-  timezone: 'UTC'
-});
+}, intervalMs);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
