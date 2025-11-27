@@ -144,8 +144,7 @@ export default function Layout() {
             </>
           )}
         </nav>
-        {metadataStats !== null && (
-          <div className="metadata-stats">
+        <div className="metadata-stats">
             <div className="metadata-stats-header">
               <Music size={16} />
               <span>Metadati</span>
