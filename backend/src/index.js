@@ -210,15 +210,18 @@ const intervalMs = metadataBatchInterval * 60 * 60 * 1000;
 logger.info(`[Metadata Batch] Scheduler configurato: ogni ${metadataBatchInterval} ore (${intervalMs}ms)`);
 
 // Esegui batch periodico con setInterval
-let batchInterval = setInterval(async () => {
-  logger.info('[Metadata Batch] Avvio batch periodico...');
-  try {
-    const stats = await processMissingMetadata(metadataBatchSize, metadataRateLimit);
-    logger.info(`[Metadata Batch] Batch completato: ${stats.processed} processate, ${stats.updated} aggiornate, ${stats.errors} errori`);
-  } catch (error) {
-    logger.error('[Metadata Batch] Errore batch periodico:', error.message);
-  }
-}, intervalMs);
+let batchInterval = null;
+if (intervalMs > 0) {
+  batchInterval = setInterval(async () => {
+    logger.info('[Metadata Batch] Avvio batch periodico...');
+    try {
+      const stats = await processMissingMetadata(metadataBatchSize, metadataRateLimit);
+      logger.info(`[Metadata Batch] Batch completato: ${stats.processed} processate, ${stats.updated} aggiornate, ${stats.errors} errori`);
+    } catch (error) {
+      logger.error('[Metadata Batch] Errore batch periodico:', error.message);
+    }
+  }, intervalMs);
+}
 
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
@@ -305,12 +308,18 @@ app.listen(PORT, '0.0.0.0', () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM ricevuto, chiusura server...');
+  if (typeof batchInterval !== 'undefined' && batchInterval !== null) {
+    clearInterval(batchInterval);
+  }
   await pool.end();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT ricevuto, chiusura server...');
+  if (typeof batchInterval !== 'undefined' && batchInterval !== null) {
+    clearInterval(batchInterval);
+  }
   await pool.end();
   process.exit(0);
 });
