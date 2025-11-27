@@ -14,7 +14,7 @@ export const getStats = async (req, res, next) => {
     const trackCount = parseInt(trackCountResult.rows[0].count);
     
     // Get metadata processing stats (con gestione errori se colonne non esistono)
-    let metadataStats = { processed_count: 0, recognized_count: 0, acoustid_count: 0 };
+    let metadataStats = { processed_count: '0', recognized_count: '0', acoustid_count: '0' };
     try {
       const metadataStatsResult = await pool.query(
         `SELECT 
@@ -23,11 +23,13 @@ export const getStats = async (req, res, next) => {
           COUNT(*) FILTER (WHERE acoustid IS NOT NULL) as acoustid_count
          FROM tracks`
       );
-      metadataStats = metadataStatsResult.rows[0] || metadataStats;
+      if (metadataStatsResult.rows && metadataStatsResult.rows.length > 0) {
+        metadataStats = metadataStatsResult.rows[0];
+      }
     } catch (error) {
       // Se le colonne non esistono (migrazione non eseguita), usa valori di default
       console.warn('[Stats] Colonne metadati non trovate, eseguire migrazione 004:', error.message);
-      metadataStats = { processed_count: 0, recognized_count: 0, acoustid_count: 0 };
+      metadataStats = { processed_count: '0', recognized_count: '0', acoustid_count: '0' };
     }
 
     // Get total storage
@@ -69,18 +71,22 @@ export const getStats = async (req, res, next) => {
       [userId]
     );
 
+    const metadataStatsFormatted = {
+      total: trackCount,
+      processed: parseInt(metadataStats.processed_count || '0', 10),
+      recognized: parseInt(metadataStats.recognized_count || '0', 10),
+      withAcoustid: parseInt(metadataStats.acoustid_count || '0', 10),
+    };
+    
+    console.log('[Stats] Metadata stats:', metadataStatsFormatted);
+    
     res.json({
       success: true,
       data: {
         trackCount,
         totalSize,
         totalSizeFormatted: formatBytes(totalSize),
-        metadataStats: {
-          total: trackCount,
-          processed: parseInt(metadataStats.processed_count || 0),
-          recognized: parseInt(metadataStats.recognized_count || 0),
-          withAcoustid: parseInt(metadataStats.acoustid_count || 0),
-        },
+        metadataStats: metadataStatsFormatted,
         mostPlayed: mostPlayedResult.rows,
         topGenres: topGenresResult.rows,
         recentPlays: recentPlaysResult.rows,

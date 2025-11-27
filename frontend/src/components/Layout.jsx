@@ -38,6 +38,7 @@ export default function Layout() {
     const loadMetadataStats = async () => {
       try {
         const response = await api.get('/stats');
+        console.log('[Layout] Risposta API stats:', response.data);
         if (response.data.success && response.data.data) {
           // Usa metadataStats se disponibile, altrimenti crea oggetto con valori di default
           const stats = response.data.data.metadataStats || {
@@ -45,10 +46,14 @@ export default function Layout() {
             processed: 0,
             recognized: 0,
           };
+          console.log('[Layout] Statistiche metadati caricate:', stats);
           setMetadataStats(stats);
+        } else {
+          console.warn('[Layout] Risposta API stats non valida:', response.data);
         }
       } catch (error) {
-        console.error('Errore caricamento statistiche metadati:', error);
+        console.error('[Layout] Errore caricamento statistiche metadati:', error);
+        console.error('[Layout] Dettagli errore:', error.response?.data || error.message);
         // In caso di errore, mostra comunque valori di default
         setMetadataStats({
           total: 0,
