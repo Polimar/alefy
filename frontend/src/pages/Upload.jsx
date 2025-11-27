@@ -699,15 +699,93 @@ export default function Upload() {
                       )}
                       <button
                         onClick={() => handleDownloadFromSearch(result)}
-                        disabled={queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading'))}
+                        disabled={queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading' || job.status === 'paused'))}
                         className="result-download-btn"
                       >
                         <Download size={16} />
-                        {queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading')) 
+                        {queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading' || job.status === 'paused')) 
                           ? 'In coda...' 
                           : (result.isAlbum || (parsedTimestamps[result.id] && parsedTimestamps[result.id].length > 0)) ? 'Scarica e dividi' : 'Scarica'}
                       </button>
                     </div>
+                    
+                    {/* Mostra stato download direttamente nella card */}
+                    {queue.filter(job => job.url === result.url).map((job) => (
+                      <div key={job.id} className={`result-download-status queue-item-${job.status}`}>
+                        <div className="result-download-header">
+                          <div className="result-download-status-info">
+                            {getStatusIcon(job.status)}
+                            <span>{getStatusLabel(job.status)}</span>
+                          </div>
+                          <div className="result-download-actions">
+                            {job.status === 'pending' && (
+                              <button
+                                onClick={() => pauseJob(job.id)}
+                                className="result-download-action-btn"
+                                title="Metti in pausa"
+                              >
+                                <Pause size={14} />
+                              </button>
+                            )}
+                            {job.status === 'paused' && (
+                              <>
+                                <button
+                                  onClick={() => resumeJob(job.id)}
+                                  className="result-download-action-btn"
+                                  title="Riprendi"
+                                >
+                                  <Play size={14} />
+                                </button>
+                                <button
+                                  onClick={() => cancelJob(job.id)}
+                                  className="result-download-action-btn"
+                                  title="Elimina"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            )}
+                            {(job.status === 'downloading' || job.status === 'failed') && (
+                              <button
+                                onClick={() => cancelJob(job.id)}
+                                className="result-download-action-btn"
+                                title="Elimina"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {(job.status === 'downloading' || job.status === 'paused') && (
+                          <div className="result-download-progress">
+                            {job.statusMessage && (
+                              <div className="result-download-message">
+                                {job.statusMessage}
+                              </div>
+                            )}
+                            <div className="progress-bar">
+                              <div
+                                className="progress-fill"
+                                style={{ width: `${job.progress || 0}%` }}
+                              />
+                            </div>
+                            <div className="result-download-progress-info">
+                              <span>{Math.round(job.progress || 0)}%</span>
+                              {job.speed && <span className="progress-speed">{job.speed}</span>}
+                              {job.eta && <span className="progress-eta">ETA: {job.eta}</span>}
+                            </div>
+                          </div>
+                        )}
+                        {job.status === 'failed' && job.error && (
+                          <div className="result-download-error">{job.error}</div>
+                        )}
+                        {job.status === 'completed' && job.track && (
+                          <div className="result-download-success">
+                            ✓ {job.track.title} - {job.track.artist}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -755,15 +833,15 @@ export default function Upload() {
         </form>
       </div>
 
-      {/* Download Queue Section */}
-      {queue.length > 0 && (
+      {/* Download Queue Section - Mostra solo download da URL diretto (non da ricerca) */}
+      {queue.filter(job => !searchResults.some(result => result.url === job.url)).length > 0 && (
         <div className="download-queue-section">
           <h2>
             <Download size={20} />
-            Coda Download ({queue.length})
+            Coda Download ({queue.filter(job => !searchResults.some(result => result.url === job.url)).length})
           </h2>
           <div className="queue-list">
-            {queue.map((job) => (
+            {queue.filter(job => !searchResults.some(result => result.url === job.url)).map((job) => (
               <div key={job.id} className={`queue-item queue-item-${job.status}`}>
                 <div className="queue-item-header">
                   <div className="queue-item-status">

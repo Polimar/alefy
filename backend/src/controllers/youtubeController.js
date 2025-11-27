@@ -816,7 +816,7 @@ export const searchYouTube = async (req, res, next) => {
       timeoutMs = 60000; // 60s per 20 risultati
       maxBufferSize = 10 * 1024 * 1024; // 10MB per più risultati
     } else if (maxResults === 50) {
-      timeoutMs = 90000; // 90s per 50 risultati
+      timeoutMs = 180000; // 180s per 50 risultati
       maxBufferSize = 20 * 1024 * 1024; // 20MB per molti risultati
     }
     

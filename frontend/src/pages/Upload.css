@@ -317,6 +317,107 @@
   flex-wrap: wrap;
 }
 
+/* Download status nella card risultato */
+.result-download-status {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: var(--bg-tertiary);
+  border-radius: 8px;
+  border-left: 4px solid var(--text-secondary);
+}
+
+.result-download-status.queue-item-pending {
+  border-left-color: var(--text-secondary);
+}
+
+.result-download-status.queue-item-downloading {
+  border-left-color: var(--accent, #1db954);
+}
+
+.result-download-status.queue-item-completed {
+  border-left-color: var(--accent, #1db954);
+  opacity: 0.8;
+}
+
+.result-download-status.queue-item-failed {
+  border-left-color: var(--error, #ff4444);
+}
+
+.result-download-status.queue-item-paused {
+  border-left-color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.result-download-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.result-download-status-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.result-download-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.result-download-action-btn {
+  padding: 4px 6px;
+  background-color: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.result-download-action-btn:hover {
+  background-color: var(--bg-secondary);
+  border-color: var(--accent, #1db954);
+  color: var(--accent, #1db954);
+}
+
+.result-download-progress {
+  margin-top: 8px;
+}
+
+.result-download-message {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.result-download-progress-info {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.result-download-error {
+  font-size: 12px;
+  color: var(--error, #ff4444);
+  margin-top: 8px;
+}
+
+.result-download-success {
+  font-size: 12px;
+  color: var(--accent, #1db954);
+  margin-top: 8px;
+}
+
 .result-download-btn {
   flex: 1;
   min-width: 120px;
