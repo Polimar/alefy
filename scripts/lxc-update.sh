@@ -141,9 +141,14 @@ fi
 # 2.6. Esegui migration database
 echo -e "\n${YELLOW}2.6. Esecuzione migration database...${NC}"
 cd "$ALEFY_HOME/backend"
-if run_as_user "$ALEFY_USER" npm run migrate 2>&1; then
+MIGRATION_OUTPUT=$(run_as_user "$ALEFY_USER" npm run migrate 2>&1)
+MIGRATION_EXIT=$?
+if [ $MIGRATION_EXIT -eq 0 ]; then
     echo -e "${GREEN}✓ Migration completate${NC}"
+    echo "$MIGRATION_OUTPUT" | grep -i "migration\|error\|warning" || true
 else
+    echo -e "${YELLOW}⚠ Output migration:${NC}"
+    echo "$MIGRATION_OUTPUT"
     echo -e "${YELLOW}⚠ Errore durante migration (potrebbero essere già eseguite)${NC}"
 fi
 
@@ -181,6 +186,22 @@ if [ -d "/var/www/alefy" ] && [ "$(ls -A /var/www/alefy)" ]; then
     echo -e "${GREEN}✓ Frontend deployato: $CSS_COUNT file CSS, $JS_COUNT file JS${NC}"
 else
     echo -e "${RED}✗ Frontend non trovato o vuoto${NC}"
+fi
+
+# Verifica API health
+echo -e "\n${YELLOW}6. Verifica API...${NC}"
+sleep 3
+if curl -s http://localhost:3000/api/health > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ API risponde correttamente${NC}"
+    # Test endpoint stats
+    if curl -s http://localhost:3000/api/stats > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Endpoint /api/stats disponibile${NC}"
+    else
+        echo -e "${YELLOW}⚠ Endpoint /api/stats potrebbe richiedere autenticazione${NC}"
+    fi
+else
+    echo -e "${RED}✗ API non risponde${NC}"
+    echo -e "${YELLOW}Controlla i log: journalctl -u alefy -n 50${NC}"
 fi
 
 echo -e "\n${GREEN}=== Aggiornamento completato! ===${NC}"
