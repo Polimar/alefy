@@ -169,7 +169,6 @@ export default function Layout() {
               </div>
             </div>
           </div>
-        )}
         <div className="sidebar-footer">
           <div className="user-info">
             <div className="user-avatar">

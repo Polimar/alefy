@@ -114,19 +114,41 @@ fi
 # Installa nuove dipendenze
 cd "$ALEFY_HOME/backend"
 echo -e "${YELLOW}Installazione dipendenze backend...${NC}"
+
+# Copia package.json aggiornato dal repository
+if [ -f "$REPO_DIR/backend/package.json" ]; then
+    cp "$REPO_DIR/backend/package.json" "$ALEFY_HOME/backend/package.json"
+fi
+
+# Prova npm ci se package-lock.json esiste e sembra sincronizzato
 if [ -f "package-lock.json" ]; then
-    run_as_user "$ALEFY_USER" npm ci --production || run_as_user "$ALEFY_USER" npm install --production
+    # Verifica se package-lock.json è sincronizzato con package.json
+    if run_as_user "$ALEFY_USER" npm ci --production 2>&1 | grep -q "can only install packages when"; then
+        echo -e "${YELLOW}⚠ package-lock.json non sincronizzato, uso npm install...${NC}"
+        run_as_user "$ALEFY_USER" npm install --production
+    else
+        echo -e "${GREEN}✓ Dipendenze installate con npm ci${NC}"
+    fi
 else
+    echo -e "${YELLOW}⚠ package-lock.json non trovato, uso npm install...${NC}"
     run_as_user "$ALEFY_USER" npm install --production
 fi
 
-# Assicurati che uuid sia installato (potrebbe mancare se package-lock.json non è aggiornato)
-echo -e "${YELLOW}Verifica installazione uuid...${NC}"
-if ! run_as_user "$ALEFY_USER" npm list uuid &>/dev/null; then
-    echo -e "${YELLOW}Installazione uuid...${NC}"
-    run_as_user "$ALEFY_USER" npm install uuid --save --production
+# Verifica che tutte le dipendenze siano installate
+echo -e "${YELLOW}Verifica dipendenze critiche...${NC}"
+MISSING_DEPS=0
+for dep in uuid node-cron; do
+    if ! run_as_user "$ALEFY_USER" npm list "$dep" &>/dev/null; then
+        echo -e "${YELLOW}⚠ $dep mancante, installazione...${NC}"
+        run_as_user "$ALEFY_USER" npm install "$dep" --save --production
+        MISSING_DEPS=1
+    fi
+done
+
+if [ $MISSING_DEPS -eq 0 ]; then
+    echo -e "${GREEN}✓ Tutte le dipendenze installate${NC}"
 fi
-run_as_user "$ALEFY_USER" npm list uuid || true
+
 echo -e "${GREEN}✓ Backend aggiornato${NC}"
 
 # 2.5. Aggiorna variabili d'ambiente se necessario
