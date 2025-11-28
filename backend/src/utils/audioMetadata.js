@@ -10,7 +10,13 @@ const __dirname = path.dirname(__filename);
 
 export const extractMetadata = async (filePath) => {
   try {
-    const metadata = await parseFile(filePath);
+    // Usa skipCovers per evitare di caricare immagini in memoria se non necessario
+    // e skipPostHeaders per ridurre l'uso di memoria
+    const metadata = await parseFile(filePath, {
+      skipCovers: false, // Serve per salvare cover art
+      duration: true,
+      skipPostHeaders: true, // Salta header alla fine del file per risparmiare memoria
+    });
     
     const common = metadata.common || {};
     const format = metadata.format || {};

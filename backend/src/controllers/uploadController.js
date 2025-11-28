@@ -38,10 +38,25 @@ export const uploadTracks = async (req, res, next) => {
     const storagePath = getStoragePath();
     const uploadedTracks = [];
 
-    for (const file of req.files) {
-      try {
-        // Extract metadata
-        const metadata = await extractMetadata(file.path);
+    // Processa file in batch per evitare saturazione RAM
+    // Limite configurabile: max 3 file simultanei (default)
+    const MAX_CONCURRENT_UPLOADS = parseInt(process.env.MAX_CONCURRENT_UPLOADS) || 3;
+    const files = Array.from(req.files);
+    
+    // Processa file in batch
+    for (let i = 0; i < files.length; i += MAX_CONCURRENT_UPLOADS) {
+      const batch = files.slice(i, i + MAX_CONCURRENT_UPLOADS);
+      
+      // Processa batch in parallelo (limitato)
+      const batchPromises = batch.map(async (file) => {
+        try {
+          // Extract metadata (carica file in memoria - limitiamo il batch)
+          const metadata = await extractMetadata(file.path);
+          
+          // Forza garbage collection hint dopo estrazione metadati
+          if (global.gc && i % 5 === 0) {
+            global.gc();
+          }
 
         // Determine final storage path
         const finalPath = getTrackStoragePath(userId, metadata.artist, metadata.album);
@@ -110,22 +125,37 @@ export const uploadTracks = async (req, res, next) => {
           ]
         );
 
-        uploadedTracks.push(result.rows[0]);
-        
-        // Trigger processing metadati in background (non bloccante)
-        processTrack(result.rows[0].id).catch(error => {
-          console.error(`[Upload] Errore processing metadati per traccia ${result.rows[0].id}:`, error.message);
-        });
-      } catch (error) {
-        // Clean up file on error
-        try {
-          await fs.unlink(file.path);
-        } catch (unlinkError) {
-          // Ignore cleanup errors
-        }
+          uploadedTracks.push(result.rows[0]);
+          
+          // Trigger processing metadati in background (non bloccante)
+          processTrack(result.rows[0].id).catch(error => {
+            console.error(`[Upload] Errore processing metadati per traccia ${result.rows[0].id}:`, error.message);
+          });
+          
+          return { success: true, track: result.rows[0] };
+        } catch (error) {
+          // Clean up file on error
+          try {
+            await fs.unlink(file.path);
+          } catch (unlinkError) {
+            // Ignore cleanup errors
+          }
 
-        console.error(`Error processing file ${file.originalname}:`, error);
-        // Continue with other files
+          console.error(`Error processing file ${file.originalname}:`, error);
+          return { success: false, error: error.message };
+        }
+      });
+      
+      // Attendi completamento batch prima di procedere
+      const batchResults = await Promise.all(batchPromises);
+      
+      // Log progresso
+      const successful = batchResults.filter(r => r.success).length;
+      console.log(`[Upload] Batch ${Math.floor(i / MAX_CONCURRENT_UPLOADS) + 1}: ${successful}/${batch.length} file processati`);
+      
+      // Piccola pausa tra batch per permettere al GC di lavorare
+      if (i + MAX_CONCURRENT_UPLOADS < files.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
