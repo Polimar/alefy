@@ -39,8 +39,8 @@ export const uploadTracks = async (req, res, next) => {
     const uploadedTracks = [];
 
     // Processa file in batch per evitare saturazione RAM
-    // Limite configurabile: max 3 file simultanei (default)
-    const MAX_CONCURRENT_UPLOADS = parseInt(process.env.MAX_CONCURRENT_UPLOADS) || 3;
+    // Limite configurabile: max 2 file simultanei (default conservativo per server con poca RAM)
+    const MAX_CONCURRENT_UPLOADS = parseInt(process.env.MAX_CONCURRENT_UPLOADS) || 2;
     const files = Array.from(req.files);
     
     // Processa file in batch
@@ -52,11 +52,6 @@ export const uploadTracks = async (req, res, next) => {
         try {
           // Extract metadata (carica file in memoria - limitiamo il batch)
           const metadata = await extractMetadata(file.path);
-          
-          // Forza garbage collection hint dopo estrazione metadati
-          if (global.gc && i % 5 === 0) {
-            global.gc();
-          }
 
         // Determine final storage path
         const finalPath = getTrackStoragePath(userId, metadata.artist, metadata.album);
@@ -153,9 +148,15 @@ export const uploadTracks = async (req, res, next) => {
       const successful = batchResults.filter(r => r.success).length;
       console.log(`[Upload] Batch ${Math.floor(i / MAX_CONCURRENT_UPLOADS) + 1}: ${successful}/${batch.length} file processati`);
       
-      // Piccola pausa tra batch per permettere al GC di lavorare
+      // Pausa tra batch per permettere al GC di lavorare e rilasciare memoria
       if (i + MAX_CONCURRENT_UPLOADS < files.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Pausa più lunga per permettere garbage collection
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Forza garbage collection se disponibile (richiede --expose-gc)
+        if (global.gc) {
+          global.gc();
+        }
       }
     }
 
