@@ -142,7 +142,7 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate }) {
                   <div className="format-list">
                     {stats.formatBreakdown.map((format, idx) => (
                       <div key={idx} className="format-item">
-                        <span className="format-name">{format.format.toUpperCase() || 'Unknown'}</span>
+                        <span className="format-name">{(format.format || 'NULL').toUpperCase()}</span>
                         <span className="format-count">{format.count} file</span>
                         <span className="format-size">{formatBytes(format.totalSize)}</span>
                         {format.avgBitrate > 0 && (
@@ -150,6 +150,29 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate }) {
                         )}
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+              {stats.diagnostic && (
+                <div className="diagnostic-info">
+                  <h4>Diagnostica</h4>
+                  {stats.diagnostic.nullFormatCount > 0 && (
+                    <div className="diagnostic-warning">
+                      ⚠️ {stats.diagnostic.nullFormatCount} file senza formato ({formatBytes(stats.diagnostic.nullFormatSize)})
+                    </div>
+                  )}
+                  {stats.diagnostic.zeroSizeCount > 0 && (
+                    <div className="diagnostic-warning">
+                      ⚠️ {stats.diagnostic.zeroSizeCount} file con dimensione 0
+                    </div>
+                  )}
+                  {stats.diagnostic.largeFileCount > 0 && (
+                    <div className="diagnostic-info-text">
+                      ℹ️ {stats.diagnostic.largeFileCount} file grandi (&gt;100MB): {formatBytes(stats.diagnostic.largeFileSize)}
+                    </div>
+                  )}
+                  <div className="diagnostic-info-text">
+                    Totale tracce nel DB: {stats.diagnostic.totalTracksInDb}
                   </div>
                 </div>
               )}

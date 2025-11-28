@@ -146,6 +146,38 @@
   text-align: right;
 }
 
+.diagnostic-info {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.diagnostic-info h4 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.diagnostic-warning {
+  padding: 8px 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 4px;
+  color: #ffc107;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.diagnostic-info-text {
+  padding: 6px 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
 .edit-user-form .form-group {
   margin-bottom: 20px;
 }

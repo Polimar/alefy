@@ -112,7 +112,7 @@ export const getUser = async (req, res, next) => {
     // Get detailed format breakdown
     const formatBreakdownResult = await pool.query(
       `SELECT 
-        file_format,
+        COALESCE(file_format, 'NULL') as file_format,
         COUNT(*) as count,
         COALESCE(SUM(file_size), 0) as total_size,
         COALESCE(AVG(file_size), 0) as avg_size,
@@ -125,6 +125,20 @@ export const getUser = async (req, res, next) => {
       [userId]
     );
 
+    // Get diagnostic info: files with NULL format or suspicious sizes
+    const diagnosticResult = await pool.query(
+      `SELECT 
+        COUNT(*) FILTER (WHERE file_format IS NULL OR file_format = '') as null_format_count,
+        COALESCE(SUM(file_size) FILTER (WHERE file_format IS NULL OR file_format = ''), 0) as null_format_size,
+        COUNT(*) FILTER (WHERE file_size = 0) as zero_size_count,
+        COUNT(*) FILTER (WHERE file_size > 100000000) as large_file_count,
+        COALESCE(SUM(file_size) FILTER (WHERE file_size > 100000000), 0) as large_file_size,
+        COUNT(*) as total_tracks_in_db
+      FROM tracks
+      WHERE user_id = $1`,
+      [userId]
+    );
+
     const stats = statsResult.rows[0] || {
       track_count: 0,
       playlist_count: 0,
@@ -133,6 +147,8 @@ export const getUser = async (req, res, next) => {
       format_count: 0,
       formats: [],
     };
+
+    const diagnostic = diagnosticResult.rows[0] || {};
 
     res.json({
       success: true,
@@ -145,13 +161,21 @@ export const getUser = async (req, res, next) => {
             totalStorageBytes: parseInt(stats.total_storage_bytes) || 0,
             avgFileSize: parseInt(stats.avg_file_size) || 0,
             formatBreakdown: formatBreakdownResult.rows.map(row => ({
-              format: row.file_format || 'unknown',
+              format: row.file_format === 'NULL' ? null : row.file_format,
               count: parseInt(row.count) || 0,
               totalSize: parseInt(row.total_size) || 0,
               avgSize: parseInt(row.avg_size) || 0,
               avgBitrate: parseInt(row.avg_bitrate) || 0,
               avgDuration: parseInt(row.avg_duration) || 0,
             })),
+            diagnostic: {
+              nullFormatCount: parseInt(diagnostic.null_format_count) || 0,
+              nullFormatSize: parseInt(diagnostic.null_format_size) || 0,
+              zeroSizeCount: parseInt(diagnostic.zero_size_count) || 0,
+              largeFileCount: parseInt(diagnostic.large_file_count) || 0,
+              largeFileSize: parseInt(diagnostic.large_file_size) || 0,
+              totalTracksInDb: parseInt(diagnostic.total_tracks_in_db) || 0,
+            },
           },
         },
       },
