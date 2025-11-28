@@ -1103,6 +1103,22 @@ export const splitTrack = async (req, res, next) => {
       
       // Sposta file
       const finalFilePath = path.join(finalPath, path.basename(splitTrack.path));
+      const relativeFilePath = path.relative(storagePath, finalFilePath);
+
+      // Verifica duplicati prima di spostare il file
+      const isDuplicate = await isDuplicateFile(userId, relativeFilePath);
+      if (isDuplicate) {
+        console.warn(`[Split Track] File duplicato ignorato: ${relativeFilePath}`);
+        // Rimuovi il file temporaneo
+        try {
+          await fs.unlink(splitTrack.path);
+        } catch (unlinkError) {
+          // Ignora errori di cleanup
+        }
+        // Continua con la prossima traccia senza bloccare
+        continue;
+      }
+
       await fs.rename(splitTrack.path, finalFilePath);
       
       // Statistiche file
