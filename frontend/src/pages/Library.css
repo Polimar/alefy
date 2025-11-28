@@ -466,6 +466,25 @@
     padding: 20px;
     max-height: 85vh;
   }
+
+  .action-menu-mobile {
+    position: fixed;
+    bottom: 100px; /* Sopra il player */
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+    width: calc(100% - 32px);
+    max-width: 400px;
+    margin-top: 0;
+    top: auto;
+  }
+
+  .track-card-actions {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+  }
 }
 
 /* Desktop: mostra tabella, nascondi cards */
