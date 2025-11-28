@@ -50,8 +50,8 @@ if [ ! -d "$ALEFY_HOME/backend" ]; then
     exit 1
 fi
 
-# Copia nuovi file backend
-cp -r "$REPO_DIR/backend"/* "$ALEFY_HOME/backend/"
+# Copia nuovi file backend (forza sovrascrittura)
+cp -rf "$REPO_DIR/backend"/* "$ALEFY_HOME/backend/"
 # Copia anche script Python se presente
 if [ -f "$REPO_DIR/scripts/shazam_recognize.py" ]; then
     mkdir -p "$ALEFY_HOME/scripts"
