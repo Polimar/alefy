@@ -204,7 +204,8 @@ echo -e "${GREEN}✓ Backend aggiornato${NC}"
 echo -e "\n${YELLOW}2.5. Aggiornamento variabili d'ambiente...${NC}"
 if [ -f "$REPO_DIR/scripts/lxc-update-env.sh" ]; then
     chmod +x "$REPO_DIR/scripts/lxc-update-env.sh"
-    "$REPO_DIR/scripts/lxc-update-env.sh" || echo -e "${YELLOW}⚠ Errore aggiornamento env (potrebbe essere già aggiornato)${NC}"
+    # Passa DOMAIN allo script se disponibile
+    DOMAIN="$DOMAIN" "$REPO_DIR/scripts/lxc-update-env.sh" || echo -e "${YELLOW}⚠ Errore aggiornamento env (potrebbe essere già aggiornato)${NC}"
 else
     echo -e "${YELLOW}⚠ Script lxc-update-env.sh non trovato, skip${NC}"
 fi

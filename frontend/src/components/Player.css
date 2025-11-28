@@ -12,7 +12,7 @@
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
   /* Il player ora fa parte del layout flex, non è più fixed */
   position: relative;
-  overflow: visible;
+  overflow: hidden; /* Cambiato da visible a hidden per evitare spostamenti */
 }
 
 .player-content {
@@ -383,7 +383,7 @@
 /* Error and Loading States */
 .player-error {
   position: absolute;
-  top: -30px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
   background: #ff4444;
@@ -392,16 +392,20 @@
   border-radius: 4px;
   font-size: 12px;
   z-index: 501;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .player-loading {
   position: absolute;
-  top: -30px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
   color: var(--text-secondary);
   font-size: 12px;
   z-index: 501;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* Mobile Responsive */

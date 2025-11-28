@@ -60,13 +60,18 @@ if (process.env.CORS_ORIGIN) {
   corsOrigins = ['http://localhost:5173'];
 }
 
-// Aggiungi sempre alefy.duckdns.org se non è già presente
-const alefyDuckdns = ['https://alefy.duckdns.org', 'http://alefy.duckdns.org'];
-alefyDuckdns.forEach(origin => {
-  if (!corsOrigins.includes(origin)) {
-    corsOrigins.push(origin);
+// Aggiungi DOMAIN se disponibile (costruito dinamicamente)
+if (process.env.DOMAIN) {
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const domainOrigin = `${protocol}://${process.env.DOMAIN}`;
+  if (!corsOrigins.includes(domainOrigin)) {
+    corsOrigins.push(domainOrigin);
   }
-});
+  // Aggiungi anche versione http se siamo in produzione (per redirect)
+  if (process.env.NODE_ENV === 'production' && !corsOrigins.includes(`http://${process.env.DOMAIN}`)) {
+    corsOrigins.push(`http://${process.env.DOMAIN}`);
+  }
+}
 
 logger.info('[CORS] Origins permessi:', JSON.stringify(corsOrigins));
 

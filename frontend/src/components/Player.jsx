@@ -217,9 +217,7 @@ export default function Player() {
                   localStorage.setItem('accessToken', accessToken);
                   localStorage.setItem('refreshToken', newRefreshToken);
 
-                  // Usa il nuovo token per lo stream
-                  const newStreamUrl = `${API_URL}/stream/tracks/${currentTrack.id}?token=${accessToken}`;
-                  // In alternativa, carica il blob con il nuovo token
+                  // Carica il blob con il nuovo token
                   const retryResponse = await fetch(streamUrl, {
                     headers: {
                       'Authorization': `Bearer ${accessToken}`,
@@ -227,7 +225,7 @@ export default function Player() {
                   });
 
                   if (!retryResponse.ok) {
-                    throw new Error('Errore di autenticazione');
+                    throw new Error('Errore di autenticazione dopo refresh');
                   }
 
                   const blob = await retryResponse.blob();
@@ -236,17 +234,21 @@ export default function Player() {
                   audio.load();
                   // NON chiamare play() automaticamente - aspetta che l'utente clicchi
                   return;
+                } else {
+                  // Refresh fallito, ma non fare redirect immediato - lascia che l'errore venga gestito
+                  throw new Error('Token refresh fallito');
                 }
               } catch (refreshError) {
                 console.error('Token refresh failed:', refreshError);
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
-                window.location.href = '/login';
-                return;
+                // Non fare redirect immediato - mostra errore invece
+                throw new Error('Errore di autenticazione. Effettua il login.');
               }
+            } else {
+              throw new Error('Token non disponibile. Effettua il login.');
             }
+          } else {
+            throw new Error(`Errore ${testResponse.status}: ${testResponse.statusText}`);
           }
-          throw new Error(`Errore ${testResponse.status}: ${testResponse.statusText}`);
         }
 
         // Carica il blob per supportare seek
@@ -377,29 +379,12 @@ export default function Player() {
       <div className="player">
         <audio ref={audioRef} />
       {error && (
-        <div className="player-error" style={{ 
-          position: 'absolute', 
-          top: '-30px', 
-          left: '50%', 
-          transform: 'translateX(-50%)',
-          background: 'var(--error, #ff4444)',
-          color: 'white',
-          padding: '4px 12px',
-          borderRadius: '4px',
-          fontSize: '12px'
-        }}>
+        <div className="player-error">
           {error}
         </div>
       )}
       {loading && (
-        <div className="player-loading" style={{ 
-          position: 'absolute', 
-          top: '-30px', 
-          left: '50%', 
-          transform: 'translateX(-50%)',
-          color: 'var(--text-secondary)',
-          fontSize: '12px'
-        }}>
+        <div className="player-loading">
           Caricamento...
         </div>
       )}

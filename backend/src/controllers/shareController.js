@@ -60,11 +60,23 @@ export const generateShareToken = async (req, res, next) => {
       );
     }
 
+    // Costruisci URL di condivisione usando DOMAIN o FRONTEND_URL
+    let shareUrl;
+    if (process.env.DOMAIN) {
+      // Usa DOMAIN con https://
+      const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+      shareUrl = `${protocol}://${process.env.DOMAIN}/share/${token}`;
+    } else if (process.env.FRONTEND_URL) {
+      shareUrl = `${process.env.FRONTEND_URL}/share/${token}`;
+    } else {
+      shareUrl = `http://localhost:5173/share/${token}`;
+    }
+
     res.json({
       success: true,
       data: {
         token,
-        shareUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/share/${token}`,
+        shareUrl,
         resourceType: validated.resourceType,
         resourceId: validated.resourceId,
       },

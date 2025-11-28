@@ -56,6 +56,17 @@ update_env_var "METADATA_BATCH_INTERVAL" "24"
 update_env_var "METADATA_BATCH_BATCH_SIZE" "10"
 update_env_var "METADATA_BATCH_RATE_LIMIT_MS" "6000"
 
+# Aggiorna DOMAIN e FRONTEND_URL se DOMAIN è passato come variabile d'ambiente
+if [ -n "$DOMAIN" ]; then
+    echo -e "\n${YELLOW}Aggiornamento DOMAIN e FRONTEND_URL...${NC}"
+    update_env_var "DOMAIN" "$DOMAIN"
+    # Costruisci FRONTEND_URL basato su DOMAIN
+    FRONTEND_URL_VALUE="https://${DOMAIN}"
+    update_env_var "FRONTEND_URL" "$FRONTEND_URL_VALUE"
+    echo -e "${GREEN}✓ DOMAIN impostato a: ${DOMAIN}${NC}"
+    echo -e "${GREEN}✓ FRONTEND_URL impostato a: ${FRONTEND_URL_VALUE}${NC}"
+fi
+
 # Assicura permessi corretti
 chown "$ALEFY_USER:$ALEFY_USER" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
