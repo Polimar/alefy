@@ -397,10 +397,10 @@ export default function Player() {
         {/* Colonna 1: Album Art + Info Traccia */}
         <div className="player-left">
           <div className="player-album-art">
-            {coverUrl ? (
+            {currentTrack && coverUrl ? (
               <img 
                 src={coverUrl} 
-                alt={currentTrack.title}
+                alt={currentTrack.title || 'Track'}
                 className={`album-art-image ${isPlaying ? 'playing' : ''}`}
               />
             ) : (
@@ -410,16 +410,18 @@ export default function Player() {
             )}
           </div>
           <div className="player-track-info">
-            <div className="track-title">{currentTrack.title || 'Titolo sconosciuto'}</div>
-            <div className="track-artist">{currentTrack.artist || 'Artista sconosciuto'}</div>
+            <div className="track-title">{currentTrack?.title || 'Nessuna traccia selezionata'}</div>
+            <div className="track-artist">{currentTrack?.artist || 'Seleziona una traccia per iniziare'}</div>
           </div>
-          <button
-            className={`like-btn ${isLiked ? 'liked' : ''}`}
-            onClick={() => toggleLike(currentTrack.id)}
-            title={isLiked ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-          >
-            <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
-          </button>
+          {currentTrack && (
+            <button
+              className={`like-btn ${isLiked ? 'liked' : ''}`}
+              onClick={() => toggleLike(currentTrack.id)}
+              title={isLiked ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+            >
+              <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
+            </button>
+          )}
         </div>
 
         {/* Colonna 2: Controlli Riproduzione */}
@@ -432,17 +434,18 @@ export default function Player() {
             >
               <Shuffle size={18} />
             </button>
-            <button onClick={previous} className="control-btn" title="Precedente">
+            <button onClick={previous} className="control-btn" title="Precedente" disabled={!currentTrack}>
               <SkipBack size={20} />
             </button>
             <button
               onClick={isPlaying ? pause : play}
               className="control-btn play-btn"
               title={isPlaying ? 'Pausa' : 'Riproduci'}
+              disabled={!currentTrack}
             >
               {isPlaying ? <Pause size={28} /> : <Play size={28} />}
             </button>
-            <button onClick={next} className="control-btn" title="Successivo">
+            <button onClick={next} className="control-btn" title="Successivo" disabled={!currentTrack}>
               <SkipForward size={20} />
             </button>
             <button
