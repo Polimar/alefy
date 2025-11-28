@@ -439,6 +439,7 @@
     order: 3;
     width: 100%;
     justify-content: center;
+    gap: 8px;
   }
 
   .player-volume {
@@ -453,6 +454,13 @@
 
   .queue-btn {
     display: none;
+  }
+
+  .volume-modal {
+    bottom: calc(100% + 8px);
+    right: 0;
+    left: auto;
+    transform: none;
   }
 }
 
