@@ -338,6 +338,20 @@ export default function Player() {
 
   const isLiked = currentTrack ? likedTracks.has(currentTrack.id) : false;
 
+  // Calcola posizione del modal del volume quando viene aperto
+  useEffect(() => {
+    if (showVolumeModal && volumeBtnRef.current) {
+      const rect = volumeBtnRef.current.getBoundingClientRect();
+      const modalHeight = 300; // Altezza approssimativa del modal
+      const margin = 12;
+      
+      setVolumeModalPosition({
+        bottom: window.innerHeight - rect.top + margin,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [showVolumeModal]);
+
   // Il player è sempre visibile, anche senza traccia corrente
   // if (!currentTrack) return null;
 
