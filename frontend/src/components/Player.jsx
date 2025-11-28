@@ -25,6 +25,7 @@ export default function Player() {
     repeat,
     likedTracks,
     showQueue,
+    showEqualizer,
     play,
     pause,
     setCurrentTime,
@@ -36,6 +37,7 @@ export default function Player() {
     setRepeat,
     toggleLike,
     toggleQueue,
+    toggleEqualizer,
   } = usePlayerStore();
   
   const [coverUrl, setCoverUrl] = useState(null);
