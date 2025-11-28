@@ -245,6 +245,24 @@ export default function Share() {
           <Music size={48} />
           <h2>Risorsa non disponibile</h2>
           <p>{error || 'La risorsa condivisa non è più disponibile'}</p>
+          {error && error.includes('playlist') && (
+            <p style={{ fontSize: '12px', marginTop: '8px', opacity: 0.7 }}>
+              Verifica che la playlist esista ancora e contenga tracce.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  // Verifica che per le playlist ci siano tracce disponibili
+  if (sharedData.type === 'playlist' && (!sharedData.playlist || !sharedData.playlist.tracks || sharedData.playlist.tracks.length === 0)) {
+    return (
+      <div className="share-page">
+        <div className="share-error">
+          <Music size={48} />
+          <h2>Playlist vuota</h2>
+          <p>Questa playlist non contiene tracce disponibili.</p>
         </div>
       </div>
     );
