@@ -530,6 +530,22 @@ export async function processDownloadJob(job) {
 
       // Sposta file
       const finalFilePath = path.join(finalPath, path.basename(filePath));
+      const relativeFilePath = path.relative(storagePath, finalFilePath);
+
+      // Verifica duplicati prima di spostare il file
+      const isDuplicate = await isDuplicateFile(userId, relativeFilePath);
+      if (isDuplicate) {
+        console.warn(`[YouTube Download] File duplicato ignorato: ${relativeFilePath}`);
+        // Rimuovi il file temporaneo
+        try {
+          await fs.unlink(filePath);
+        } catch (unlinkError) {
+          // Ignora errori di cleanup
+        }
+        // Lancia errore per gestirlo nel catch esterno
+        throw new Error(`File duplicato: ${relativeFilePath}`);
+      }
+
       await fs.rename(filePath, finalFilePath);
 
       // Statistiche file
