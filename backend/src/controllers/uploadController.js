@@ -22,6 +22,15 @@ export const uploadTracks = async (req, res, next) => {
       throw new AppError('Nessun file caricato', 400);
     }
 
+    // Limite massimo file per upload (evita saturazione RAM)
+    const MAX_FILES_PER_UPLOAD = parseInt(process.env.MAX_FILES_PER_UPLOAD) || 50;
+    if (req.files.length > MAX_FILES_PER_UPLOAD) {
+      throw new AppError(
+        `Troppi file caricati. Massimo ${MAX_FILES_PER_UPLOAD} file per upload. Carica i file in batch più piccoli.`,
+        400
+      );
+    }
+
     // Valida parametri playlist se presenti
     let playlistId = null;
     let playlistName = null;
