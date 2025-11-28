@@ -582,8 +582,8 @@
 }
 
 .volume-slider-modal {
-  width: 200px;
-  height: 6px;
+  width: 6px;
+  height: 200px;
   writing-mode: vertical-lr;
   direction: rtl;
   background: var(--bg-secondary);

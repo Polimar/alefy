@@ -22,13 +22,32 @@ export default function Share() {
     const loadSharedResource = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_URL}/share/${token}`);
+        setError(null); // Reset error quando si ricarica
+        // Aggiungi cache: 'no-cache' per evitare problemi su mobile
+        const response = await fetch(`${API_URL}/share/${token}`, {
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
         
         if (!response.ok) {
-          throw new Error('Risorsa non trovata o non più disponibile');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Risorsa non trovata o non più disponibile');
         }
         
         const data = await response.json();
+        
+        // Verifica che i dati siano validi
+        if (!data.data) {
+          throw new Error('Dati non validi ricevuti dal server');
+        }
+        
+        // Verifica che per le playlist ci siano le tracce
+        if (data.data.type === 'playlist' && (!data.data.playlist || !Array.isArray(data.data.playlist.tracks))) {
+          throw new Error('Playlist non valida o senza tracce');
+        }
+        
         setSharedData(data.data);
       } catch (err) {
         console.error('Error loading shared resource:', err);
@@ -109,12 +128,40 @@ export default function Share() {
 
     const loadAudio = async () => {
       try {
-        const streamUrl = `${API_URL}/stream/tracks/${currentTrack.id}?token=${token}`;
-        audio.src = streamUrl;
+        // Reset audio per evitare problemi su mobile
+        audio.pause();
+        audio.src = '';
         audio.load();
         
+        // Piccolo delay per assicurarsi che il reset sia completato
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const streamUrl = `${API_URL}/stream/tracks/${currentTrack.id}?token=${token}`;
+        audio.crossOrigin = 'anonymous';
+        audio.src = streamUrl;
+        
+        // Aspetta che l'audio sia pronto prima di fare load
+        await new Promise((resolve, reject) => {
+          const handleCanPlay = () => {
+            audio.removeEventListener('canplay', handleCanPlay);
+            audio.removeEventListener('error', handleError);
+            resolve();
+          };
+          const handleError = (e) => {
+            audio.removeEventListener('canplay', handleCanPlay);
+            audio.removeEventListener('error', handleError);
+            reject(new Error('Errore nel caricamento dell\'audio'));
+          };
+          audio.addEventListener('canplay', handleCanPlay);
+          audio.addEventListener('error', handleError);
+          audio.load();
+        });
+        
         if (isPlaying) {
-          await audio.play();
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            await playPromise;
+          }
         }
       } catch (err) {
         console.error('Error loading audio:', err);
