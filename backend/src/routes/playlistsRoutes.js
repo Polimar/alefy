@@ -9,6 +9,7 @@ import {
   addTrack,
   removeTrack,
   reorderTracks,
+  getPublicPlaylists,
 } from '../controllers/playlistsController.js';
 import { authenticate } from '../middleware/auth.js';
 
