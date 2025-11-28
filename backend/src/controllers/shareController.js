@@ -164,11 +164,11 @@ export const getSharedResource = async (req, res, next) => {
       const tracksResult = await pool.query(
         `SELECT 
           t.id, t.title, t.artist, t.album, t.genre, t.year, t.duration,
-          t.cover_art_path, pt.track_order
+          t.cover_art_path, pt.position
         FROM playlist_tracks pt
         JOIN tracks t ON pt.track_id = t.id
         WHERE pt.playlist_id = $1
-        ORDER BY pt.track_order ASC`,
+        ORDER BY pt.position ASC`,
         [resource_id]
       );
 
@@ -192,7 +192,7 @@ export const getSharedResource = async (req, res, next) => {
               year: track.year,
               duration: track.duration,
               cover_art_path: track.cover_art_path,
-              track_order: track.track_order,
+              position: track.position,
             })),
           },
         },
