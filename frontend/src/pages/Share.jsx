@@ -433,7 +433,7 @@ export default function Share() {
                         onChange={(e) => setVolume(parseFloat(e.target.value))}
                         className="share-volume-slider"
                         title={`Volume: ${Math.round(volume * 100)}%`}
-                        orient="vertical"
+                        style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
                       />
                       <span className="share-volume-percentage">{Math.round(volume * 100)}%</span>
                     </div>
