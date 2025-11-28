@@ -529,46 +529,49 @@ export default function Player() {
               <ListMusic size={18} />
             </button>
           )}
-          <button
-            onClick={toggleVolumeModal}
-            className="control-btn volume-btn"
-            title={`Volume: ${Math.round(volume * 100)}%`}
-          >
-            {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-          </button>
-          
-          {/* Modal Volume */}
-          {showVolumeModal && (
-            <div className="volume-modal-overlay" onClick={toggleVolumeModal}>
-              <div className="volume-modal" onClick={(e) => e.stopPropagation()}>
-                <div className="volume-modal-header">
-                  <h3>Volume</h3>
-                  <button onClick={toggleVolumeModal} className="volume-modal-close">×</button>
+          <div className="volume-btn-wrapper">
+            <button
+              onClick={toggleVolumeModal}
+              className="control-btn volume-btn"
+              title={`Volume: ${Math.round(volume * 100)}%`}
+            >
+              {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            </button>
+            
+            {/* Modal Volume - posizionato vicino al pulsante */}
+            {showVolumeModal && (
+              <>
+                <div className="volume-modal-overlay" onClick={toggleVolumeModal}></div>
+                <div className="volume-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="volume-modal-header">
+                    <h3>Volume</h3>
+                    <button onClick={toggleVolumeModal} className="volume-modal-close">×</button>
+                  </div>
+                  <div className="volume-modal-content">
+                    <button
+                      onClick={() => setVolume(volume > 0 ? 0 : 1)}
+                      className="volume-icon-btn-modal"
+                      title={volume > 0 ? 'Muta' : 'Riattiva audio'}
+                    >
+                      {volume === 0 ? <VolumeX size={24} /> : <Volume2 size={24} />}
+                    </button>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={volume}
+                      onChange={(e) => setVolume(parseFloat(e.target.value))}
+                      className="volume-slider-modal"
+                      title={`Volume: ${Math.round(volume * 100)}%`}
+                      orient="vertical"
+                    />
+                    <span className="volume-percentage-modal">{Math.round(volume * 100)}%</span>
+                  </div>
                 </div>
-                <div className="volume-modal-content">
-                  <button
-                    onClick={() => setVolume(volume > 0 ? 0 : 1)}
-                    className="volume-icon-btn-modal"
-                    title={volume > 0 ? 'Muta' : 'Riattiva audio'}
-                  >
-                    {volume === 0 ? <VolumeX size={24} /> : <Volume2 size={24} />}
-                  </button>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={volume}
-                    onChange={(e) => setVolume(parseFloat(e.target.value))}
-                    className="volume-slider-modal"
-                    title={`Volume: ${Math.round(volume * 100)}%`}
-                    orient="vertical"
-                  />
-                  <span className="volume-percentage-modal">{Math.round(volume * 100)}%</span>
-                </div>
-              </div>
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -232,11 +232,13 @@ export default function Library() {
 
   const handleShareWhatsApp = async (track, e) => {
     e.stopPropagation();
+    setMenuOpen(null);
+    
     try {
       const trackTitle = track.title || 'Titolo sconosciuto';
       const trackArtist = track.artist || 'Artista sconosciuto';
       
-      // Scarica il file MP3
+      // Scarica automaticamente il file MP3 senza chiedere conferma
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`${API_URL}/stream/tracks/${track.id}`, {
         headers: {
@@ -249,33 +251,57 @@ export default function Library() {
       }
       
       const blob = await response.blob();
-      const file = new File([blob], `${trackTitle} - ${trackArtist}.mp3`, { type: 'audio/mpeg' });
+      const fileName = `${trackTitle} - ${trackArtist}.mp3`.replace(/[^a-z0-9.\s-]/gi, '_');
+      const file = new File([blob], fileName, { type: 'audio/mpeg' });
       
-      // Su mobile, usa l'API Web Share se disponibile
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: `${trackTitle} - ${trackArtist}`,
-          text: `🎵 ${trackTitle} - ${trackArtist}`,
-          files: [file],
-        });
-      } else {
-        // Fallback: scarica il file e apri WhatsApp Web
-        const fileUrl = URL.createObjectURL(file);
-        const a = document.createElement('a');
-        a.href = fileUrl;
-        a.download = `${trackTitle} - ${trackArtist}.mp3`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(fileUrl), 100);
-        
-        // Apri WhatsApp Web con messaggio
-        const shareText = `🎵 ${trackTitle} - ${trackArtist}`;
-        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-        setTimeout(() => window.open(whatsappUrl, '_blank'), 500);
+      // Su mobile Android/iOS, usa Web Share API con file
+      if (navigator.share && navigator.canShare) {
+        try {
+          // Verifica se può condividere file
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: `${trackTitle} - ${trackArtist}`,
+              text: `🎵 ${trackTitle} - ${trackArtist}`,
+              files: [file],
+            });
+            return; // Successo, esci
+          }
+        } catch (shareError) {
+          console.log('Web Share con file non supportato, uso fallback');
+        }
       }
       
-      setMenuOpen(null);
+      // Fallback: crea un link di download temporaneo e apri WhatsApp
+      // Su mobile, WhatsApp può aprire direttamente il file se è già scaricato
+      const fileUrl = URL.createObjectURL(file);
+      
+      // Crea un link di download nascosto e scarica automaticamente
+      const a = document.createElement('a');
+      a.href = fileUrl;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Aspetta che il download inizi, poi apri WhatsApp
+      setTimeout(async () => {
+        // Su mobile, prova ad aprire WhatsApp con il file
+        if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+          // Su mobile, WhatsApp può accedere ai file scaricati
+          const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(`🎵 ${trackTitle} - ${trackArtist}`)}`;
+          window.location.href = whatsappUrl;
+        } else {
+          // Su desktop, apri WhatsApp Web
+          const shareText = `🎵 ${trackTitle} - ${trackArtist}`;
+          const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+          window.open(whatsappUrl, '_blank');
+        }
+        
+        // Pulisci l'URL dopo un po'
+        setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
+      }, 300);
+      
     } catch (error) {
       console.error('Errore condivisione WhatsApp:', error);
       alert('Errore nella condivisione. Riprova.');
