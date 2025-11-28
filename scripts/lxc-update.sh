@@ -124,8 +124,24 @@ fi
 
 if ! python3 -c "import shazamio" 2>/dev/null; then
     echo -e "${YELLOW}Installazione ShazamIO...${NC}"
-    pip3 install shazamio
-    echo -e "${GREEN}✓ ShazamIO installato${NC}"
+    # Prova prima con --break-system-packages (necessario per Debian/Ubuntu recenti con PEP 668)
+    if pip3 install --break-system-packages shazamio 2>/dev/null; then
+        echo -e "${GREEN}✓ ShazamIO installato${NC}"
+    else
+        # Fallback: crea virtualenv dedicato
+        echo -e "${YELLOW}Creazione virtualenv per ShazamIO...${NC}"
+        SHAZAM_VENV="/opt/alefy/shazam_venv"
+        if [ ! -d "$SHAZAM_VENV" ]; then
+            python3 -m venv "$SHAZAM_VENV"
+        fi
+        "$SHAZAM_VENV/bin/pip" install --upgrade pip
+        "$SHAZAM_VENV/bin/pip" install shazamio
+        # Aggiorna lo script Python per usare il venv
+        if [ -f "$REPO_DIR/scripts/shazam_recognize.py" ]; then
+            sed -i "1s|^#!/usr/bin/env python3|#!$SHAZAM_VENV/bin/python3|" "$REPO_DIR/scripts/shazam_recognize.py"
+        fi
+        echo -e "${GREEN}✓ ShazamIO installato in virtualenv${NC}"
+    fi
 else
     echo -e "${GREEN}✓ ShazamIO già installato${NC}"
 fi

@@ -16,17 +16,37 @@ const SHAZAM_SCRIPT_PATH = path.join(__dirname, '../../../scripts/shazam_recogni
  */
 export async function recognizeWithShazam(audioFilePath) {
   try {
-    // Verifica che lo script esista
+    // Verifica che lo script esista (prova percorsi multipli)
+    const fs = await import('fs/promises');
+    let shazamScriptPath = null;
+    for (const scriptPath of SHAZAM_SCRIPT_PATHS) {
+      try {
+        await fs.access(scriptPath);
+        shazamScriptPath = scriptPath;
+        break;
+      } catch (e) {
+        // Continua con il prossimo percorso
+      }
+    }
+    
+    if (!shazamScriptPath) {
+      throw new Error('Script Shazam non trovato. Assicurati che shazam_recognize.py esista.');
+    }
+
+    // Prova prima con virtualenv se esiste, altrimenti usa python3 normale
+    let pythonCmd = 'python3';
+    const venvPython = '/opt/alefy/shazam_venv/bin/python3';
     const fs = await import('fs/promises');
     try {
-      await fs.access(SHAZAM_SCRIPT_PATH);
-    } catch (error) {
-      throw new Error('Script Shazam non trovato. Assicurati che shazam_recognize.py esista.');
+      await fs.access(venvPython);
+      pythonCmd = venvPython;
+    } catch (e) {
+      // Usa python3 normale
     }
 
     // Esegui lo script Python
     const { stdout, stderr } = await execAsync(
-      `python3 "${SHAZAM_SCRIPT_PATH}" "${audioFilePath}"`,
+      `${pythonCmd} "${shazamScriptPath}" "${audioFilePath}"`,
       {
         timeout: 30000, // 30 secondi timeout
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
@@ -76,12 +96,23 @@ export async function isShazamAvailable() {
     const { exec } = await import('child_process');
     const { promisify } = await import('util');
     const execAsync = promisify(exec);
+    const fs = await import('fs/promises');
 
     // Verifica Python
     await execAsync('python3 --version');
     
+    // Prova prima con virtualenv se esiste
+    const venvPython = '/opt/alefy/shazam_venv/bin/python3';
+    let pythonCmd = 'python3';
+    try {
+      await fs.access(venvPython);
+      pythonCmd = venvPython;
+    } catch (e) {
+      // Usa python3 normale
+    }
+    
     // Verifica ShazamIO
-    const { stdout } = await execAsync('python3 -c "import shazamio"');
+    await execAsync(`${pythonCmd} -c "import shazamio"`);
     return true;
   } catch (error) {
     return false;
