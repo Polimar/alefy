@@ -14,3 +14,4 @@ CREATE INDEX IF NOT EXISTS idx_tracks_metadata_processed ON tracks(metadata_proc
 -- Crea indice per acoustid
 CREATE INDEX IF NOT EXISTS idx_tracks_acoustid ON tracks(acoustid) WHERE acoustid IS NOT NULL;
 
+

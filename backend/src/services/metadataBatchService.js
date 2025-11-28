@@ -2,6 +2,7 @@ import pool from '../database/db.js';
 import { getStoragePath } from '../utils/storage.js';
 import { identifyTrack } from '../utils/audioFingerprint.js';
 import { searchTrackMetadataByRecordingId, searchTrackMetadata } from '../utils/metadataSearch.js';
+import { recognizeWithShazam, isShazamAvailable } from '../utils/shazamService.js';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -139,12 +140,30 @@ export async function processTrack(trackId) {
       metadataSource = 'fingerprint';
     }
     
-    // Se fingerprint non ha funzionato, prova ricerca normale
+    // Se fingerprint non ha funzionato, prova Shazam (se disponibile)
+    if (!newMetadata) {
+      const shazamAvailable = await isShazamAvailable();
+      if (shazamAvailable) {
+        try {
+          console.log(`[Metadata Batch] Tentativo riconoscimento Shazam per traccia ${trackId}...`);
+          const shazamMetadata = await recognizeWithShazam(filePath);
+          if (shazamMetadata && shazamMetadata.title) {
+            newMetadata = shazamMetadata;
+            metadataSource = 'shazam';
+            console.log(`[Metadata Batch] Shazam ha riconosciuto: ${shazamMetadata.artist} - ${shazamMetadata.title}`);
+          }
+        } catch (error) {
+          console.warn(`[Metadata Batch] Shazam non disponibile o errore: ${error.message}`);
+        }
+      }
+    }
+    
+    // Se ancora nessun risultato, prova ricerca normale
     if (!newMetadata && track.artist && track.title) {
       console.log(`[Metadata Batch] Ricerca metadati per "${track.artist}" - "${track.title}"...`);
       newMetadata = await searchTrackMetadata(track.artist, track.title, track.album);
       if (newMetadata) {
-        metadataSource = 'musicbrainz';
+        metadataSource = metadataSource === 'manual' ? 'musicbrainz' : metadataSource;
       }
     }
     

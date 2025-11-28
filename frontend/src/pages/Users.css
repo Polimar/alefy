@@ -148,6 +148,39 @@
   font-size: 0.875rem;
 }
 
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.action-btn:hover {
+  background-color: var(--bg-secondary);
+  border-color: var(--primary-color);
+}
+
+.action-btn.edit-btn:hover {
+  color: var(--primary-color);
+}
+
+.action-btn.delete-btn:hover {
+  color: #ff4444;
+  border-color: #ff4444;
+}
+
 .error-message {
   padding: 0.75rem;
   background: rgba(220, 53, 69, 0.1);

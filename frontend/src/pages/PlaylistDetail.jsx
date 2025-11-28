@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
-import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1, Download, CheckCircle2, Loader } from 'lucide-react';
+import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1, Download, CheckCircle2, Loader, MoreVertical, Edit, Globe, Lock } from 'lucide-react';
+import EditPlaylistModal from '../components/EditPlaylistModal';
 import { saveTrackOffline, isTrackOffline, removeTrackOffline, getOfflineTracksForPlaylist } from '../utils/offlineStorage';
+import useAuthStore from '../store/authStore';
 import './PlaylistDetail.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -19,6 +21,9 @@ export default function PlaylistDetail() {
   const [selectedTracks, setSelectedTracks] = useState(new Set());
   const [downloadingTracks, setDownloadingTracks] = useState(new Set());
   const [offlineTracks, setOfflineTracks] = useState(new Set());
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { user } = useAuthStore();
   const { 
     setCurrentTrack, 
     setQueue, 
@@ -28,6 +33,8 @@ export default function PlaylistDetail() {
     toggleShuffle,
     setRepeat
   } = usePlayerStore();
+  
+  const isOwner = playlist && user && playlist.user_id === user.id;
 
   useEffect(() => {
     loadPlaylist();
@@ -164,6 +171,28 @@ export default function PlaylistDetail() {
     }
   };
 
+  const handleEditPlaylist = () => {
+    setShowEditModal(true);
+    setMenuOpen(false);
+  };
+
+  const handleDeletePlaylist = async () => {
+    if (!confirm('Eliminare questa playlist? L\'operazione non può essere annullata.')) return;
+
+    try {
+      await api.delete(`/playlists/${id}`);
+      navigate('/playlists');
+    } catch (error) {
+      console.error('Error deleting playlist:', error);
+      alert('Errore nell\'eliminazione della playlist');
+    }
+  };
+
+  const handlePlaylistUpdated = (updatedPlaylist) => {
+    setPlaylist(updatedPlaylist);
+    loadPlaylist();
+  };
+
   const formatDuration = (seconds) => {
     if (!seconds) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -294,8 +323,47 @@ export default function PlaylistDetail() {
           )}
         </div>
         <div className="playlist-info">
-          <div className="playlist-type">Playlist</div>
-          <h1>{playlist.name}</h1>
+          <div className="playlist-header-top">
+            <div>
+              <div className="playlist-type">
+                Playlist
+                {playlist.is_public && (
+                  <span className="public-badge" title="Pubblica">
+                    <Globe size={14} />
+                  </span>
+                )}
+              </div>
+              <h1>{playlist.name}</h1>
+            </div>
+            {isOwner && (
+              <div className="playlist-menu-container">
+                <button
+                  className="playlist-menu-btn"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                >
+                  <MoreVertical size={20} />
+                </button>
+                {menuOpen && (
+                  <div className="playlist-menu" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="playlist-menu-item"
+                      onClick={handleEditPlaylist}
+                    >
+                      <Edit size={16} />
+                      Modifica playlist
+                    </button>
+                    <button
+                      className="playlist-menu-item danger"
+                      onClick={handleDeletePlaylist}
+                    >
+                      <Trash2 size={16} />
+                      Elimina playlist
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           {playlist.description && (
             <p className="playlist-description">{playlist.description}</p>
           )}
@@ -503,6 +571,18 @@ export default function PlaylistDetail() {
           </>
         )}
       </div>
+
+      {/* Edit Playlist Modal */}
+      {isOwner && (
+        <EditPlaylistModal
+          playlist={playlist}
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+          }}
+          onUpdate={handlePlaylistUpdated}
+        />
+      )}
     </div>
   );
 }

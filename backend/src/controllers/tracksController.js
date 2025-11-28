@@ -1,6 +1,8 @@
 import pool from '../database/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getStoragePath } from '../utils/storage.js';
+import { saveCoverArt } from '../utils/audioMetadata.js';
+import sharp from 'sharp';
 import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
@@ -126,11 +128,10 @@ export const updateTrack = async (req, res, next) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-    const validatedData = updateTrackSchema.parse(req.body);
 
     // Check ownership
     const checkResult = await pool.query(
-      'SELECT id FROM tracks WHERE id = $1 AND user_id = $2',
+      'SELECT id, artist, album FROM tracks WHERE id = $1 AND user_id = $2',
       [id, userId]
     );
 
@@ -138,13 +139,83 @@ export const updateTrack = async (req, res, next) => {
       throw new AppError('Traccia non trovata', 404);
     }
 
-    // Build update query
+    const track = checkResult.rows[0];
     const updates = [];
     const values = [];
     let paramIndex = 1;
 
+    // Handle cover art upload if present
+    if (req.file) {
+      try {
+        const storagePath = getStoragePath();
+        const coversDir = path.join(storagePath, 'covers');
+        await fs.mkdir(coversDir, { recursive: true });
+
+        // Generate unique filename
+        const fileExt = path.extname(req.file.originalname) || '.jpg';
+        const coverFilename = `cover_${id}_${Date.now()}${fileExt}`;
+        const coverPath = path.join(coversDir, coverFilename);
+
+        // Resize and save cover art
+        await sharp(req.file.path)
+          .resize(300, 300, {
+            fit: 'cover',
+            position: 'center',
+          })
+          .jpeg({ quality: 90 })
+          .toFile(coverPath);
+
+        // Delete old cover if exists
+        const oldCoverResult = await pool.query(
+          'SELECT cover_art_path FROM tracks WHERE id = $1',
+          [id]
+        );
+        if (oldCoverResult.rows[0]?.cover_art_path) {
+          const oldCoverPath = path.join(storagePath, oldCoverResult.rows[0].cover_art_path);
+          try {
+            await fs.unlink(oldCoverPath);
+          } catch (err) {
+            // Ignore if file doesn't exist
+            console.warn('Could not delete old cover:', err.message);
+          }
+        }
+
+        // Save relative path
+        const relativeCoverPath = path.join('covers', coverFilename).replace(/\\/g, '/');
+        updates.push(`cover_art_path = $${paramIndex}`);
+        values.push(relativeCoverPath);
+        paramIndex++;
+
+        // Delete temp file
+        await fs.unlink(req.file.path);
+      } catch (error) {
+        // Clean up temp file on error
+        if (req.file?.path) {
+          try {
+            await fs.unlink(req.file.path);
+          } catch (e) {
+            // Ignore
+          }
+        }
+        throw new AppError(`Errore nel salvataggio della cover art: ${error.message}`, 500);
+      }
+    }
+
+    // Handle other metadata fields
+    const bodyData = req.body;
+    const validatedData = updateTrackSchema.parse({
+      title: bodyData.title,
+      artist: bodyData.artist,
+      album: bodyData.album,
+      album_artist: bodyData.album_artist,
+      genre: bodyData.genre,
+      year: bodyData.year ? parseInt(bodyData.year, 10) : undefined,
+      track_number: bodyData.track_number ? parseInt(bodyData.track_number, 10) : undefined,
+      disc_number: bodyData.disc_number ? parseInt(bodyData.disc_number, 10) : undefined,
+    });
+
     Object.keys(validatedData).forEach(key => {
-      if (validatedData[key] !== undefined) {
+      if (validatedData[key] !== undefined && validatedData[key] !== null && validatedData[key] !== '') {
         updates.push(`${key} = $${paramIndex}`);
         values.push(validatedData[key]);
         paramIndex++;

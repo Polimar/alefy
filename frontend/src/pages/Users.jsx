@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { Plus, User, Mail, Calendar, Shield } from 'lucide-react';
+import { Plus, User, Mail, Calendar, Shield, Edit, Trash2 } from 'lucide-react';
+import EditUserModal from '../components/EditUserModal';
+import useAuthStore from '../store/authStore';
 import './Users.css';
 
 export default function Users() {
@@ -12,6 +14,9 @@ export default function Users() {
   const [username, setUsername] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [editingUser, setEditingUser] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const { user: currentUser } = useAuthStore();
 
   useEffect(() => {
     loadUsers();
@@ -62,6 +67,28 @@ export default function Users() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleEditUser = (user) => {
+    setEditingUser(user);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!confirm('Eliminare questo utente? L\'operazione non può essere annullata.')) return;
+
+    try {
+      await api.delete(`/users/${userId}`);
+      loadUsers();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error?.message || 'Errore nell\'eliminazione dell\'utente';
+      alert(errorMessage);
+    }
+  };
+
+  const handleUserUpdated = (updatedUser) => {
+    loadUsers();
   };
 
   const formatDate = (dateString) => {
@@ -175,6 +202,7 @@ export default function Users() {
                 <th>Email</th>
                 <th>Ruolo</th>
                 <th>Registrato</th>
+                <th>Azioni</th>
               </tr>
             </thead>
             <tbody>
@@ -207,12 +235,41 @@ export default function Users() {
                     <Calendar size={16} />
                     {formatDate(user.created_at)}
                   </td>
+                  <td className="user-actions">
+                    <button
+                      className="action-btn edit-btn"
+                      onClick={() => handleEditUser(user)}
+                      title="Modifica"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    {user.id !== currentUser?.id && (
+                      <button
+                        className="action-btn delete-btn"
+                        onClick={() => handleDeleteUser(user.id)}
+                        title="Elimina"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        user={editingUser}
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingUser(null);
+        }}
+        onUpdate={handleUserUpdated}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { Home, Upload, ListMusic, LogOut, Menu, X, Users, Settings, Music } from 'lucide-react';
+import { Home, Upload, ListMusic, LogOut, Menu, X, Users, Settings, Music, Compass } from 'lucide-react';
 import Player from './Player';
 import api from '../utils/api';
 import './Layout.css';
@@ -122,11 +122,19 @@ export default function Layout() {
           </Link>
           <Link
             to="/playlists"
-            className={`nav-item ${location.pathname === '/playlists' ? 'active' : ''}`}
+            className={`nav-item ${location.pathname === '/playlists' && !location.pathname.startsWith('/playlists/') ? 'active' : ''}`}
             onClick={() => isMobile && setSidebarOpen(false)}
           >
             <ListMusic size={20} />
             <span>Playlist</span>
+          </Link>
+          <Link
+            to="/discover"
+            className={`nav-item ${location.pathname === '/discover' ? 'active' : ''}`}
+            onClick={() => isMobile && setSidebarOpen(false)}
+          >
+            <Compass size={20} />
+            <span>Scopri</span>
           </Link>
           {user?.is_admin && (
             <>

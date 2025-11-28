@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
-import { Play, Music, MoreVertical, Plus, Trash2, Scissors } from 'lucide-react';
+import { Play, Music, MoreVertical, Plus, Trash2, Scissors, Edit } from 'lucide-react';
+import EditTrackModal from '../components/EditTrackModal';
 import './Library.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -18,6 +19,8 @@ export default function Library() {
   const [splitTrack, setSplitTrack] = useState(null);
   const [splitTimestamps, setSplitTimestamps] = useState([]);
   const [splitLoading, setSplitLoading] = useState(false);
+  const [editingTrack, setEditingTrack] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const { setCurrentTrack, setQueue, play } = usePlayerStore();
   const searchTimeoutRef = useRef(null);
 
@@ -173,6 +176,17 @@ export default function Library() {
     setSelectedTrack(track);
     setShowAddToPlaylist(true);
     setMenuOpen(null);
+  };
+
+  const handleEditTrack = (track) => {
+    setEditingTrack(track);
+    setShowEditModal(true);
+    setMenuOpen(null);
+  };
+
+  const handleTrackUpdated = (updatedTrack) => {
+    // Ricarica le tracce per vedere le modifiche
+    loadTracks();
   };
 
   const handleAddTrackToPlaylist = async (playlistId) => {
@@ -414,6 +428,13 @@ export default function Library() {
                                 <Plus size={16} />
                                 Aggiungi a playlist
                               </button>
+                              <button
+                                className="action-menu-item"
+                                onClick={() => handleEditTrack(track)}
+                              >
+                                <Edit size={16} />
+                                Modifica metadati
+                              </button>
                               {track.duration > 1800 && (
                                 <button
                                   className="action-menu-item"
@@ -629,6 +650,17 @@ export default function Library() {
           </div>
         </div>
       )}
+
+      {/* Edit Track Modal */}
+      <EditTrackModal
+        track={editingTrack}
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingTrack(null);
+        }}
+        onUpdate={handleTrackUpdated}
+      />
     </div>
   );
 }

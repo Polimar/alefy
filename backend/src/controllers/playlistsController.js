@@ -1,5 +1,9 @@
 import pool from '../database/db.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { getStoragePath } from '../utils/storage.js';
+import sharp from 'sharp';
+import fs from 'fs/promises';
+import path from 'path';
 import { z } from 'zod';
 
 const createPlaylistSchema = z.object({
@@ -64,21 +68,67 @@ export const getPlaylists = async (req, res, next) => {
   }
 };
 
+export const getPublicPlaylists = async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT p.*, 
+       u.username as creator_username,
+       COUNT(pt.track_id) as track_count,
+       COALESCE(SUM(t.duration), 0) as total_duration,
+       (
+         SELECT t2.cover_art_path 
+         FROM playlist_tracks pt2
+         JOIN tracks t2 ON pt2.track_id = t2.id
+         WHERE pt2.playlist_id = p.id
+         ORDER BY pt2.position ASC
+         LIMIT 1
+       ) as first_track_cover_art_path,
+       (
+         SELECT t2.id 
+         FROM playlist_tracks pt2
+         JOIN tracks t2 ON pt2.track_id = t2.id
+         WHERE pt2.playlist_id = p.id
+         ORDER BY pt2.position ASC
+         LIMIT 1
+       ) as first_track_id
+       FROM playlists p
+       LEFT JOIN users u ON p.user_id = u.id
+       LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id
+       LEFT JOIN tracks t ON pt.track_id = t.id
+       WHERE p.is_public = true
+       GROUP BY p.id, u.username
+       ORDER BY p.created_at DESC`,
+      []
+    );
+
+    res.json({
+      success: true,
+      data: {
+        playlists: result.rows,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getPlaylist = async (req, res, next) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    // Get playlist info
+    // Get playlist info - allow access if public or user is owner
     const playlistResult = await pool.query(
       `SELECT p.*, 
+       u.username as creator_username,
        COUNT(pt.track_id) as track_count,
        COALESCE(SUM(t.duration), 0) as total_duration
        FROM playlists p
+       LEFT JOIN users u ON p.user_id = u.id
        LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id
        LEFT JOIN tracks t ON pt.track_id = t.id
-       WHERE p.id = $1 AND p.user_id = $2
-       GROUP BY p.id`,
+       WHERE p.id = $1 AND (p.is_public = true OR p.user_id = $2)
+       GROUP BY p.id, u.username`,
       [id, userId]
     );
 
@@ -138,7 +188,6 @@ export const updatePlaylist = async (req, res, next) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-    const validatedData = updatePlaylistSchema.parse(req.body);
 
     // Check ownership
     const checkResult = await pool.query(
@@ -150,13 +199,77 @@ export const updatePlaylist = async (req, res, next) => {
       throw new AppError('Playlist non trovata', 404);
     }
 
-    // Build update query
     const updates = [];
     const values = [];
     let paramIndex = 1;
 
+    // Handle cover art upload if present
+    if (req.file) {
+      try {
+        const storagePath = getStoragePath();
+        const coversDir = path.join(storagePath, 'playlists', 'covers');
+        await fs.mkdir(coversDir, { recursive: true });
+
+        // Generate unique filename
+        const fileExt = path.extname(req.file.originalname) || '.jpg';
+        const coverFilename = `playlist_${id}_${Date.now()}${fileExt}`;
+        const coverPath = path.join(coversDir, coverFilename);
+
+        // Resize and save cover art
+        await sharp(req.file.path)
+          .resize(300, 300, {
+            fit: 'cover',
+            position: 'center',
+          })
+          .jpeg({ quality: 90 })
+          .toFile(coverPath);
+
+        // Delete old cover if exists
+        const oldCoverResult = await pool.query(
+          'SELECT cover_art_path FROM playlists WHERE id = $1',
+          [id]
+        );
+        if (oldCoverResult.rows[0]?.cover_art_path) {
+          const oldCoverPath = path.join(storagePath, oldCoverResult.rows[0].cover_art_path);
+          try {
+            await fs.unlink(oldCoverPath);
+          } catch (err) {
+            // Ignore if file doesn't exist
+            console.warn('Could not delete old playlist cover:', err.message);
+          }
+        }
+
+        // Save relative path
+        const relativeCoverPath = path.join('playlists', 'covers', coverFilename).replace(/\\/g, '/');
+        updates.push(`cover_art_path = $${paramIndex}`);
+        values.push(relativeCoverPath);
+        paramIndex++;
+
+        // Delete temp file
+        await fs.unlink(req.file.path);
+      } catch (error) {
+        // Clean up temp file on error
+        if (req.file?.path) {
+          try {
+            await fs.unlink(req.file.path);
+          } catch (e) {
+            // Ignore
+          }
+        }
+        throw new AppError(`Errore nel salvataggio della cover art: ${error.message}`, 500);
+      }
+    }
+
+    // Handle other fields
+    const bodyData = req.body;
+    const validatedData = updatePlaylistSchema.parse({
+      name: bodyData.name,
+      description: bodyData.description,
+      is_public: bodyData.is_public === 'true' || bodyData.is_public === true,
+    });
+
     Object.keys(validatedData).forEach(key => {
-      if (validatedData[key] !== undefined) {
+      if (validatedData[key] !== undefined && validatedData[key] !== null && validatedData[key] !== '') {
         updates.push(`${key} = $${paramIndex}`);
         values.push(validatedData[key]);
         paramIndex++;

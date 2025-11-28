@@ -53,6 +53,13 @@ export const createUser = async (req, res, next) => {
   }
 };
 
+const updateUserSchema = z.object({
+  email: z.string().email('Email non valida').optional(),
+  username: z.string().optional(),
+  password: z.string().min(8, 'Password deve essere almeno 8 caratteri').optional(),
+  is_admin: z.boolean().optional(),
+});
+
 export const getUsers = async (req, res, next) => {
   try {
     const result = await pool.query(
@@ -64,6 +71,166 @@ export const getUsers = async (req, res, next) => {
       data: {
         users: result.rows,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = parseInt(id, 10);
+
+    // Get user info
+    const userResult = await pool.query(
+      'SELECT id, email, username, is_admin, created_at FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      throw new AppError('Utente non trovato', 404);
+    }
+
+    const user = userResult.rows[0];
+
+    // Get statistics
+    const statsResult = await pool.query(
+      `SELECT 
+        COUNT(DISTINCT t.id) as track_count,
+        COUNT(DISTINCT p.id) as playlist_count,
+        COALESCE(SUM(t.file_size), 0) as total_storage_bytes
+      FROM users u
+      LEFT JOIN tracks t ON u.id = t.user_id
+      LEFT JOIN playlists p ON u.id = p.user_id
+      WHERE u.id = $1
+      GROUP BY u.id`,
+      [userId]
+    );
+
+    const stats = statsResult.rows[0] || {
+      track_count: 0,
+      playlist_count: 0,
+      total_storage_bytes: 0,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          ...user,
+          stats: {
+            trackCount: parseInt(stats.track_count) || 0,
+            playlistCount: parseInt(stats.playlist_count) || 0,
+            totalStorageBytes: parseInt(stats.total_storage_bytes) || 0,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.user.userId;
+    const userId = parseInt(id, 10);
+
+    // Prevent self-deletion of admin status
+    if (userId === currentUserId && req.body.is_admin === false) {
+      throw new AppError('Non puoi rimuovere i tuoi privilegi di admin', 400);
+    }
+
+    const validatedData = updateUserSchema.parse(req.body);
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (validatedData.email !== undefined) {
+      // Check if email already exists
+      const existingUser = await pool.query(
+        'SELECT id FROM users WHERE email = $1 AND id != $2',
+        [validatedData.email, userId]
+      );
+      if (existingUser.rows.length > 0) {
+        throw new AppError('Email già registrata', 409);
+      }
+      updates.push(`email = $${paramIndex}`);
+      values.push(validatedData.email);
+      paramIndex++;
+    }
+
+    if (validatedData.username !== undefined) {
+      updates.push(`username = $${paramIndex}`);
+      values.push(validatedData.username || null);
+      paramIndex++;
+    }
+
+    if (validatedData.password !== undefined) {
+      const passwordHash = await bcrypt.hash(validatedData.password, 10);
+      updates.push(`password_hash = $${paramIndex}`);
+      values.push(passwordHash);
+      paramIndex++;
+    }
+
+    if (validatedData.is_admin !== undefined) {
+      updates.push(`is_admin = $${paramIndex}`);
+      values.push(validatedData.is_admin);
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      throw new AppError('Nessun campo da aggiornare', 400);
+    }
+
+    values.push(userId);
+    const query = `UPDATE users SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${paramIndex} RETURNING id, email, username, is_admin, created_at`;
+
+    const result = await pool.query(query, values);
+
+    res.json({
+      success: true,
+      data: {
+        user: result.rows[0],
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+};
+
+export const deleteUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.user.userId;
+    const userId = parseInt(id, 10);
+
+    // Prevent self-deletion
+    if (userId === currentUserId) {
+      throw new AppError('Non puoi eliminare il tuo stesso account', 400);
+    }
+
+    // Check if user exists
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      throw new AppError('Utente non trovato', 404);
+    }
+
+    // Delete user (cascade will handle related records)
+    await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    res.json({
+      success: true,
+      message: 'Utente eliminato con successo',
     });
   } catch (error) {
     next(error);

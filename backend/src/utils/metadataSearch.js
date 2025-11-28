@@ -62,46 +62,112 @@ async function searchMusicBrainzByRecordingId(recordingid) {
  */
 async function searchMusicBrainz(artist, title, album = null) {
   try {
-    // Costruisci query per MusicBrainz
-    let query = `artist:"${encodeURIComponent(artist)}" AND recording:"${encodeURIComponent(title)}"`;
+    // Prova prima con query completa (artista + titolo + album)
+    let queries = [];
+    
     if (album) {
-      query += ` AND release:"${encodeURIComponent(album)}"`;
+      queries.push(`artist:"${encodeURIComponent(artist)}" AND recording:"${encodeURIComponent(title)}" AND release:"${encodeURIComponent(album)}"`);
+    }
+    
+    // Fallback: solo artista + titolo
+    queries.push(`artist:"${encodeURIComponent(artist)}" AND recording:"${encodeURIComponent(title)}"`);
+    
+    // Fallback: solo titolo (per casi con artista sconosciuto)
+    if (artist && !artist.match(/unknown|sconosciuto/i)) {
+      queries.push(`recording:"${encodeURIComponent(title)}"`);
     }
 
-    const url = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json&limit=1`;
+    for (const query of queries) {
+      try {
+        const url = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json&limit=5&inc=releases+tags+artist-credits`;
 
-    const data = await new Promise((resolve, reject) => {
-      https.get(url, {
-        headers: {
-          'User-Agent': 'ALEFY/1.0.0 (https://github.com/Polimar/alefy)',
-        },
-      }, (res) => {
-        let body = '';
-        res.on('data', (chunk) => body += chunk);
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(body));
-          } catch (e) {
-            reject(e);
-          }
+        const data = await new Promise((resolve, reject) => {
+          https.get(url, {
+            headers: {
+              'User-Agent': 'ALEFY/1.0.0 (https://github.com/Polimar/alefy)',
+            },
+          }, (res) => {
+            let body = '';
+            res.on('data', (chunk) => body += chunk);
+            res.on('end', () => {
+              try {
+                resolve(JSON.parse(body));
+              } catch (e) {
+                reject(e);
+              }
+            });
+          }).on('error', reject);
         });
-      }).on('error', reject);
-    });
 
-    if (data.recordings && data.recordings.length > 0) {
-      const recording = data.recordings[0];
-      
-      // Estrai informazioni utili
-      const result = {
-        title: recording.title || title,
-        artist: recording['artist-credit']?.[0]?.name || artist,
-        album: recording.releases?.[0]?.title || album,
-        year: recording.releases?.[0]?.date ? parseInt(recording.releases[0].date.substring(0, 4)) : null,
-        genre: null, // MusicBrainz non fornisce genere direttamente
-        trackNumber: recording.releases?.[0]?.['media']?.[0]?.['track-list']?.findIndex(t => t.id === recording.id) + 1 || null,
-      };
+        if (data.recordings && data.recordings.length > 0) {
+          // Trova il miglior match
+          let bestMatch = null;
+          let bestScore = 0;
 
-      return result;
+          for (const recording of data.recordings) {
+            let score = 0;
+            const recArtist = recording['artist-credit']?.[0]?.name || '';
+            const recTitle = recording.title || '';
+            
+            // Matching artista (case-insensitive)
+            if (artist && recArtist.toLowerCase().includes(artist.toLowerCase())) {
+              score += 3;
+            } else if (artist && artist.toLowerCase().includes(recArtist.toLowerCase())) {
+              score += 2;
+            }
+            
+            // Matching titolo (case-insensitive)
+            if (title && recTitle.toLowerCase().includes(title.toLowerCase())) {
+              score += 3;
+            } else if (title && title.toLowerCase().includes(recTitle.toLowerCase())) {
+              score += 2;
+            }
+            
+            // Matching album
+            if (album) {
+              const recAlbum = recording.releases?.[0]?.title || '';
+              if (recAlbum && recAlbum.toLowerCase().includes(album.toLowerCase())) {
+                score += 2;
+              }
+            }
+            
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = recording;
+            }
+          }
+
+          if (bestMatch && bestScore >= 3) {
+            const recording = bestMatch;
+            
+            // Estrai informazioni più complete
+            const releases = recording.releases || [];
+            const bestRelease = releases.find(r => r.date) || releases[0] || null;
+            
+            // Estrai tags/genre
+            const tags = recording.tags || [];
+            const genre = tags.length > 0 ? tags[0].name : null;
+            
+            // Estrai album_artist se disponibile
+            const albumArtist = bestRelease?.['artist-credit']?.[0]?.name || recording['artist-credit']?.[0]?.name || null;
+            
+            const result = {
+              title: recording.title || title,
+              artist: recording['artist-credit']?.[0]?.name || artist,
+              album: bestRelease?.title || album || null,
+              album_artist: albumArtist,
+              year: bestRelease?.date ? parseInt(bestRelease.date.substring(0, 4)) : null,
+              genre: genre,
+              trackNumber: null, // Richiederebbe query aggiuntiva per release specifica
+            };
+
+            return result;
+          }
+        }
+      } catch (queryError) {
+        // Continua con il prossimo query
+        continue;
+      }
     }
 
     return null;
@@ -125,7 +191,7 @@ async function searchLastFM(artist, title) {
       return null; // Last.fm richiede API key
     }
 
-    const url = `http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${apiKey}&artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(title)}&format=json`;
+    const url = `http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${apiKey}&artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(title)}&format=json&autocorrect=1`;
 
     const data = await new Promise((resolve, reject) => {
       http.get(url, (res) => {
@@ -142,13 +208,36 @@ async function searchLastFM(artist, title) {
     });
 
     if (data.track && data.track.name) {
+      // Estrai informazioni più complete
+      const track = data.track;
+      
+      // Estrai genere dai top tags
+      const topTags = track.toptags?.tag || [];
+      const genre = topTags.length > 0 ? topTags[0].name : null;
+      
+      // Estrai anno da wiki o album
+      let year = null;
+      if (track.album?.wiki?.published) {
+        year = parseInt(track.album.wiki.published.substring(0, 4));
+      } else if (track.album?.wiki?.content) {
+        // Prova a estrarre anno dal contenuto wiki
+        const yearMatch = track.album.wiki.content.match(/\b(19|20)\d{2}\b/);
+        if (yearMatch) {
+          year = parseInt(yearMatch[0]);
+        }
+      }
+      
+      // Estrai album_artist se disponibile
+      const albumArtist = track.album?.artist || track.artist?.name || null;
+      
       return {
-        title: data.track.name || title,
-        artist: data.track.artist?.name || artist,
-        album: data.track.album?.title || null,
-        year: data.track.album?.wiki?.published ? parseInt(data.track.album.wiki.published.substring(0, 4)) : null,
-        genre: data.track.toptags?.tag?.[0]?.name || null,
-        trackNumber: null,
+        title: track.name || title,
+        artist: track.artist?.name || artist,
+        album: track.album?.title || null,
+        album_artist: albumArtist,
+        year: year,
+        genre: genre,
+        trackNumber: track.album?.['@attr']?.position ? parseInt(track.album['@attr'].position) : null,
       };
     }
 
@@ -201,11 +290,30 @@ export async function searchTrackMetadata(artist, title, album = null) {
     return null;
   }
 
-  // Prova prima MusicBrainz
+  // Prova prima MusicBrainz (più completo)
   let metadata = await searchMusicBrainz(artist, title, album);
   
-  // Se MusicBrainz fallisce, prova Last.fm
-  if (!metadata) {
+  // Se MusicBrainz non ha genere o anno, integra con Last.fm
+  if (metadata) {
+    const lastfmMetadata = await searchLastFM(metadata.artist || artist, metadata.title || title);
+    
+    // Merge informazioni mancanti da Last.fm
+    if (lastfmMetadata) {
+      if (!metadata.genre && lastfmMetadata.genre) {
+        metadata.genre = lastfmMetadata.genre;
+      }
+      if (!metadata.year && lastfmMetadata.year) {
+        metadata.year = lastfmMetadata.year;
+      }
+      if (!metadata.album && lastfmMetadata.album) {
+        metadata.album = lastfmMetadata.album;
+      }
+      if (!metadata.album_artist && lastfmMetadata.album_artist) {
+        metadata.album_artist = lastfmMetadata.album_artist;
+      }
+    }
+  } else {
+    // Se MusicBrainz fallisce completamente, prova Last.fm
     metadata = await searchLastFM(artist, title);
   }
 
@@ -215,10 +323,16 @@ export async function searchTrackMetadata(artist, title, album = null) {
       title: title,
       artist: artist,
       album: album || null,
+      album_artist: artist,
       year: null,
       genre: null,
       trackNumber: null,
     };
+  }
+
+  // Assicurati che album_artist sia sempre presente
+  if (!metadata.album_artist && metadata.artist) {
+    metadata.album_artist = metadata.artist;
   }
 
   return metadata;

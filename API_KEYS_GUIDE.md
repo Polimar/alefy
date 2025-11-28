@@ -140,3 +140,4 @@ Le statistiche sono visibili nella sidebar del frontend:
 
 Il batch viene eseguito automaticamente ogni 24 ore (configurabile con `METADATA_BATCH_INTERVAL`).
 
+

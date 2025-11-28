@@ -111,6 +111,25 @@ else
     echo -e "${GREEN}✓ chromaprint già installato${NC}"
 fi
 
+# Installa Python e ShazamIO se necessario
+echo -e "${YELLOW}Verifica Python e ShazamIO...${NC}"
+if ! command -v python3 &> /dev/null; then
+    echo -e "${YELLOW}Installazione Python 3...${NC}"
+    apt-get update -qq
+    apt-get install -y python3 python3-pip
+    echo -e "${GREEN}✓ Python 3 installato${NC}"
+else
+    echo -e "${GREEN}✓ Python 3 già installato${NC}"
+fi
+
+if ! python3 -c "import shazamio" 2>/dev/null; then
+    echo -e "${YELLOW}Installazione ShazamIO...${NC}"
+    pip3 install shazamio
+    echo -e "${GREEN}✓ ShazamIO installato${NC}"
+else
+    echo -e "${GREEN}✓ ShazamIO già installato${NC}"
+fi
+
 # Installa nuove dipendenze
 cd "$ALEFY_HOME/backend"
 echo -e "${YELLOW}Installazione dipendenze backend...${NC}"

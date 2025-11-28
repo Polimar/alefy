@@ -64,3 +64,4 @@ echo -e "\n${GREEN}=== Variabili d'ambiente aggiornate! ===${NC}"
 echo -e "\n${YELLOW}Riavvia il servizio per applicare le modifiche:${NC}"
 echo -e "  systemctl restart alefy"
 
+
