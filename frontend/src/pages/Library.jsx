@@ -230,14 +230,56 @@ export default function Library() {
     setMenuOpen(null);
   };
 
-  const handleShareWhatsApp = (track, e) => {
+  const handleShareWhatsApp = async (track, e) => {
     e.stopPropagation();
-    const trackTitle = track.title || 'Titolo sconosciuto';
-    const trackArtist = track.artist || 'Artista sconosciuto';
-    const shareText = `🎵 ${trackTitle} - ${trackArtist}\n\nAscolta su ALEFY: ${window.location.origin}`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-    window.open(whatsappUrl, '_blank');
-    setMenuOpen(null);
+    try {
+      const trackTitle = track.title || 'Titolo sconosciuto';
+      const trackArtist = track.artist || 'Artista sconosciuto';
+      
+      // Scarica il file MP3
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/stream/tracks/${track.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Errore nel download del file');
+      }
+      
+      const blob = await response.blob();
+      const file = new File([blob], `${trackTitle} - ${trackArtist}.mp3`, { type: 'audio/mpeg' });
+      
+      // Su mobile, usa l'API Web Share se disponibile
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `${trackTitle} - ${trackArtist}`,
+          text: `🎵 ${trackTitle} - ${trackArtist}`,
+          files: [file],
+        });
+      } else {
+        // Fallback: scarica il file e apri WhatsApp Web
+        const fileUrl = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = fileUrl;
+        a.download = `${trackTitle} - ${trackArtist}.mp3`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(fileUrl), 100);
+        
+        // Apri WhatsApp Web con messaggio
+        const shareText = `🎵 ${trackTitle} - ${trackArtist}`;
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+        setTimeout(() => window.open(whatsappUrl, '_blank'), 500);
+      }
+      
+      setMenuOpen(null);
+    } catch (error) {
+      console.error('Errore condivisione WhatsApp:', error);
+      alert('Errore nella condivisione. Riprova.');
+    }
   };
 
   const formatTimestamp = (seconds) => {
