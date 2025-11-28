@@ -143,9 +143,9 @@ if ! python3 -c "import shazamio" 2>/dev/null; then
         fi
         "$SHAZAM_VENV/bin/pip" install --upgrade pip
         "$SHAZAM_VENV/bin/pip" install shazamio
-        # Aggiorna lo script Python per usare il venv
-        if [ -f "$REPO_DIR/scripts/shazam_recognize.py" ]; then
-            sed -i "1s|^#!/usr/bin/env python3|#!$SHAZAM_VENV/bin/python3|" "$REPO_DIR/scripts/shazam_recognize.py"
+        # Aggiorna lo script Python copiato per usare il venv
+        if [ -f "$ALEFY_HOME/scripts/shazam_recognize.py" ]; then
+            sed -i "1s|^#!/usr/bin/env python3|#!$SHAZAM_VENV/bin/python3|" "$ALEFY_HOME/scripts/shazam_recognize.py"
         fi
         echo -e "${GREEN}✓ ShazamIO installato in virtualenv${NC}"
     fi
