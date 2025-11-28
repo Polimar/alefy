@@ -14,21 +14,38 @@ export const streamTrack = async (req, res, next) => {
     // Se c'è un token guest, verifica che sia valido e associato a questa traccia
     if (token) {
       const tokenResult = await pool.query(
-        'SELECT resource_id FROM share_tokens WHERE token = $1 AND resource_type = $2',
-        [token, 'track']
+        'SELECT resource_type, resource_id FROM share_tokens WHERE token = $1',
+        [token]
       );
       
       if (tokenResult.rows.length === 0) {
         throw new AppError('Token non valido', 401);
       }
       
-      const sharedTrackId = tokenResult.rows[0].resource_id;
-      if (parseInt(id, 10) !== sharedTrackId) {
-        throw new AppError('Token non valido per questa traccia', 403);
+      const { resource_type, resource_id } = tokenResult.rows[0];
+      const trackId = parseInt(id, 10);
+      
+      if (resource_type === 'track') {
+        // Token per traccia singola
+        if (trackId !== resource_id) {
+          throw new AppError('Token non valido per questa traccia', 403);
+        }
+      } else if (resource_type === 'playlist') {
+        // Token per playlist: verifica che la traccia sia nella playlist
+        const playlistTrackCheck = await pool.query(
+          'SELECT pt.track_id FROM playlist_tracks pt WHERE pt.playlist_id = $1 AND pt.track_id = $2',
+          [resource_id, trackId]
+        );
+        
+        if (playlistTrackCheck.rows.length === 0) {
+          throw new AppError('Token non valido per questa traccia', 403);
+        }
+      } else {
+        throw new AppError('Token non valido', 401);
       }
       
       // Verifica che la traccia esista ancora
-      const trackCheck = await pool.query('SELECT id FROM tracks WHERE id = $1', [id]);
+      const trackCheck = await pool.query('SELECT id FROM tracks WHERE id = $1', [trackId]);
       if (trackCheck.rows.length === 0) {
         throw new AppError('Traccia non più disponibile', 404);
       }
@@ -136,21 +153,38 @@ export const getCoverArt = async (req, res, next) => {
     // Se c'è un token guest, verifica che sia valido e associato a questa traccia
     if (token) {
       const tokenResult = await pool.query(
-        'SELECT resource_id FROM share_tokens WHERE token = $1 AND resource_type = $2',
-        [token, 'track']
+        'SELECT resource_type, resource_id FROM share_tokens WHERE token = $1',
+        [token]
       );
       
       if (tokenResult.rows.length === 0) {
         throw new AppError('Token non valido', 401);
       }
       
-      const sharedTrackId = tokenResult.rows[0].resource_id;
-      if (parseInt(id, 10) !== sharedTrackId) {
-        throw new AppError('Token non valido per questa traccia', 403);
+      const { resource_type, resource_id } = tokenResult.rows[0];
+      const trackId = parseInt(id, 10);
+      
+      if (resource_type === 'track') {
+        // Token per traccia singola
+        if (trackId !== resource_id) {
+          throw new AppError('Token non valido per questa traccia', 403);
+        }
+      } else if (resource_type === 'playlist') {
+        // Token per playlist: verifica che la traccia sia nella playlist
+        const playlistTrackCheck = await pool.query(
+          'SELECT pt.track_id FROM playlist_tracks pt WHERE pt.playlist_id = $1 AND pt.track_id = $2',
+          [resource_id, trackId]
+        );
+        
+        if (playlistTrackCheck.rows.length === 0) {
+          throw new AppError('Token non valido per questa traccia', 403);
+        }
+      } else {
+        throw new AppError('Token non valido', 401);
       }
       
       // Verifica che la traccia esista ancora
-      const trackCheck = await pool.query('SELECT id FROM tracks WHERE id = $1', [id]);
+      const trackCheck = await pool.query('SELECT id FROM tracks WHERE id = $1', [trackId]);
       if (trackCheck.rows.length === 0) {
         throw new AppError('Traccia non più disponibile', 404);
       }
