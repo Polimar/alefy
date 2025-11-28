@@ -76,8 +76,8 @@ export const uploadTracks = async (req, res, next) => {
           } catch (unlinkError) {
             // Ignora errori di cleanup
           }
-          // Continua con il prossimo file senza bloccare
-          continue;
+          // Ritorna senza inserire nel database
+          return { success: false, skipped: true, reason: 'duplicate' };
         }
 
         await fs.rename(file.path, finalFilePath);
