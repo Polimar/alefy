@@ -99,7 +99,8 @@ export const getUser = async (req, res, next) => {
       `SELECT 
         COUNT(DISTINCT t.id) as track_count,
         COUNT(DISTINCT p.id) as playlist_count,
-        COALESCE(SUM(t.file_size), 0) as total_storage_bytes
+        COALESCE(SUM(t.file_size), 0) as total_storage_bytes,
+        COALESCE(AVG(t.file_size), 0) as avg_file_size
       FROM users u
       LEFT JOIN tracks t ON u.id = t.user_id
       LEFT JOIN playlists p ON u.id = p.user_id
@@ -108,10 +109,29 @@ export const getUser = async (req, res, next) => {
       [userId]
     );
 
+    // Get detailed format breakdown
+    const formatBreakdownResult = await pool.query(
+      `SELECT 
+        file_format,
+        COUNT(*) as count,
+        COALESCE(SUM(file_size), 0) as total_size,
+        COALESCE(AVG(file_size), 0) as avg_size,
+        COALESCE(AVG(bitrate), 0) as avg_bitrate,
+        COALESCE(AVG(duration), 0) as avg_duration
+      FROM tracks
+      WHERE user_id = $1
+      GROUP BY file_format
+      ORDER BY total_size DESC`,
+      [userId]
+    );
+
     const stats = statsResult.rows[0] || {
       track_count: 0,
       playlist_count: 0,
       total_storage_bytes: 0,
+      avg_file_size: 0,
+      format_count: 0,
+      formats: [],
     };
 
     res.json({
@@ -123,6 +143,15 @@ export const getUser = async (req, res, next) => {
             trackCount: parseInt(stats.track_count) || 0,
             playlistCount: parseInt(stats.playlist_count) || 0,
             totalStorageBytes: parseInt(stats.total_storage_bytes) || 0,
+            avgFileSize: parseInt(stats.avg_file_size) || 0,
+            formatBreakdown: formatBreakdownResult.rows.map(row => ({
+              format: row.file_format || 'unknown',
+              count: parseInt(row.count) || 0,
+              totalSize: parseInt(row.total_size) || 0,
+              avgSize: parseInt(row.avg_size) || 0,
+              avgBitrate: parseInt(row.avg_bitrate) || 0,
+              avgDuration: parseInt(row.avg_duration) || 0,
+            })),
           },
         },
       },

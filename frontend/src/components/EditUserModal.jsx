@@ -129,7 +129,30 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate }) {
                   <div className="stat-label">Spazio Usato</div>
                   <div className="stat-value">{formatBytes(stats.totalStorageBytes)}</div>
                 </div>
+                {stats.avgFileSize > 0 && (
+                  <div className="stat-item">
+                    <div className="stat-label">Media per Traccia</div>
+                    <div className="stat-value">{formatBytes(stats.avgFileSize)}</div>
+                  </div>
+                )}
               </div>
+              {stats.formatBreakdown && stats.formatBreakdown.length > 0 && (
+                <div className="format-breakdown">
+                  <h4>Formati File</h4>
+                  <div className="format-list">
+                    {stats.formatBreakdown.map((format, idx) => (
+                      <div key={idx} className="format-item">
+                        <span className="format-name">{format.format.toUpperCase() || 'Unknown'}</span>
+                        <span className="format-count">{format.count} file</span>
+                        <span className="format-size">{formatBytes(format.totalSize)}</span>
+                        {format.avgBitrate > 0 && (
+                          <span className="format-bitrate">~{Math.round(format.avgBitrate / 1000)}kbps</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
