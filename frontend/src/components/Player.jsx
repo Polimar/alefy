@@ -357,7 +357,8 @@ export default function Player() {
 
   const isLiked = currentTrack ? likedTracks.has(currentTrack.id) : false;
 
-  if (!currentTrack) return null;
+  // Il player è sempre visibile, anche senza traccia corrente
+  // if (!currentTrack) return null;
 
   return (
     <>

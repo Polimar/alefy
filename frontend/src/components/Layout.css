@@ -305,5 +305,6 @@
   flex: 1;
   overflow-y: auto;
   background-color: var(--bg-primary);
+  padding-bottom: 90px; /* Spazio per il player fisso in fondo */
 }
 
