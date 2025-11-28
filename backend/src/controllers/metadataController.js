@@ -119,41 +119,6 @@ export const processAllTracks = async (req, res, next) => {
 };
 
 /**
- * Ottieni statistiche metadati
- * GET /api/metadata/stats
- */
-export const getMetadataStats = async (req, res, next) => {
-  try {
-    // Conta tracce totali
-    const totalResult = await pool.query('SELECT COUNT(*) as count FROM tracks');
-    const totalTracks = parseInt(totalResult.rows[0].count) || 0;
-
-    // Conta tracce processate
-    const processedResult = await pool.query(
-      'SELECT COUNT(*) as count FROM tracks WHERE metadata_processed_at IS NOT NULL'
-    );
-    const processedTracks = parseInt(processedResult.rows[0].count) || 0;
-
-    // Conta tracce riconosciute (con acoustid)
-    const recognizedResult = await pool.query(
-      'SELECT COUNT(*) as count FROM tracks WHERE acoustid IS NOT NULL'
-    );
-    const recognizedTracks = parseInt(recognizedResult.rows[0].count) || 0;
-
-    res.json({
-      success: true,
-      data: {
-        total: totalTracks,
-        processed: processedTracks,
-        recognized: recognizedTracks,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
  * Ottieni stato processing per una traccia
  * GET /api/metadata/status/:trackId
  */
