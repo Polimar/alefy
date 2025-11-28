@@ -230,6 +230,16 @@ export default function Library() {
     setMenuOpen(null);
   };
 
+  const handleShareWhatsApp = (track, e) => {
+    e.stopPropagation();
+    const trackTitle = track.title || 'Titolo sconosciuto';
+    const trackArtist = track.artist || 'Artista sconosciuto';
+    const shareText = `🎵 ${trackTitle} - ${trackArtist}\n\nAscolta su ALEFY: ${window.location.origin}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    window.open(whatsappUrl, '_blank');
+    setMenuOpen(null);
+  };
+
   const formatTimestamp = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
