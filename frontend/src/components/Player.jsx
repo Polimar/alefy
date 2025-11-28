@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import usePlayerStore from '../store/playerStore';
 import api from '../utils/api';
 import { getTrackOffline } from '../utils/offlineStorage';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, Heart, Queue, Music, Sliders } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, Heart, ListMusic, Music, Sliders } from 'lucide-react';
 import AudioWaveform from './AudioWaveform';
 import QueuePanel from './QueuePanel';
 import EqualizerPanel from './EqualizerPanel';
@@ -483,7 +483,7 @@ export default function Player() {
             className={`control-btn queue-btn ${showQueue ? 'active' : ''}`}
             title="Coda di riproduzione"
           >
-            <Queue size={18} />
+            <ListMusic size={18} />
           </button>
           <div className="player-volume">
             <button
