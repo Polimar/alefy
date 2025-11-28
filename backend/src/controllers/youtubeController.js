@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import pool from '../database/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { extractMetadata, saveCoverArt, downloadThumbnail } from '../utils/audioMetadata.js';
-import { getTrackStoragePath, ensureDirectoryExists, getStoragePath, getFileStats } from '../utils/storage.js';
+import { getTrackStoragePath, ensureDirectoryExists, getStoragePath, getFileStats, isDuplicateFile } from '../utils/storage.js';
 import downloadQueue from '../utils/downloadQueue.js';
 import { detectAlbum } from '../utils/albumDetector.js';
 import { parseTimestampsFromDescription } from '../utils/timestampParser.js';
@@ -435,6 +435,22 @@ export async function processDownloadJob(job) {
         
         // Sposta file
         const finalFilePath = path.join(finalPath, path.basename(splitTrack.path));
+        const relativeFilePath = path.relative(storagePath, finalFilePath);
+
+        // Verifica duplicati prima di spostare il file
+        const isDuplicate = await isDuplicateFile(userId, relativeFilePath);
+        if (isDuplicate) {
+          console.warn(`[YouTube Download] File duplicato ignorato: ${relativeFilePath}`);
+          // Rimuovi il file temporaneo
+          try {
+            await fs.unlink(splitTrack.path);
+          } catch (unlinkError) {
+            // Ignora errori di cleanup
+          }
+          // Continua con la prossima traccia senza bloccare
+          continue;
+        }
+
         await fs.rename(splitTrack.path, finalFilePath);
         
         // Statistiche file

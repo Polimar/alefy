@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import pool from '../database/db.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { calculateRealDiskUsage } from '../utils/storage.js';
 import { z } from 'zod';
 
 const createUserSchema = z.object({
@@ -94,12 +95,11 @@ export const getUser = async (req, res, next) => {
 
     const user = userResult.rows[0];
 
-    // Get statistics
+    // Get statistics (conteggi dal database)
     const statsResult = await pool.query(
       `SELECT 
         COUNT(DISTINCT t.id) as track_count,
         COUNT(DISTINCT p.id) as playlist_count,
-        COALESCE(SUM(t.file_size), 0) as total_storage_bytes,
         COALESCE(AVG(t.file_size), 0) as avg_file_size
       FROM users u
       LEFT JOIN tracks t ON u.id = t.user_id
@@ -108,6 +108,9 @@ export const getUser = async (req, res, next) => {
       GROUP BY u.id`,
       [userId]
     );
+
+    // Calcola spazio reale su disco (solo quando vengono aperte le statistiche)
+    const diskUsage = await calculateRealDiskUsage(userId);
 
     // Get detailed format breakdown
     const formatBreakdownResult = await pool.query(
@@ -142,10 +145,7 @@ export const getUser = async (req, res, next) => {
     const stats = statsResult.rows[0] || {
       track_count: 0,
       playlist_count: 0,
-      total_storage_bytes: 0,
       avg_file_size: 0,
-      format_count: 0,
-      formats: [],
     };
 
     const diagnostic = diagnosticResult.rows[0] || {};
@@ -158,8 +158,9 @@ export const getUser = async (req, res, next) => {
           stats: {
             trackCount: parseInt(stats.track_count) || 0,
             playlistCount: parseInt(stats.playlist_count) || 0,
-            totalStorageBytes: parseInt(stats.total_storage_bytes) || 0,
+            totalStorageBytes: diskUsage.totalBytes, // Spazio reale su disco
             avgFileSize: parseInt(stats.avg_file_size) || 0,
+            realFileCount: diskUsage.fileCount, // Numero reale di file su disco
             formatBreakdown: formatBreakdownResult.rows.map(row => ({
               format: row.file_format === 'NULL' ? null : row.file_format,
               count: parseInt(row.count) || 0,

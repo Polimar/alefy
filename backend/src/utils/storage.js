@@ -52,3 +52,76 @@ export const getFileStats = async (filePath) => {
   }
 };
 
+/**
+ * Calcola lo spazio reale occupato su disco per un utente
+ * Scansiona tutti i file nella directory dell'utente
+ */
+export const calculateRealDiskUsage = async (userId) => {
+  try {
+    const userPath = getUserStoragePath(userId);
+    let totalSize = 0;
+    let fileCount = 0;
+
+    const scanDirectory = async (dirPath) => {
+      try {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        
+        for (const entry of entries) {
+          const fullPath = path.join(dirPath, entry.name);
+          
+          if (entry.isDirectory()) {
+            await scanDirectory(fullPath);
+          } else if (entry.isFile()) {
+            try {
+              const stats = await fs.stat(fullPath);
+              totalSize += stats.size;
+              fileCount++;
+            } catch (err) {
+              // Ignora errori su singoli file
+              console.warn(`[Disk Usage] Errore lettura file ${fullPath}:`, err.message);
+            }
+          }
+        }
+      } catch (err) {
+        // Se la directory non esiste, ritorna 0
+        if (err.code !== 'ENOENT') {
+          console.warn(`[Disk Usage] Errore scansione directory ${dirPath}:`, err.message);
+        }
+      }
+    };
+
+    await scanDirectory(userPath);
+    
+    return {
+      totalBytes: totalSize,
+      fileCount: fileCount,
+    };
+  } catch (error) {
+    console.error('[Disk Usage] Errore calcolo spazio disco:', error.message);
+    return {
+      totalBytes: 0,
+      fileCount: 0,
+    };
+  }
+};
+
+/**
+ * Verifica se un file è duplicato controllando il file_path nel database
+ * @param {number} userId - ID utente
+ * @param {string} filePath - Percorso relativo del file (come salvato nel DB)
+ * @returns {Promise<boolean>} - true se il file è duplicato
+ */
+export const isDuplicateFile = async (userId, filePath) => {
+  try {
+    const result = await pool.query(
+      'SELECT id FROM tracks WHERE user_id = $1 AND file_path = $2',
+      [userId, filePath]
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('[Duplicate Check] Errore verifica duplicati:', error.message);
+    // In caso di errore, ritorna false per non bloccare il processo
+    return false;
+  }
+};
+

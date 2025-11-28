@@ -1,7 +1,7 @@
 import pool from '../database/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { extractMetadata, saveCoverArt } from '../utils/audioMetadata.js';
-import { getTrackStoragePath, ensureDirectoryExists, getStoragePath, getFileStats } from '../utils/storage.js';
+import { getTrackStoragePath, ensureDirectoryExists, getStoragePath, getFileStats, isDuplicateFile } from '../utils/storage.js';
 import { addTracksToPlaylist } from './youtubeController.js';
 import { processTrack } from '../services/metadataBatchService.js';
 import fs from 'fs/promises';
@@ -49,6 +49,22 @@ export const uploadTracks = async (req, res, next) => {
 
         // Move file to final location
         const finalFilePath = path.join(finalPath, path.basename(file.path));
+        const relativeFilePath = path.relative(storagePath, finalFilePath);
+
+        // Verifica duplicati prima di spostare il file
+        const isDuplicate = await isDuplicateFile(userId, relativeFilePath);
+        if (isDuplicate) {
+          console.warn(`[Upload] File duplicato ignorato: ${relativeFilePath}`);
+          // Rimuovi il file temporaneo
+          try {
+            await fs.unlink(file.path);
+          } catch (unlinkError) {
+            // Ignora errori di cleanup
+          }
+          // Continua con il prossimo file senza bloccare
+          continue;
+        }
+
         await fs.rename(file.path, finalFilePath);
 
         // Get file stats
