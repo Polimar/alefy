@@ -149,58 +149,26 @@ export default function Library() {
     loadingCoversRef.current.add(track.id);
 
     try {
-      let token = localStorage.getItem('accessToken');
-      let response = await fetch(`${API_URL}/stream/tracks/${track.id}/cover`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      // Usa api (axios) invece di fetch per beneficiare dell'interceptor che gestisce il refresh token
+      const response = await api.get(`/stream/tracks/${track.id}/cover`, {
+        responseType: 'blob',
       });
 
-      // Se fallisce con 401, prova a refreshare il token
-      if (!response.ok && response.status === 401) {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (refreshToken) {
-          try {
-            const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ refreshToken }),
-            });
-
-            if (refreshResponse.ok) {
-              const refreshData = await refreshResponse.json();
-              const { accessToken, refreshToken: newRefreshToken } = refreshData.data || refreshData;
-              localStorage.setItem('accessToken', accessToken);
-              localStorage.setItem('refreshToken', newRefreshToken);
-
-              // Riprova con il nuovo token
-              response = await fetch(`${API_URL}/stream/tracks/${track.id}/cover`, {
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`,
-                },
-              });
-            }
-          } catch (refreshError) {
-            console.error('Token refresh failed for cover art:', refreshError);
-          }
-        }
-      }
-
-      if (response.ok) {
-        const blob = await response.blob();
+      if (response.status === 200) {
+        const blob = response.data;
         const blobUrl = URL.createObjectURL(blob);
         setCoverUrls(prev => ({ ...prev, [track.id]: blobUrl }));
         return blobUrl;
-      } else if (response.status === 404) {
-        // Traccia i fallimenti 404 per non riprovare
-        failedCoversRef.current.add(track.id);
       }
     } catch (error) {
-      // In caso di errore di rete, non tracciare come fallimento permanente
-      // Potrebbe essere un problema temporaneo
-      console.error('Error loading cover art:', error);
+      // Se è un 404, traccia come fallimento permanente
+      if (error.response?.status === 404) {
+        failedCoversRef.current.add(track.id);
+      } else {
+        // Per altri errori (401, 500, ecc.), non tracciare come fallimento permanente
+        // Potrebbe essere un problema temporaneo (token scaduto, rete, ecc.)
+        console.error('Error loading cover art:', error.response?.status || error.message);
+      }
     } finally {
       loadingCoversRef.current.delete(track.id);
     }
