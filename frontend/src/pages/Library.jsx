@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
-import { Play, Music, MoreVertical, Plus, Trash2, Scissors, Edit } from 'lucide-react';
+import { Play, Music, MoreVertical, Plus, Trash2, Scissors, Edit, Share2 } from 'lucide-react';
 import EditTrackModal from '../components/EditTrackModal';
 import './Library.css';
 
@@ -435,6 +435,13 @@ export default function Library() {
                                 <Edit size={16} />
                                 Modifica metadati
                               </button>
+                              <button
+                                className="action-menu-item"
+                                onClick={(e) => handleShareWhatsApp(track, e)}
+                              >
+                                <Share2 size={16} />
+                                Condividi su WhatsApp
+                              </button>
                               {track.duration > 1800 && (
                                 <button
                                   className="action-menu-item"
@@ -494,6 +501,55 @@ export default function Library() {
                     <div className="track-card-artist">{track.artist || 'Artista sconosciuto'}</div>
                   </div>
                   <div className="track-card-duration">{formatDuration(track.duration)}</div>
+                  <div className="track-card-actions">
+                    <button
+                      className="action-btn"
+                      onClick={(e) => handleMenuClick(track.id, e)}
+                    >
+                      <MoreVertical size={18} />
+                    </button>
+                    {menuOpen === track.id && (
+                      <div className="action-menu action-menu-mobile" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="action-menu-item"
+                          onClick={() => handleAddToPlaylist(track)}
+                        >
+                          <Plus size={16} />
+                          Aggiungi a playlist
+                        </button>
+                        <button
+                          className="action-menu-item"
+                          onClick={() => handleEditTrack(track)}
+                        >
+                          <Edit size={16} />
+                          Modifica metadati
+                        </button>
+                        <button
+                          className="action-menu-item"
+                          onClick={(e) => handleShareWhatsApp(track, e)}
+                        >
+                          <Share2 size={16} />
+                          Condividi su WhatsApp
+                        </button>
+                        {track.duration > 1800 && (
+                          <button
+                            className="action-menu-item"
+                            onClick={(e) => handleSplitTrack(track, e)}
+                          >
+                            <Scissors size={16} />
+                            Dividi in tracce
+                          </button>
+                        )}
+                        <button
+                          className="action-menu-item danger"
+                          onClick={(e) => handleDeleteTrack(track.id, e)}
+                        >
+                          <Trash2 size={16} />
+                          Elimina
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}

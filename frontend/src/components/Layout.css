@@ -80,7 +80,7 @@
 
   .main-content {
     width: 100%;
-    padding-bottom: 140px; /* Spazio per il player fisso */
+    padding-bottom: 100px; /* Spazio per il player fisso su mobile */
   }
 
   .sidebar-header {

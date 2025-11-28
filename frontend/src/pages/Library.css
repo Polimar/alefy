@@ -397,6 +397,7 @@
 
   .track-card {
     background-color: var(--bg-secondary);
+    position: relative;
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 8px;
