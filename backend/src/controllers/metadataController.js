@@ -160,3 +160,80 @@ export const getTrackStatus = async (req, res, next) => {
   }
 };
 
+/**
+ * Riconosci traccia con Shazam
+ * POST /api/metadata/shazam/:trackId
+ */
+export const recognizeWithShazamController = async (req, res, next) => {
+  try {
+    const trackId = parseInt(req.params.trackId, 10);
+    
+    if (!trackId || isNaN(trackId)) {
+      throw new AppError('ID traccia non valido', 400);
+    }
+    
+    // Verifica che Shazam sia disponibile
+    if (!(await isShazamAvailable())) {
+      throw new AppError('Shazam non disponibile. Assicurati che Python e ShazamIO siano installati.', 503);
+    }
+    
+    // Verifica che la traccia esista
+    const trackResult = await pool.query(
+      'SELECT id, file_path FROM tracks WHERE id = $1',
+      [trackId]
+    );
+    
+    if (trackResult.rows.length === 0) {
+      throw new AppError('Traccia non trovata', 404);
+    }
+    
+    const track = trackResult.rows[0];
+    const audioFilePath = path.join(getStoragePath('tracks'), track.file_path);
+    
+    // Riconosci con Shazam
+    const metadata = await recognizeWithShazam(audioFilePath);
+    
+    if (!metadata) {
+      return res.json({
+        success: false,
+        message: 'Traccia non riconosciuta da Shazam',
+      });
+    }
+    
+    // Aggiorna metadati nel database
+    const updateQuery = `
+      UPDATE tracks
+      SET 
+        title = COALESCE($1, title),
+        artist = COALESCE($2, artist),
+        album = COALESCE($3, album),
+        genre = COALESCE($4, genre),
+        year = COALESCE($5, year),
+        metadata_processed_at = CURRENT_TIMESTAMP,
+        metadata_source = 'shazam'
+      WHERE id = $6
+      RETURNING id, title, artist, album, genre, year
+    `;
+    
+    const updateResult = await pool.query(updateQuery, [
+      metadata.title,
+      metadata.artist,
+      metadata.album,
+      metadata.genre,
+      metadata.year,
+      trackId,
+    ]);
+    
+    res.json({
+      success: true,
+      message: 'Traccia riconosciuta con Shazam',
+      data: {
+        trackId,
+        metadata: updateResult.rows[0],
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
