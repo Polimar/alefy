@@ -22,6 +22,7 @@ const usePlayerStore = create((set, get) => ({
   showQueue: false,
   showEqualizer: false,
   showLyrics: false,
+  showVolumeModal: false,
 
   setCurrentTrack: (track) => {
     const state = get();
@@ -90,6 +91,8 @@ const usePlayerStore = create((set, get) => ({
   toggleEqualizer: () => set((state) => ({ showEqualizer: !state.showEqualizer })),
   
   toggleLyrics: () => set((state) => ({ showLyrics: !state.showLyrics })),
+  
+  toggleVolumeModal: () => set((state) => ({ showVolumeModal: !state.showVolumeModal })),
   
   next: () => {
     const { queue, currentTrack, shuffle, repeat, isPlaying } = get();

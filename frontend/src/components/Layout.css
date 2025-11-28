@@ -1,8 +1,15 @@
 .layout {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   overflow: hidden;
   position: relative;
+}
+
+.layout-content-wrapper {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -80,7 +87,7 @@
 
   .main-content {
     width: 100%;
-    padding-bottom: 100px; /* Spazio per il player fisso su mobile */
+    /* Nessun padding-bottom, il player ha il suo spazio */
   }
 
   .sidebar-header {
@@ -305,6 +312,6 @@
   flex: 1;
   overflow-y: auto;
   background-color: var(--bg-primary);
-  padding-bottom: 90px; /* Spazio per il player fisso in fondo */
+  /* Nessun padding-bottom, il player ha il suo spazio */
 }
 

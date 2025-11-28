@@ -118,8 +118,8 @@ export default function Library() {
       e?.stopPropagation();
       handleAddToPlaylist(track);
     } else {
-      // Su desktop, riproduci la traccia
-      setQueue(tracks);
+      // Su desktop, riproduci la traccia SINGOLA (non come playlist)
+      // Non impostare la queue, così quando finisce non parte la prossima
       setCurrentTrack(track);
       play();
     }

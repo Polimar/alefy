@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import usePlayerStore from '../store/playerStore';
 import api from '../utils/api';
 import { getTrackOffline } from '../utils/offlineStorage';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, Heart, ListMusic, Music, Sliders } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, Heart, ListMusic, Music, Sliders, Rewind, FastForward } from 'lucide-react';
 import AudioWaveform from './AudioWaveform';
 import QueuePanel from './QueuePanel';
 import EqualizerPanel from './EqualizerPanel';
@@ -484,13 +484,16 @@ export default function Player() {
           >
             <Sliders size={18} />
           </button>
-          <button
-            onClick={toggleQueue}
-            className={`control-btn queue-btn ${showQueue ? 'active' : ''}`}
-            title="Coda di riproduzione"
-          >
-            <ListMusic size={18} />
-          </button>
+          {/* Mostra pulsante coda solo se c'è una playlist in riproduzione */}
+          {queue.length > 0 && (
+            <button
+              onClick={toggleQueue}
+              className={`control-btn queue-btn ${showQueue ? 'active' : ''}`}
+              title="Coda di riproduzione"
+            >
+              <ListMusic size={18} />
+            </button>
+          )}
           <div className="player-volume">
             <button
               onClick={() => setVolume(volume > 0 ? 0 : 1)}

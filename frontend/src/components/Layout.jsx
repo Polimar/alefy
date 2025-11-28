@@ -90,110 +90,112 @@ export default function Layout() {
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          {isMobile && (
-            <button
-              className="sidebar-close-btn"
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Chiudi menu"
+      <div className="layout-content-wrapper">
+        <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+          <div className="sidebar-header">
+            {isMobile && (
+              <button
+                className="sidebar-close-btn"
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Chiudi menu"
+              >
+                <X size={20} />
+              </button>
+            )}
+            <h1>ALEFY</h1>
+          </div>
+          <nav className="sidebar-nav">
+            <Link
+              to="/"
+              className={`nav-item ${location.pathname === '/' ? 'active' : ''}`}
+              onClick={() => isMobile && setSidebarOpen(false)}
             >
-              <X size={20} />
+              <Home size={20} />
+              <span>Libreria</span>
+            </Link>
+            <Link
+              to="/upload"
+              className={`nav-item ${location.pathname === '/upload' ? 'active' : ''}`}
+              onClick={() => isMobile && setSidebarOpen(false)}
+            >
+              <Upload size={20} />
+              <span>Carica</span>
+            </Link>
+            <Link
+              to="/playlists"
+              className={`nav-item ${location.pathname === '/playlists' && !location.pathname.startsWith('/playlists/') ? 'active' : ''}`}
+              onClick={() => isMobile && setSidebarOpen(false)}
+            >
+              <ListMusic size={20} />
+              <span>Playlist</span>
+            </Link>
+            <Link
+              to="/discover"
+              className={`nav-item ${location.pathname === '/discover' ? 'active' : ''}`}
+              onClick={() => isMobile && setSidebarOpen(false)}
+            >
+              <Compass size={20} />
+              <span>Scopri</span>
+            </Link>
+            {user?.is_admin && (
+              <>
+                <Link
+                  to="/users"
+                  className={`nav-item ${location.pathname === '/users' ? 'active' : ''}`}
+                  onClick={() => isMobile && setSidebarOpen(false)}
+                >
+                  <Users size={20} />
+                  <span>Utenti</span>
+                </Link>
+                <Link
+                  to="/youtube-cookies"
+                  className={`nav-item ${location.pathname === '/youtube-cookies' ? 'active' : ''}`}
+                  onClick={() => isMobile && setSidebarOpen(false)}
+                >
+                  <Settings size={20} />
+                  <span>Cookies YouTube</span>
+                </Link>
+              </>
+            )}
+          </nav>
+          <div className="metadata-stats">
+              <div className="metadata-stats-header">
+                <Music size={16} />
+                <span>Metadati</span>
+              </div>
+              <div className="metadata-stats-content">
+                <div className="metadata-stat-item">
+                  <span className="metadata-stat-label">Totali:</span>
+                  <span className="metadata-stat-value">{metadataStats.total}</span>
+                </div>
+                <div className="metadata-stat-item">
+                  <span className="metadata-stat-label">Processate:</span>
+                  <span className="metadata-stat-value">{metadataStats.processed}</span>
+                </div>
+                <div className="metadata-stat-item">
+                  <span className="metadata-stat-label">Riconosciute:</span>
+                  <span className="metadata-stat-value metadata-stat-recognized">{metadataStats.recognized}</span>
+                </div>
+              </div>
+            </div>
+          <div className="sidebar-footer">
+            <div className="user-info">
+              <div className="user-avatar">
+                {user?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+              </div>
+              <div className="user-details">
+                <div className="user-name">{user?.username || user?.email}</div>
+              </div>
+            </div>
+            <button onClick={handleLogout} className="logout-btn">
+              <LogOut size={18} />
             </button>
-          )}
-          <h1>ALEFY</h1>
-        </div>
-        <nav className="sidebar-nav">
-          <Link
-            to="/"
-            className={`nav-item ${location.pathname === '/' ? 'active' : ''}`}
-            onClick={() => isMobile && setSidebarOpen(false)}
-          >
-            <Home size={20} />
-            <span>Libreria</span>
-          </Link>
-          <Link
-            to="/upload"
-            className={`nav-item ${location.pathname === '/upload' ? 'active' : ''}`}
-            onClick={() => isMobile && setSidebarOpen(false)}
-          >
-            <Upload size={20} />
-            <span>Carica</span>
-          </Link>
-          <Link
-            to="/playlists"
-            className={`nav-item ${location.pathname === '/playlists' && !location.pathname.startsWith('/playlists/') ? 'active' : ''}`}
-            onClick={() => isMobile && setSidebarOpen(false)}
-          >
-            <ListMusic size={20} />
-            <span>Playlist</span>
-          </Link>
-          <Link
-            to="/discover"
-            className={`nav-item ${location.pathname === '/discover' ? 'active' : ''}`}
-            onClick={() => isMobile && setSidebarOpen(false)}
-          >
-            <Compass size={20} />
-            <span>Scopri</span>
-          </Link>
-          {user?.is_admin && (
-            <>
-              <Link
-                to="/users"
-                className={`nav-item ${location.pathname === '/users' ? 'active' : ''}`}
-                onClick={() => isMobile && setSidebarOpen(false)}
-              >
-                <Users size={20} />
-                <span>Utenti</span>
-              </Link>
-              <Link
-                to="/youtube-cookies"
-                className={`nav-item ${location.pathname === '/youtube-cookies' ? 'active' : ''}`}
-                onClick={() => isMobile && setSidebarOpen(false)}
-              >
-                <Settings size={20} />
-                <span>Cookies YouTube</span>
-              </Link>
-            </>
-          )}
-        </nav>
-        <div className="metadata-stats">
-            <div className="metadata-stats-header">
-              <Music size={16} />
-              <span>Metadati</span>
-            </div>
-            <div className="metadata-stats-content">
-              <div className="metadata-stat-item">
-                <span className="metadata-stat-label">Totali:</span>
-                <span className="metadata-stat-value">{metadataStats.total}</span>
-              </div>
-              <div className="metadata-stat-item">
-                <span className="metadata-stat-label">Processate:</span>
-                <span className="metadata-stat-value">{metadataStats.processed}</span>
-              </div>
-              <div className="metadata-stat-item">
-                <span className="metadata-stat-label">Riconosciute:</span>
-                <span className="metadata-stat-value metadata-stat-recognized">{metadataStats.recognized}</span>
-              </div>
-            </div>
           </div>
-        <div className="sidebar-footer">
-          <div className="user-info">
-            <div className="user-avatar">
-              {user?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
-            </div>
-            <div className="user-details">
-              <div className="user-name">{user?.username || user?.email}</div>
-            </div>
-          </div>
-          <button onClick={handleLogout} className="logout-btn">
-            <LogOut size={18} />
-          </button>
-        </div>
-      </aside>
-      <main className="main-content">
-        <Outlet />
-      </main>
+        </aside>
+        <main className="main-content">
+          <Outlet />
+        </main>
+      </div>
       <Player />
     </div>
   );
