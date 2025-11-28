@@ -13,8 +13,11 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 export default function Player() {
   const audioRef = useRef(null);
   const blobUrlRef = useRef(null);
+  const volumeBtnRef = useRef(null);
+  const volumeModalRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [volumeModalPosition, setVolumeModalPosition] = useState({ bottom: 0, right: 0 });
   const {
     currentTrack,
     isPlaying,
@@ -475,6 +478,7 @@ export default function Player() {
           )}
           <div className="volume-btn-wrapper">
             <button
+              ref={volumeBtnRef}
               onClick={toggleVolumeModal}
               className="control-btn volume-btn"
               title={`Volume: ${Math.round(volume * 100)}%`}
@@ -486,7 +490,15 @@ export default function Player() {
             {showVolumeModal && (
               <>
                 <div className="volume-modal-overlay" onClick={toggleVolumeModal}></div>
-                <div className="volume-modal" onClick={(e) => e.stopPropagation()}>
+                <div 
+                  ref={volumeModalRef}
+                  className="volume-modal" 
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    bottom: `${volumeModalPosition.bottom}px`,
+                    right: `${volumeModalPosition.right}px`,
+                  }}
+                >
                   <div className="volume-modal-header">
                     <h3>Volume</h3>
                     <button onClick={toggleVolumeModal} className="volume-modal-close">×</button>

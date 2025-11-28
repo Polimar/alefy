@@ -1,8 +1,8 @@
 .player {
   flex-shrink: 0;
-  height: 90px;
-  min-height: 90px;
-  max-height: 90px;
+  height: 110px;
+  min-height: 110px;
+  max-height: 110px;
   background: linear-gradient(to top, #181818 0%, #282828 100%);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0 16px;
@@ -12,7 +12,7 @@
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
   /* Il player ora fa parte del layout flex, non è più fixed */
   position: relative;
-  overflow: hidden; /* Cambiato da visible a hidden per evitare spostamenti */
+  overflow: visible; /* Cambiato a visible per permettere al modal del volume di essere visibile */
 }
 
 .player-content {
@@ -21,8 +21,8 @@
   grid-template-columns: 250px 1fr 200px;
   align-items: center;
   gap: 16px;
-  min-height: 70px;
-  max-height: 70px; /* Altezza massima fissa */
+  min-height: 90px;
+  max-height: 90px; /* Altezza massima fissa */
   position: relative; /* Per posizionare errori/loading relativamente */
 }
 
@@ -197,11 +197,11 @@
   max-width: 600px;
   cursor: pointer;
   position: relative;
-  min-height: 60px; /* Altezza fissa per evitare spostamenti */
-  max-height: 60px; /* Altezza massima fissa */
+  min-height: 50px; /* Ridotto per dare più spazio */
+  max-height: 50px; /* Altezza massima fissa */
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px; /* Ridotto gap tra pulsanti e barra del tempo */
   flex-shrink: 0;
   justify-content: flex-end; /* Allinea elementi in basso */
 }
@@ -515,16 +515,14 @@
 }
 
 .volume-modal {
-  position: absolute;
-  bottom: calc(100% + 12px);
-  right: 0;
+  position: fixed; /* Fixed per essere sempre visibile */
   background-color: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
   min-width: 100px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  z-index: 2000;
+  z-index: 2000; /* Z-index alto per essere sempre in primo piano */
 }
 
 .volume-modal-header {

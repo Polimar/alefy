@@ -312,6 +312,6 @@
   flex: 1;
   overflow-y: auto;
   background-color: var(--bg-primary);
-  /* Nessun padding-bottom, il player ha il suo spazio */
+  padding-bottom: 110px; /* Spazio per il player (altezza 110px) */
 }
 
