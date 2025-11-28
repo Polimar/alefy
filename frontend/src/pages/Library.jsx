@@ -33,15 +33,18 @@ export default function Library() {
 
   // Debounce per la ricerca - evita troppe richieste durante la digitazione
   useEffect(() => {
-    // Non fare nulla se è il mount iniziale (search è vuoto)
-    if (search === '') return;
+    // Quando la ricerca è vuota, ricarica tutte le tracce immediatamente
+    if (search === '') {
+      loadTracks();
+      return;
+    }
     
     // Cancella timeout precedente
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
     
-    // Imposta nuovo timeout per la ricerca
+    // Imposta nuovo timeout per la ricerca con testo
     searchTimeoutRef.current = setTimeout(() => {
       loadTracks();
     }, 500); // Attendi 500ms dopo l'ultima digitazione
@@ -238,70 +241,35 @@ export default function Library() {
       const trackTitle = track.title || 'Titolo sconosciuto';
       const trackArtist = track.artist || 'Artista sconosciuto';
       
-      // Scarica automaticamente il file MP3 senza chiedere conferma
+      // Genera token di condivisione
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/stream/tracks/${track.id}`, {
+      const shareResponse = await fetch(`${API_URL}/share/track/${track.id}`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
       
-      if (!response.ok) {
-        throw new Error('Errore nel download del file');
+      if (!shareResponse.ok) {
+        throw new Error('Errore nella generazione del link di condivisione');
       }
       
-      const blob = await response.blob();
-      const fileName = `${trackTitle} - ${trackArtist}.mp3`.replace(/[^a-z0-9.\s-]/gi, '_');
-      const file = new File([blob], fileName, { type: 'audio/mpeg' });
+      const shareData = await shareResponse.json();
+      const shareUrl = shareData.data.shareUrl;
       
-      // Su mobile Android/iOS, usa Web Share API con file
-      if (navigator.share && navigator.canShare) {
-        try {
-          // Verifica se può condividere file
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              title: `${trackTitle} - ${trackArtist}`,
-              text: `🎵 ${trackTitle} - ${trackArtist}`,
-              files: [file],
-            });
-            return; // Successo, esci
-          }
-        } catch (shareError) {
-          console.log('Web Share con file non supportato, uso fallback');
-        }
+      // Crea messaggio WhatsApp con link
+      const shareText = `🎵 ${trackTitle} - ${trackArtist}\n\nAscolta qui: ${shareUrl}`;
+      
+      // Su mobile, prova ad aprire WhatsApp nativo
+      if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(shareText)}`;
+        window.location.href = whatsappUrl;
+      } else {
+        // Su desktop, apri WhatsApp Web
+        const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+        window.open(whatsappUrl, '_blank');
       }
-      
-      // Fallback: crea un link di download temporaneo e apri WhatsApp
-      // Su mobile, WhatsApp può aprire direttamente il file se è già scaricato
-      const fileUrl = URL.createObjectURL(file);
-      
-      // Crea un link di download nascosto e scarica automaticamente
-      const a = document.createElement('a');
-      a.href = fileUrl;
-      a.download = fileName;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      // Aspetta che il download inizi, poi apri WhatsApp
-      setTimeout(async () => {
-        // Su mobile, prova ad aprire WhatsApp con il file
-        if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-          // Su mobile, WhatsApp può accedere ai file scaricati
-          const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(`🎵 ${trackTitle} - ${trackArtist}`)}`;
-          window.location.href = whatsappUrl;
-        } else {
-          // Su desktop, apri WhatsApp Web
-          const shareText = `🎵 ${trackTitle} - ${trackArtist}`;
-          const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
-          window.open(whatsappUrl, '_blank');
-        }
-        
-        // Pulisci l'URL dopo un po'
-        setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
-      }, 300);
-      
     } catch (error) {
       console.error('Errore condivisione WhatsApp:', error);
       alert('Errore nella condivisione. Riprova.');

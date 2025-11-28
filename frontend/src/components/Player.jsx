@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import usePlayerStore from '../store/playerStore';
 import api from '../utils/api';
 import { getTrackOffline } from '../utils/offlineStorage';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, Heart, ListMusic, Music, Sliders, Rewind, FastForward } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, ListMusic, Music, Sliders, Rewind, FastForward } from 'lucide-react';
 import AudioWaveform from './AudioWaveform';
 import QueuePanel from './QueuePanel';
 import EqualizerPanel from './EqualizerPanel';
@@ -21,8 +21,6 @@ export default function Player() {
     currentTime,
     duration,
     volume,
-    shuffle,
-    repeat,
     likedTracks,
     showQueue,
     showEqualizer,
@@ -35,8 +33,6 @@ export default function Player() {
     setVolume,
     next,
     previous,
-    toggleShuffle,
-    setRepeat,
     toggleLike,
     toggleQueue,
     toggleEqualizer,
@@ -78,13 +74,12 @@ export default function Player() {
     };
     
     const handleEnded = () => {
-      if (repeat === 'one') {
-        audio.currentTime = 0;
-        audio.play();
-      } else {
+      // Se c'è una queue, passa al prossimo brano
+      if (queue.length > 0) {
         next();
-        // Auto-play il prossimo brano dopo next()
-        // Il useEffect per isPlaying gestirà il play quando l'audio è pronto
+      } else {
+        // Altrimenti ferma la riproduzione
+        pause();
       }
     };
 
@@ -101,7 +96,7 @@ export default function Player() {
       audio.removeEventListener('durationchange', updateDuration);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [setCurrentTime, setDuration, next, repeat, isPlaying]);
+  }, [setCurrentTime, setDuration, next, pause, queue.length, isPlaying]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -302,6 +297,22 @@ export default function Player() {
     setCurrentTime(newTime);
   };
 
+  const handleSkipBackward = (seconds = 10) => {
+    const audio = audioRef.current;
+    if (!audio || !currentTrack) return;
+    const newTime = Math.max(0, currentTime - seconds);
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const handleSkipForward = (seconds = 10) => {
+    const audio = audioRef.current;
+    if (!audio || !currentTrack) return;
+    const newTime = Math.min(duration, currentTime + seconds);
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
   // Carica cover art quando cambia la traccia
   useEffect(() => {
     let currentBlobUrl = null;
@@ -352,10 +363,6 @@ export default function Player() {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleRepeatClick = () => {
-    setRepeat(repeat);
   };
 
   const isLiked = currentTrack ? likedTracks.has(currentTrack.id) : false;
@@ -431,13 +438,6 @@ export default function Player() {
         <div className="player-center">
           <div className="control-buttons">
             <button 
-              onClick={toggleShuffle} 
-              className={`control-btn shuffle-btn ${shuffle ? 'active' : ''}`}
-              title="Shuffle"
-            >
-              <Shuffle size={18} />
-            </button>
-            <button 
               onClick={() => handleSkipBackward(30)} 
               className="control-btn skip-btn" 
               title="Indietro 30 secondi"
@@ -483,16 +483,9 @@ export default function Player() {
             >
               <FastForward size={16} />
             </button>
-            <button
-              onClick={handleRepeatClick}
-              className={`control-btn repeat-btn ${repeat !== 'off' ? 'active' : ''}`}
-              title={repeat === 'one' ? 'Ripeti traccia' : repeat === 'all' ? 'Ripeti playlist' : 'Ripeti'}
-            >
-              {repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
-            </button>
           </div>
           <div className="progress-container" onClick={handleSeek}>
-            {isPlaying && (
+            {isPlaying && currentTrack && (
               <div className="waveform-container">
                 <AudioWaveform audioElement={audioRef} isPlaying={isPlaying} />
               </div>

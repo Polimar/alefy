@@ -4,8 +4,9 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/tracks/:id', authenticate, streamTrack);
-router.get('/tracks/:id/cover', authenticate, getCoverArt);
+// Route per streaming: autenticazione opzionale (può usare token guest)
+router.get('/tracks/:id', streamTrack);
+router.get('/tracks/:id/cover', getCoverArt);
 
 export default router;
 

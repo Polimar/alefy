@@ -183,6 +183,7 @@ app.get('/api/health', async (req, res) => {
 import authRoutes from './routes/authRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import streamRoutes from './routes/streamRoutes.js';
+import shareRoutes from './routes/shareRoutes.js';
 import tracksRoutes from './routes/tracksRoutes.js';
 import playlistsRoutes from './routes/playlistsRoutes.js';
 import youtubeRoutes from './routes/youtubeRoutes.js';
@@ -226,6 +227,7 @@ if (intervalMs > 0) {
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/stream', streamRoutes);
+app.use('/api/share', shareRoutes);
 app.use('/api/tracks', tracksRoutes);
 app.use('/api/playlists', playlistsRoutes);
 app.use('/api/youtube', youtubeRoutes);

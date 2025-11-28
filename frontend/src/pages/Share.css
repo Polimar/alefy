@@ -1,0 +1,438 @@
+.share-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--text-primary, #ffffff);
+}
+
+.share-container {
+  max-width: 800px;
+  width: 100%;
+}
+
+.share-loading,
+.share-error {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.share-error h2 {
+  margin: 20px 0 10px;
+  font-size: 24px;
+}
+
+.share-error p {
+  color: var(--text-secondary, #b3b3b3);
+  font-size: 16px;
+}
+
+.share-header {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 40px;
+  align-items: flex-start;
+}
+
+.share-cover {
+  flex-shrink: 0;
+  width: 200px;
+  height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-tertiary, #333);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.share-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.share-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary, #b3b3b3);
+}
+
+.share-info {
+  flex: 1;
+  padding-top: 20px;
+}
+
+.share-info h1 {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  line-height: 1.2;
+}
+
+.share-artist {
+  font-size: 18px;
+  color: var(--text-secondary, #b3b3b3);
+  margin: 0 0 8px;
+}
+
+.share-meta {
+  font-size: 14px;
+  color: var(--text-secondary, #b3b3b3);
+  margin: 0;
+}
+
+.share-tracks {
+  margin-bottom: 40px;
+}
+
+.share-tracks h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.share-track-list {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.share-track-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.share-track-item:last-child {
+  border-bottom: none;
+}
+
+.share-track-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.share-track-item.active {
+  background: rgba(29, 185, 84, 0.2);
+  color: var(--accent, #1db954);
+}
+
+.share-track-number {
+  width: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary, #b3b3b3);
+}
+
+.share-track-item.active .share-track-number {
+  color: var(--accent, #1db954);
+}
+
+.share-track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.share-track-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.share-track-artist {
+  font-size: 14px;
+  color: var(--text-secondary, #b3b3b3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.share-track-duration {
+  font-size: 14px;
+  color: var(--text-secondary, #b3b3b3);
+  font-variant-numeric: tabular-nums;
+}
+
+.share-player {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 24px;
+  position: relative;
+}
+
+.share-player-info {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.share-player-track-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.share-player-track-artist {
+  font-size: 14px;
+  color: var(--text-secondary, #b3b3b3);
+}
+
+.share-player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.share-control-btn {
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: var(--text-secondary, #b3b3b3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.share-control-btn:hover:not(:disabled) {
+  color: var(--text-primary, #ffffff);
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
+}
+
+.share-control-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.share-play-btn {
+  background-color: var(--text-primary, #ffffff);
+  color: var(--bg-primary, #1a1a1a);
+  width: 48px;
+  height: 48px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.share-play-btn:hover:not(:disabled) {
+  background-color: var(--accent, #1db954);
+  color: white;
+  transform: scale(1.1);
+}
+
+.share-progress-container {
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.share-progress-bar {
+  width: 100%;
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  margin-bottom: 8px;
+  transition: height 0.2s;
+}
+
+.share-progress-container:hover .share-progress-bar {
+  height: 6px;
+}
+
+.share-progress-fill {
+  height: 100%;
+  background-color: var(--accent, #1db954);
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+
+.share-time-display {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary, #b3b3b3);
+  font-variant-numeric: tabular-nums;
+}
+
+.share-volume {
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.share-volume-btn {
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: var(--text-secondary, #b3b3b3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.share-volume-btn:hover {
+  color: var(--text-primary, #ffffff);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.share-volume-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  z-index: 1999;
+}
+
+.share-volume-modal {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--bg-primary, #1a1a1a);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  padding: 20px;
+  min-width: 100px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+}
+
+.share-volume-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.share-volume-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+}
+
+.share-volume-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #b3b3b3);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.share-volume-modal-close:hover {
+  color: var(--text-primary, #ffffff);
+}
+
+.share-volume-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.share-volume-icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary, #ffffff);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.share-volume-icon-btn:hover {
+  background-color: var(--bg-secondary, #2d2d2d);
+}
+
+.share-volume-slider {
+  width: 6px;
+  height: 200px;
+  -webkit-appearance: slider-vertical;
+  writing-mode: bt-lr;
+  background: var(--bg-secondary, #2d2d2d);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.share-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--accent, #1db954);
+  cursor: pointer;
+}
+
+.share-volume-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--accent, #1db954);
+  cursor: pointer;
+  border: none;
+}
+
+.share-volume-percentage {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+  min-width: 50px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  .share-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .share-cover {
+    width: 150px;
+    height: 150px;
+  }
+
+  .share-info h1 {
+    font-size: 24px;
+  }
+
+  .share-player-controls {
+    gap: 4px;
+  }
+
+  .share-control-btn {
+    padding: 6px;
+  }
+
+  .share-play-btn {
+    width: 44px;
+    height: 44px;
+  }
+}
+

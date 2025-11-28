@@ -18,7 +18,7 @@
 .player-content {
   width: 100%;
   display: grid;
-  grid-template-columns: 30% 40% 30%;
+  grid-template-columns: 250px 1fr 200px;
   align-items: center;
   gap: 16px;
   min-height: 70px;
@@ -277,6 +277,7 @@
   justify-content: flex-end;
   gap: 8px;
   position: relative;
+  flex-shrink: 0;
 }
 
 .queue-btn {

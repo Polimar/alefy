@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
-import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1, Download, CheckCircle2, Loader, MoreVertical, Edit, Globe, Lock } from 'lucide-react';
+import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1, Download, CheckCircle2, Loader, MoreVertical, Edit, Globe, Lock, Share2 } from 'lucide-react';
 import EditPlaylistModal from '../components/EditPlaylistModal';
 import { saveTrackOffline, isTrackOffline, removeTrackOffline, getOfflineTracksForPlaylist } from '../utils/offlineStorage';
 import useAuthStore from '../store/authStore';
@@ -185,6 +185,50 @@ export default function PlaylistDetail() {
     } catch (error) {
       console.error('Error deleting playlist:', error);
       alert('Errore nell\'eliminazione della playlist');
+    }
+  };
+
+  const handleShareWhatsApp = async (e) => {
+    e.stopPropagation();
+    setMenuOpen(false);
+    
+    if (!playlist) return;
+    
+    try {
+      const playlistName = playlist.name || 'Playlist senza nome';
+      
+      // Genera token di condivisione
+      const token = localStorage.getItem('accessToken');
+      const shareResponse = await fetch(`${API_URL}/share/playlist/${id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!shareResponse.ok) {
+        throw new Error('Errore nella generazione del link di condivisione');
+      }
+      
+      const shareData = await shareResponse.json();
+      const shareUrl = shareData.data.shareUrl;
+      
+      // Crea messaggio WhatsApp con link
+      const shareText = `🎵 ${playlistName}\n\nAscolta la playlist qui: ${shareUrl}`;
+      
+      // Su mobile, prova ad aprire WhatsApp nativo
+      if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(shareText)}`;
+        window.location.href = whatsappUrl;
+      } else {
+        // Su desktop, apri WhatsApp Web
+        const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+        window.open(whatsappUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Errore condivisione WhatsApp:', error);
+      alert('Errore nella condivisione. Riprova.');
     }
   };
 

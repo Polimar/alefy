@@ -7,7 +7,40 @@ import path from 'path';
 export const streamTrack = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
+    const { token } = req.query; // Token guest per condivisione
+    
+    let userId = null;
+    
+    // Se c'è un token guest, verifica che sia valido e associato a questa traccia
+    if (token) {
+      const tokenResult = await pool.query(
+        'SELECT resource_id FROM share_tokens WHERE token = $1 AND resource_type = $2',
+        [token, 'track']
+      );
+      
+      if (tokenResult.rows.length === 0) {
+        throw new AppError('Token non valido', 401);
+      }
+      
+      const sharedTrackId = tokenResult.rows[0].resource_id;
+      if (parseInt(id, 10) !== sharedTrackId) {
+        throw new AppError('Token non valido per questa traccia', 403);
+      }
+      
+      // Verifica che la traccia esista ancora
+      const trackCheck = await pool.query('SELECT id FROM tracks WHERE id = $1', [id]);
+      if (trackCheck.rows.length === 0) {
+        throw new AppError('Traccia non più disponibile', 404);
+      }
+      
+      // Token guest valido, procedi senza userId
+    } else {
+      // Autenticazione normale con JWT
+      if (!req.user || !req.user.userId) {
+        throw new AppError('Autenticazione richiesta', 401);
+      }
+      userId = req.user.userId;
+    }
 
     // Get track from database - tracks are shared, no ownership check
     const result = await pool.query(
@@ -77,17 +110,19 @@ export const streamTrack = async (req, res, next) => {
       fileStream.pipe(res);
     }
 
-    // Update play count and last played
-    pool.query(
-      'UPDATE tracks SET play_count = play_count + 1, last_played_at = CURRENT_TIMESTAMP WHERE id = $1',
-      [id]
-    ).catch(err => console.error('Error updating play count:', err));
+    // Update play count and last played (solo se non è guest)
+    if (userId) {
+      pool.query(
+        'UPDATE tracks SET play_count = play_count + 1, last_played_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [id]
+      ).catch(err => console.error('Error updating play count:', err));
 
-    // Log play history
-    pool.query(
-      'INSERT INTO play_history (user_id, track_id, played_at) VALUES ($1, $2, CURRENT_TIMESTAMP)',
-      [userId, id]
-    ).catch(err => console.error('Error logging play history:', err));
+      // Log play history (solo per utenti autenticati)
+      pool.query(
+        'INSERT INTO play_history (user_id, track_id, played_at) VALUES ($1, $2, CURRENT_TIMESTAMP)',
+        [userId, id]
+      ).catch(err => console.error('Error logging play history:', err));
+    }
   } catch (error) {
     next(error);
   }
@@ -96,6 +131,35 @@ export const streamTrack = async (req, res, next) => {
 export const getCoverArt = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { token } = req.query; // Token guest per condivisione
+    
+    // Se c'è un token guest, verifica che sia valido e associato a questa traccia
+    if (token) {
+      const tokenResult = await pool.query(
+        'SELECT resource_id FROM share_tokens WHERE token = $1 AND resource_type = $2',
+        [token, 'track']
+      );
+      
+      if (tokenResult.rows.length === 0) {
+        throw new AppError('Token non valido', 401);
+      }
+      
+      const sharedTrackId = tokenResult.rows[0].resource_id;
+      if (parseInt(id, 10) !== sharedTrackId) {
+        throw new AppError('Token non valido per questa traccia', 403);
+      }
+      
+      // Verifica che la traccia esista ancora
+      const trackCheck = await pool.query('SELECT id FROM tracks WHERE id = $1', [id]);
+      if (trackCheck.rows.length === 0) {
+        throw new AppError('Traccia non più disponibile', 404);
+      }
+    } else {
+      // Autenticazione normale con JWT
+      if (!req.user || !req.user.userId) {
+        throw new AppError('Autenticazione richiesta', 401);
+      }
+    }
 
     // Get track from database - tracks are shared, no ownership check
     const result = await pool.query(

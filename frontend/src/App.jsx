@@ -10,6 +10,7 @@ import PlaylistDetail from './pages/PlaylistDetail';
 import PublicPlaylists from './pages/PublicPlaylists';
 import Users from './pages/Users';
 import YouTubeCookies from './pages/YouTubeCookies';
+import Share from './pages/Share';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -37,8 +38,9 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
-      <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
+        <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
+        <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
+        <Route path="/share/:token" element={<Share />} />
       <Route
         path="/"
         element={isAuthenticated ? <Layout /> : <Navigate to="/login" />}
