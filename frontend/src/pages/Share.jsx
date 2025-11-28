@@ -140,19 +140,51 @@ export default function Share() {
         audio.crossOrigin = 'anonymous';
         audio.src = streamUrl;
         
-        // Aspetta che l'audio sia pronto prima di fare load
+        // Aspetta che l'audio sia pronto prima di fare load (con timeout)
         await new Promise((resolve, reject) => {
-          const handleCanPlay = () => {
+          let resolved = false;
+          
+          const cleanup = () => {
             audio.removeEventListener('canplay', handleCanPlay);
             audio.removeEventListener('error', handleError);
+            audio.removeEventListener('loadeddata', handleLoadedData);
+            if (timeoutId) clearTimeout(timeoutId);
+          };
+          
+          const handleCanPlay = () => {
+            if (resolved) return;
+            resolved = true;
+            cleanup();
             resolve();
           };
-          const handleError = (e) => {
-            audio.removeEventListener('canplay', handleCanPlay);
-            audio.removeEventListener('error', handleError);
-            reject(new Error('Errore nel caricamento dell\'audio'));
+          
+          const handleLoadedData = () => {
+            if (resolved) return;
+            resolved = true;
+            cleanup();
+            resolve();
           };
+          
+          const handleError = (e) => {
+            if (resolved) return;
+            resolved = true;
+            cleanup();
+            const errorMsg = audio.error 
+              ? `Errore ${audio.error.code}: ${audio.error.message || 'Errore nel caricamento dell\'audio'}`
+              : 'Errore nel caricamento dell\'audio';
+            reject(new Error(errorMsg));
+          };
+          
+          // Timeout di 30 secondi
+          const timeoutId = setTimeout(() => {
+            if (resolved) return;
+            resolved = true;
+            cleanup();
+            reject(new Error('Timeout nel caricamento dell\'audio'));
+          }, 30000);
+          
           audio.addEventListener('canplay', handleCanPlay);
+          audio.addEventListener('loadeddata', handleLoadedData);
           audio.addEventListener('error', handleError);
           audio.load();
         });
