@@ -20,11 +20,11 @@ export const generateShareToken = async (req, res, next) => {
     // Determina resourceType dalla route
     const resourceType = req.path.includes('/track/') ? 'track' : 'playlist';
     const resourceId = parseInt(id, 10);
-
+    
     // Valida parametri
     const validated = generateShareTokenSchema.parse({
       resourceType,
-      resourceId: parseInt(resourceId, 10),
+      resourceId,
     });
 
     // Verifica che la risorsa esista
