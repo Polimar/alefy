@@ -51,7 +51,8 @@ if [ ! -d "$ALEFY_HOME/backend" ]; then
 fi
 
 # Copia nuovi file backend (forza sovrascrittura)
-cp -rf "$REPO_DIR/backend"/* "$ALEFY_HOME/backend/"
+echo -e "${YELLOW}Copia file backend...${NC}"
+rsync -av --delete "$REPO_DIR/backend/" "$ALEFY_HOME/backend/" || cp -rf "$REPO_DIR/backend"/* "$ALEFY_HOME/backend/"
 # Copia anche script Python se presente
 if [ -f "$REPO_DIR/scripts/shazam_recognize.py" ]; then
     mkdir -p "$ALEFY_HOME/scripts"
@@ -60,6 +61,12 @@ if [ -f "$REPO_DIR/scripts/shazam_recognize.py" ]; then
     chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/scripts"
 fi
 chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/backend"
+# Verifica che i file critici siano stati copiati
+if ! grep -q "getPublicPlaylists" "$ALEFY_HOME/backend/src/controllers/playlistsController.js" 2>/dev/null; then
+    echo -e "${RED}✗ Errore: getPublicPlaylists non trovato nel controller dopo la copia${NC}"
+    echo -e "${YELLOW}Tentativo copia manuale...${NC}"
+    cp -f "$REPO_DIR/backend/src/controllers/playlistsController.js" "$ALEFY_HOME/backend/src/controllers/playlistsController.js"
+fi
 
 # Verifica/Installa chromaprint (necessario per fingerprint audio)
 echo -e "${YELLOW}Verifica chromaprint...${NC}"
