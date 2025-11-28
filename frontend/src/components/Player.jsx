@@ -180,85 +180,53 @@ export default function Player() {
         const token = localStorage.getItem('accessToken');
         const streamUrl = `${API_URL}/stream/tracks/${currentTrack.id}`;
 
-        // Usa direttamente l'URL dello stream invece del blob per supportare Range Requests e seek
-        audio.src = streamUrl;
-        audio.crossOrigin = 'anonymous';
-        
-        // Imposta header Authorization tramite fetch e poi usa blob, oppure usa direttamente l'URL
-        // Per supportare seek, usiamo direttamente l'URL con token nell'header
-        // Ma l'audio element non supporta header custom, quindi usiamo un approccio diverso:
-        // Creiamo un blob ma solo dopo aver verificato che funziona
-        
-        // Verifica autenticazione prima
-        const testResponse = await fetch(streamUrl, {
-          method: 'HEAD',
+        // Carica il blob per supportare seek
+        let response = await fetch(streamUrl, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
 
-        if (!testResponse.ok) {
-          if (testResponse.status === 401) {
-            // Try to refresh token
-            const refreshToken = localStorage.getItem('refreshToken');
-            if (refreshToken) {
-              try {
-                const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
-                  method: 'POST',
+        // Se fallisce con 401, prova a refreshare il token
+        if (!response.ok && response.status === 401) {
+          const refreshToken = localStorage.getItem('refreshToken');
+          if (refreshToken) {
+            try {
+              const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ refreshToken }),
+              });
+
+              if (refreshResponse.ok) {
+                const refreshData = await refreshResponse.json();
+                const { accessToken, refreshToken: newRefreshToken } = refreshData.data || refreshData;
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('refreshToken', newRefreshToken);
+
+                // Riprova con il nuovo token
+                response = await fetch(streamUrl, {
                   headers: {
-                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
                   },
-                  body: JSON.stringify({ refreshToken }),
                 });
 
-                if (refreshResponse.ok) {
-                  const refreshData = await refreshResponse.json();
-                  const { accessToken, refreshToken: newRefreshToken } = refreshData.data || refreshData;
-                  localStorage.setItem('accessToken', accessToken);
-                  localStorage.setItem('refreshToken', newRefreshToken);
-
-                  // Carica il blob con il nuovo token
-                  const retryResponse = await fetch(streamUrl, {
-                    headers: {
-                      'Authorization': `Bearer ${accessToken}`,
-                    },
-                  });
-
-                  if (!retryResponse.ok) {
-                    throw new Error('Errore di autenticazione dopo refresh');
-                  }
-
-                  const blob = await retryResponse.blob();
-                  blobUrlRef.current = URL.createObjectURL(blob);
-                  audio.src = blobUrlRef.current;
-                  audio.load();
-                  // NON chiamare play() automaticamente - aspetta che l'utente clicchi
-                  return;
-                } else {
-                  // Refresh fallito, ma non fare redirect immediato - lascia che l'errore venga gestito
-                  throw new Error('Token refresh fallito');
+                if (!response.ok) {
+                  throw new Error(`Errore ${response.status}: ${response.statusText}`);
                 }
-              } catch (refreshError) {
-                console.error('Token refresh failed:', refreshError);
-                // Non fare redirect immediato - mostra errore invece
-                throw new Error('Errore di autenticazione. Effettua il login.');
+              } else {
+                throw new Error('Token refresh fallito');
               }
-            } else {
-              throw new Error('Token non disponibile. Effettua il login.');
+            } catch (refreshError) {
+              console.error('Token refresh failed:', refreshError);
+              throw new Error('Errore di autenticazione. Effettua il login.');
             }
           } else {
-            throw new Error(`Errore ${testResponse.status}: ${testResponse.statusText}`);
+            throw new Error('Token non disponibile. Effettua il login.');
           }
-        }
-
-        // Carica il blob per supportare seek
-        const response = await fetch(streamUrl, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
+        } else if (!response.ok) {
           throw new Error(`Errore ${response.status}: ${response.statusText}`);
         }
 
@@ -327,12 +295,44 @@ export default function Player() {
 
       if (currentTrack?.cover_art_path && currentTrack?.id) {
         try {
-          const token = localStorage.getItem('accessToken');
-          const response = await fetch(`${API_URL}/stream/tracks/${currentTrack.id}/cover`, {
+          let token = localStorage.getItem('accessToken');
+          let response = await fetch(`${API_URL}/stream/tracks/${currentTrack.id}/cover`, {
             headers: {
               'Authorization': `Bearer ${token}`,
             },
           });
+
+          // Se fallisce con 401, prova a refreshare il token
+          if (!response.ok && response.status === 401) {
+            const refreshToken = localStorage.getItem('refreshToken');
+            if (refreshToken) {
+              try {
+                const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ refreshToken }),
+                });
+
+                if (refreshResponse.ok) {
+                  const refreshData = await refreshResponse.json();
+                  const { accessToken, refreshToken: newRefreshToken } = refreshData.data || refreshData;
+                  localStorage.setItem('accessToken', accessToken);
+                  localStorage.setItem('refreshToken', newRefreshToken);
+
+                  // Riprova con il nuovo token
+                  response = await fetch(`${API_URL}/stream/tracks/${currentTrack.id}/cover`, {
+                    headers: {
+                      'Authorization': `Bearer ${accessToken}`,
+                    },
+                  });
+                }
+              } catch (refreshError) {
+                console.error('Token refresh failed for cover art:', refreshError);
+              }
+            }
+          }
 
           if (response.ok) {
             const blob = await response.blob();

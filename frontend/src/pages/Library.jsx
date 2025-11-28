@@ -149,12 +149,44 @@ export default function Library() {
     loadingCoversRef.current.add(track.id);
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/stream/tracks/${track.id}/cover`, {
+      let token = localStorage.getItem('accessToken');
+      let response = await fetch(`${API_URL}/stream/tracks/${track.id}/cover`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
+
+      // Se fallisce con 401, prova a refreshare il token
+      if (!response.ok && response.status === 401) {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          try {
+            const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ refreshToken }),
+            });
+
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json();
+              const { accessToken, refreshToken: newRefreshToken } = refreshData.data || refreshData;
+              localStorage.setItem('accessToken', accessToken);
+              localStorage.setItem('refreshToken', newRefreshToken);
+
+              // Riprova con il nuovo token
+              response = await fetch(`${API_URL}/stream/tracks/${track.id}/cover`, {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                },
+              });
+            }
+          } catch (refreshError) {
+            console.error('Token refresh failed for cover art:', refreshError);
+          }
+        }
+      }
 
       if (response.ok) {
         const blob = await response.blob();

@@ -284,6 +284,14 @@ export const deleteTrack = async (req, res, next) => {
     }
 
     // Delete from database
+    // Elimina anche i token di condivisione associati alla traccia
+    try {
+      await pool.query('DELETE FROM share_tokens WHERE resource_type = $1 AND resource_id = $2', ['track', id]);
+    } catch (tokenError) {
+      console.warn('Errore eliminazione token traccia:', tokenError);
+      // Non bloccare l'eliminazione della traccia se fallisce l'eliminazione dei token
+    }
+    
     await pool.query('DELETE FROM tracks WHERE id = $1 AND user_id = $2', [id, userId]);
 
     res.json({

@@ -314,6 +314,14 @@ export const deletePlaylist = async (req, res, next) => {
       throw new AppError('Playlist non trovata', 404);
     }
 
+    // Elimina anche i token di condivisione associati alla playlist
+    try {
+      await pool.query('DELETE FROM share_tokens WHERE resource_type = $1 AND resource_id = $2', ['playlist', id]);
+    } catch (tokenError) {
+      console.warn('Errore eliminazione token playlist:', tokenError);
+      // Non bloccare l'eliminazione della playlist se fallisce l'eliminazione dei token
+    }
+
     // Delete playlist (cascade will delete playlist_tracks)
     await pool.query('DELETE FROM playlists WHERE id = $1 AND user_id = $2', [id, userId]);
 

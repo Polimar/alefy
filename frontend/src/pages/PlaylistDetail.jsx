@@ -397,6 +397,13 @@ export default function PlaylistDetail() {
                       Modifica playlist
                     </button>
                     <button
+                      className="playlist-menu-item"
+                      onClick={handleShareWhatsApp}
+                    >
+                      <Share2 size={16} />
+                      Condividi su WhatsApp
+                    </button>
+                    <button
                       className="playlist-menu-item danger"
                       onClick={handleDeletePlaylist}
                     >
