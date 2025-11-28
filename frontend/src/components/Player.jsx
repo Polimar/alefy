@@ -508,7 +508,7 @@ export default function Player() {
                       onChange={(e) => setVolume(parseFloat(e.target.value))}
                       className="volume-slider-modal"
                       title={`Volume: ${Math.round(volume * 100)}%`}
-                      orient="vertical"
+                      style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
                     />
                     <span className="volume-percentage-modal">{Math.round(volume * 100)}%</span>
                   </div>

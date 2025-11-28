@@ -22,6 +22,7 @@
   align-items: center;
   gap: 16px;
   min-height: 70px;
+  max-height: 70px; /* Altezza massima fissa */
   position: relative; /* Per posizionare errori/loading relativamente */
 }
 
@@ -572,14 +573,16 @@
 }
 
 .volume-slider-modal {
-  width: 6px;
-  height: 200px;
-  -webkit-appearance: slider-vertical;
-  writing-mode: bt-lr;
+  width: 200px;
+  height: 6px;
+  writing-mode: vertical-lr;
+  direction: rtl;
   background: var(--bg-secondary);
   border-radius: 3px;
   outline: none;
   cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .volume-slider-modal::-webkit-slider-thumb {

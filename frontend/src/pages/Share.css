@@ -368,14 +368,16 @@
 }
 
 .share-volume-slider {
-  width: 6px;
-  height: 200px;
-  -webkit-appearance: slider-vertical;
-  writing-mode: bt-lr;
+  width: 200px;
+  height: 6px;
+  writing-mode: vertical-lr;
+  direction: rtl;
   background: var(--bg-secondary, #2d2d2d);
   border-radius: 3px;
   outline: none;
   cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .share-volume-slider::-webkit-slider-thumb {
