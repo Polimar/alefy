@@ -7,7 +7,11 @@ const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const SHAZAM_SCRIPT_PATH = path.join(__dirname, '../../../scripts/shazam_recognize.py');
+// Prova prima il percorso nello script directory, poi fallback a repository
+const SHAZAM_SCRIPT_PATHS = [
+  '/opt/alefy/scripts/shazam_recognize.py',
+  path.join(__dirname, '../../../scripts/shazam_recognize.py'),
+];
 
 /**
  * Riconosce un file audio usando ShazamIO (Python)
@@ -36,7 +40,6 @@ export async function recognizeWithShazam(audioFilePath) {
     // Prova prima con virtualenv se esiste, altrimenti usa python3 normale
     let pythonCmd = 'python3';
     const venvPython = '/opt/alefy/shazam_venv/bin/python3';
-    const fs = await import('fs/promises');
     try {
       await fs.access(venvPython);
       pythonCmd = venvPython;

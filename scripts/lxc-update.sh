@@ -52,6 +52,13 @@ fi
 
 # Copia nuovi file backend
 cp -r "$REPO_DIR/backend"/* "$ALEFY_HOME/backend/"
+# Copia anche script Python se presente
+if [ -f "$REPO_DIR/scripts/shazam_recognize.py" ]; then
+    mkdir -p "$ALEFY_HOME/scripts"
+    cp "$REPO_DIR/scripts/shazam_recognize.py" "$ALEFY_HOME/scripts/shazam_recognize.py"
+    chmod +x "$ALEFY_HOME/scripts/shazam_recognize.py"
+    chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/scripts"
+fi
 chown -R "$ALEFY_USER:$ALEFY_USER" "$ALEFY_HOME/backend"
 
 # Verifica/Installa chromaprint (necessario per fingerprint audio)
