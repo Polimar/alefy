@@ -73,7 +73,7 @@
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 16px;
 }
 
@@ -91,6 +91,59 @@
   font-size: 20px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.format-breakdown {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.format-breakdown h4 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.format-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.format-item {
+  display: grid;
+  grid-template-columns: 80px 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.format-name {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.format-count {
+  color: var(--text-secondary);
+}
+
+.format-size {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+}
+
+.format-bitrate {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: right;
 }
 
 .edit-user-form .form-group {
