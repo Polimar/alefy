@@ -449,3 +449,135 @@
     display: none;
   }
 }
+
+
+/* Modal Volume */
+.volume-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.volume-modal {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 120px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.volume-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.volume-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.volume-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.volume-modal-close:hover {
+  color: var(--text-primary);
+}
+
+.volume-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.volume-icon-btn-modal {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.volume-icon-btn-modal:hover {
+  background-color: var(--bg-secondary);
+}
+
+.volume-slider-modal {
+  width: 6px;
+  height: 200px;
+  -webkit-appearance: slider-vertical;
+  writing-mode: bt-lr;
+  background: var(--bg-secondary);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.volume-slider-modal::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  cursor: pointer;
+}
+
+.volume-slider-modal::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  cursor: pointer;
+  border: none;
+}
+
+.volume-percentage-modal {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 50px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Skip buttons */
+.skip-btn {
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.skip-btn:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.skip-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
