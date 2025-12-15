@@ -395,7 +395,7 @@ export default function Player() {
       )}
       <div className="player-content">
         <div className="player-left">
-          <div className="player-album-art">
+          <div className="player-album-art" onClick={openExpanded}>
             {currentTrack && coverUrl ? (
               <img 
                 src={coverUrl} 
@@ -408,7 +408,7 @@ export default function Player() {
               </div>
             )}
           </div>
-          <div className="player-track-info">
+          <div className="player-track-info" onClick={openExpanded}>
             <div className="track-title">{currentTrack?.title || 'Nessuna traccia selezionata'}</div>
             <div className="track-artist">{currentTrack?.artist || 'Seleziona una traccia per iniziare'}</div>
           </div>
@@ -663,15 +663,24 @@ export default function Player() {
         </div>
       </div>
 
+    </div>
+  );
+
+  return (
+    <>
+      <QueuePanel />
+      <EqualizerPanel audioElement={audioRef} />
+      {isMobile ? renderMobile() : renderDesktop()}
+
       {isExpanded && (
-        <div className="player-mobile-overlay">
-          <div className="player-mobile-header">
+        <div className={`player-fullscreen ${isMobile ? 'mobile' : 'desktop'}`}>
+          <div className="player-fullscreen-header">
             <button className="close-overlay" onClick={toggleExpand}>
               <X size={24} />
             </button>
           </div>
-          <div className="player-mobile-body">
-            <div className="player-album-art large">
+          <div className="player-fullscreen-body">
+            <div className="player-fullscreen-cover">
               {currentTrack && coverUrl ? (
                 <img 
                   src={coverUrl} 
@@ -680,15 +689,15 @@ export default function Player() {
                 />
               ) : (
                 <div className="album-art-placeholder">
-                  <Music size={48} />
+                  <Music size={64} />
                 </div>
               )}
             </div>
-            <div className="player-track-info mobile">
+            <div className="player-track-info fullscreen">
               <div className="track-title">{currentTrack?.title || 'Nessuna traccia'}</div>
               <div className="track-artist">{currentTrack?.artist || 'Seleziona un brano'}</div>
             </div>
-            <div className="progress-container mobile" onClick={handleSeek}>
+            <div className="progress-container fullscreen" onClick={handleSeek}>
               <div className="progress-bar">
                 <div
                   className="progress-fill"
@@ -700,17 +709,17 @@ export default function Player() {
                 <span>{formatTime(duration)}</span>
               </div>
             </div>
-            <div className="control-buttons mobile">
+            <div className="control-buttons fullscreen">
               <button 
                 onClick={() => handleSkipBackward(10)} 
                 className="control-btn skip-btn" 
                 title="Indietro 10 secondi"
                 disabled={!currentTrack}
               >
-                <SkipBack size={18} />
+                <SkipBack size={20} />
               </button>
               <button onClick={previous} className="control-btn" title="Precedente" disabled={!currentTrack || queue.length === 0}>
-                <SkipBack size={22} />
+                <SkipBack size={24} />
               </button>
               <button
                 onClick={isPlaying ? pause : play}
@@ -718,10 +727,10 @@ export default function Player() {
                 title={isPlaying ? 'Pausa' : 'Riproduci'}
                 disabled={!currentTrack}
               >
-                {isPlaying ? <Pause size={32} /> : <Play size={32} />}
+                {isPlaying ? <Pause size={36} /> : <Play size={36} />}
               </button>
               <button onClick={next} className="control-btn" title="Successivo" disabled={!currentTrack || queue.length === 0}>
-                <SkipForward size={22} />
+                <SkipForward size={24} />
               </button>
               <button 
                 onClick={() => handleSkipForward(10)} 
@@ -729,17 +738,17 @@ export default function Player() {
                 title="Avanti 10 secondi"
                 disabled={!currentTrack}
               >
-                <SkipForward size={18} />
+                <SkipForward size={20} />
               </button>
             </div>
-            <div className="player-mobile-bottom">
+            <div className="player-fullscreen-bottom">
               <div className="volume-btn-wrapper">
                 <button
                   onClick={toggleVolumeModal}
                   className="control-btn volume-btn"
                   title={`Volume: ${Math.round(volume * 100)}%`}
                 >
-                  {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                  {volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
                 </button>
               </div>
               {queue.length > 0 && (
@@ -751,14 +760,6 @@ export default function Player() {
           </div>
         </div>
       )}
-    </div>
-  );
-
-  return (
-    <>
-      <QueuePanel />
-      <EqualizerPanel audioElement={audioRef} />
-      {isMobile ? renderMobile() : renderDesktop()}
 
       {/* Modal Volume - anche per mobile, con stile dedicato */}
       {showVolumeModal && (
