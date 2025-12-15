@@ -765,7 +765,7 @@ export default function Player() {
             onClick={(e) => e.stopPropagation()}
             style={
               isMobile
-                ? { bottom: '96px', left: '12px', right: '12px' }
+                ? { top: '12px', left: '12px', right: '12px', bottom: '12px' }
                 : { bottom: `${volumeModalPosition.bottom}px`, right: `${volumeModalPosition.right}px` }
             }
           >
