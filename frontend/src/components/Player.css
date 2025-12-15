@@ -1,29 +1,28 @@
 .player {
   flex-shrink: 0;
-  height: 110px;
-  min-height: 110px;
-  max-height: 110px;
-  background: linear-gradient(to top, #181818 0%, #282828 100%);
+  height: 130px;
+  min-height: 130px;
+  max-height: 130px;
+  background: linear-gradient(to top, #141414 0%, #1f1f1f 100%);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 0 16px;
+  padding: 0 20px;
   display: flex;
   align-items: center;
   z-index: 500;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
-  /* Il player ora fa parte del layout flex, non è più fixed */
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.55);
   position: relative;
-  overflow: visible; /* Cambiato a visible per permettere al modal del volume di essere visibile */
+  overflow: visible;
 }
 
 .player-content {
   width: 100%;
   display: grid;
-  grid-template-columns: 250px 1fr 200px;
+  grid-template-columns: 260px 1fr 200px;
   align-items: center;
-  gap: 16px;
-  min-height: 90px;
-  max-height: 90px; /* Altezza massima fissa */
-  position: relative; /* Per posizionare errori/loading relativamente */
+  gap: 20px;
+  min-height: 110px;
+  max-height: 110px;
+  position: relative;
 }
 
 /* Colonna Sinistra: Album Art + Info */
@@ -36,9 +35,9 @@
 
 .player-album-art {
   flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-  border-radius: 4px;
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
   overflow: hidden;
   background: var(--bg-tertiary);
   display: flex;
@@ -83,8 +82,8 @@
 }
 
 .player-track-info .track-title {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -141,14 +140,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .control-buttons {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px; /* Ridotto margine tra pulsanti e barra del tempo */
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
 .control-btn {
@@ -182,9 +181,14 @@
 .play-btn {
   background-color: var(--text-primary);
   color: var(--bg-primary);
-  width: 40px;
-  height: 40px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  width: 48px;
+  height: 48px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+
+.play-btn.large {
+  width: 56px;
+  height: 56px;
 }
 
 .play-btn:hover {
@@ -195,16 +199,16 @@
 
 .progress-container {
   width: 100%;
-  max-width: 600px;
+  max-width: 720px;
   cursor: pointer;
   position: relative;
-  min-height: 50px; /* Ridotto per dare più spazio */
-  max-height: 50px; /* Altezza massima fissa */
+  min-height: 60px;
+  max-height: 60px;
   display: flex;
   flex-direction: column;
-  gap: 2px; /* Ridotto gap tra pulsanti e barra del tempo */
+  gap: 4px;
   flex-shrink: 0;
-  justify-content: flex-end; /* Allinea elementi in basso */
+  justify-content: flex-end;
 }
 
 .waveform-container {
@@ -223,11 +227,11 @@
 
 .progress-bar {
   width: 100%;
-  height: 4px;
-  min-height: 4px; /* Altezza minima fissa */
-  max-height: 6px; /* Altezza massima al hover */
+  height: 6px;
+  min-height: 6px;
+  max-height: 8px;
   background-color: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
+  border-radius: 4px;
   cursor: pointer;
   margin-bottom: 0;
   transition: height 0.2s;
@@ -238,7 +242,7 @@
 }
 
 .progress-bar:hover {
-  height: 6px;
+  height: 8px;
 }
 
 .progress-fill {
@@ -270,12 +274,12 @@
 .time-display {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
-  min-height: 14px;
-  height: 14px; /* Altezza fissa */
+  min-height: 16px;
+  height: 16px;
   width: 100%;
   margin-top: 2px;
   visibility: visible; /* Sempre visibile */
@@ -287,7 +291,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
   position: relative;
   flex-shrink: 0;
 }
@@ -309,6 +313,92 @@
 
 .queue-btn.active {
   color: var(--accent);
+}
+
+/* Mini queue popover */
+.queue-popover-wrapper {
+  position: relative;
+}
+
+.queue-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  max-height: 260px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  padding: 10px;
+  z-index: 2100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.queue-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.queue-popover-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.queue-popover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+.queue-popover-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.queue-popover-index {
+  width: 18px;
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.queue-popover-info {
+  min-width: 0;
+}
+
+.queue-popover-title {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-popover-artist {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-popover-more {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .player-volume {
@@ -426,8 +516,51 @@
 @media (max-width: 768px) {
   .player {
     height: auto;
-    min-height: 100px;
-    padding: 10px 12px;
+    min-height: 72px;
+    padding: 10px 14px;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.55);
+  }
+
+  .player-mobile {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    backdrop-filter: blur(8px);
+  }
+
+  .player-mobile-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .player-mobile-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .player-album-art.small {
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+  }
+
+  .player-album-art.large {
+    width: 240px;
+    height: 240px;
+    border-radius: 12px;
+  }
+
+  .player-mobile-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
   .player-content {
@@ -435,64 +568,75 @@
     gap: 10px;
   }
 
-  .player-left {
-    order: 1;
+  .player-left,
+  .player-center,
+  .player-right {
     width: 100%;
   }
 
-  .player-album-art {
-    width: 48px;
-    height: 48px;
+  .progress-container.mobile {
+    max-width: 100%;
+    min-height: 50px;
   }
 
-  .player-track-info .track-title {
-    font-size: 13px;
-  }
-
-  .player-track-info .track-artist {
-    font-size: 11px;
-  }
-
-  .player-center {
-    order: 2;
-    width: 100%;
-  }
-
-  .control-buttons {
+  .control-buttons.mobile {
     gap: 12px;
   }
 
-  .play-btn {
-    width: 44px;
-    height: 44px;
+  .player-mobile-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    overflow-y: auto;
   }
 
-  .player-right {
-    order: 3;
+  .player-mobile-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .close-overlay {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    padding: 6px;
+    border-radius: 50%;
+    font-size: 18px;
+  }
+
+  .player-mobile-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .player-track-info.mobile .track-title {
+    font-size: 18px;
+    text-align: center;
+  }
+
+  .player-track-info.mobile .track-artist {
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .player-mobile-bottom {
     width: 100%;
-    justify-content: center;
-    gap: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
   }
 
-  .player-volume {
-    width: 100%;
-    max-width: 100%;
-    padding: 0 20px;
-  }
-
-  .volume-percentage {
-    display: none;
-  }
-
-  .queue-btn {
-    display: none;
-  }
-
-  .volume-modal {
-    bottom: calc(100% + 8px);
-    right: 0;
-    left: auto;
-    transform: none;
+  .queue-preview-mobile {
+    color: var(--text-secondary);
+    font-size: 12px;
   }
 }
 

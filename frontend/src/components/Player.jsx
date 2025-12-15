@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import usePlayerStore from '../store/playerStore';
 import api from '../utils/api';
 import { getTrackOffline } from '../utils/offlineStorage';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, ListMusic, Music, Sliders, Rewind, FastForward } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, ListMusic, Music, Sliders, Rewind, FastForward, X } from 'lucide-react';
 import AudioWaveform from './AudioWaveform';
 import QueuePanel from './QueuePanel';
 import EqualizerPanel from './EqualizerPanel';
@@ -18,6 +18,9 @@ export default function Player() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [volumeModalPosition, setVolumeModalPosition] = useState({ bottom: 0, right: 0 });
+  const [isMobile, setIsMobile] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showMiniQueue, setShowMiniQueue] = useState(false);
   const {
     currentTrack,
     isPlaying,
@@ -352,15 +355,29 @@ export default function Player() {
     }
   }, [showVolumeModal]);
 
+  // Rileva viewport mobile
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      if (window.innerWidth > 768) {
+        setIsExpanded(false);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const toggleExpand = () => setIsExpanded((prev) => !prev);
+  const toggleMiniQueue = () => setShowMiniQueue((prev) => !prev);
+
   // Il player è sempre visibile, anche senza traccia corrente
   // if (!currentTrack) return null;
 
-  return (
-    <>
-      <QueuePanel />
-      <EqualizerPanel audioElement={audioRef} />
-      <div className="player">
-        <audio ref={audioRef} />
+  // Desktop layout
+  const renderDesktop = () => (
+    <div className="player">
+      <audio ref={audioRef} />
       {error && (
         <div className="player-error">
           {error}
@@ -372,7 +389,6 @@ export default function Player() {
         </div>
       )}
       <div className="player-content">
-        {/* Colonna 1: Album Art + Info Traccia */}
         <div className="player-left">
           <div className="player-album-art">
             {currentTrack && coverUrl ? (
@@ -402,7 +418,6 @@ export default function Player() {
           )}
         </div>
 
-        {/* Colonna 2: Controlli Riproduzione */}
         <div className="player-center">
           <div className="control-buttons">
             <button 
@@ -411,7 +426,7 @@ export default function Player() {
               title="Indietro 30 secondi"
               disabled={!currentTrack}
             >
-              <Rewind size={16} />
+              <Rewind size={18} />
             </button>
             <button 
               onClick={() => handleSkipBackward(10)} 
@@ -419,21 +434,21 @@ export default function Player() {
               title="Indietro 10 secondi"
               disabled={!currentTrack}
             >
-              <SkipBack size={16} />
+              <SkipBack size={18} />
             </button>
             <button onClick={previous} className="control-btn" title="Precedente" disabled={!currentTrack || queue.length === 0}>
-              <SkipBack size={20} />
+              <SkipBack size={22} />
             </button>
             <button
               onClick={isPlaying ? pause : play}
-              className="control-btn play-btn"
+              className="control-btn play-btn large"
               title={isPlaying ? 'Pausa' : 'Riproduci'}
               disabled={!currentTrack}
             >
-              {isPlaying ? <Pause size={28} /> : <Play size={28} />}
+              {isPlaying ? <Pause size={32} /> : <Play size={32} />}
             </button>
             <button onClick={next} className="control-btn" title="Successivo" disabled={!currentTrack || queue.length === 0}>
-              <SkipForward size={20} />
+              <SkipForward size={22} />
             </button>
             <button 
               onClick={() => handleSkipForward(10)} 
@@ -441,7 +456,7 @@ export default function Player() {
               title="Avanti 10 secondi"
               disabled={!currentTrack}
             >
-              <SkipForward size={16} />
+              <SkipForward size={18} />
             </button>
             <button 
               onClick={() => handleSkipForward(30)} 
@@ -449,11 +464,11 @@ export default function Player() {
               title="Avanti 30 secondi"
               disabled={!currentTrack}
             >
-              <FastForward size={16} />
+              <FastForward size={18} />
             </button>
           </div>
           <div className="progress-container" onClick={handleSeek}>
-            {isPlaying && currentTrack && (
+            {currentTrack && (
               <div className="waveform-container">
                 <AudioWaveform audioElement={audioRef} isPlaying={isPlaying} />
               </div>
@@ -471,7 +486,6 @@ export default function Player() {
           </div>
         </div>
 
-        {/* Colonna 3: Volume + Queue + Equalizer */}
         <div className="player-right">
           <button
             onClick={toggleEqualizer}
@@ -480,15 +494,38 @@ export default function Player() {
           >
             <Sliders size={18} />
           </button>
-          {/* Mostra pulsante coda solo se c'è una playlist in riproduzione */}
           {queue.length > 0 && (
-            <button
-              onClick={toggleQueue}
-              className={`control-btn queue-btn ${showQueue ? 'active' : ''}`}
-              title="Coda di riproduzione"
-            >
-              <ListMusic size={18} />
-            </button>
+            <div className="queue-popover-wrapper">
+              <button
+                onClick={toggleMiniQueue}
+                className={`control-btn queue-btn ${showMiniQueue ? 'active' : ''}`}
+                title="Coda di riproduzione"
+              >
+                <ListMusic size={18} />
+              </button>
+              {showMiniQueue && (
+                <div className="queue-popover">
+                  <div className="queue-popover-header">
+                    <span>Coda</span>
+                    <button onClick={toggleMiniQueue} className="queue-popover-close">×</button>
+                  </div>
+                  <div className="queue-popover-list">
+                    {queue.slice(0, 6).map((track, idx) => (
+                      <div key={track.id} className="queue-popover-item">
+                        <span className="queue-popover-index">{idx + 1}</span>
+                        <div className="queue-popover-info">
+                          <div className="queue-popover-title">{track.title || 'Senza titolo'}</div>
+                          <div className="queue-popover-artist">{track.artist || 'Sconosciuto'}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {queue.length > 6 && (
+                      <div className="queue-popover-more">+ {queue.length - 6} altri</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           <div className="volume-btn-wrapper">
             <button
@@ -500,7 +537,6 @@ export default function Player() {
               {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
             </button>
             
-            {/* Modal Volume - posizionato vicino al pulsante */}
             {showVolumeModal && (
               <>
                 <div className="volume-modal-overlay" onClick={toggleVolumeModal}></div>
@@ -545,6 +581,156 @@ export default function Player() {
         </div>
       </div>
     </div>
+  );
+
+  // Mobile bottom bar + fullscreen
+  const renderMobile = () => (
+    <div className="player player-mobile">
+      <audio ref={audioRef} />
+      <div className="player-mobile-bar" onClick={!isExpanded ? toggleExpand : undefined}>
+        <div className="player-mobile-info">
+          <div className="player-album-art small">
+            {currentTrack && coverUrl ? (
+              <img 
+                src={coverUrl} 
+                alt={currentTrack.title || 'Track'}
+                className={`album-art-image ${isPlaying ? 'playing' : ''}`}
+              />
+            ) : (
+              <div className="album-art-placeholder">
+                <Music size={28} />
+              </div>
+            )}
+          </div>
+          <div className="player-track-info">
+            <div className="track-title">{currentTrack?.title || 'Nessuna traccia'}</div>
+            <div className="track-artist">{currentTrack?.artist || 'Seleziona un brano'}</div>
+          </div>
+        </div>
+        <div className="player-mobile-actions">
+          <button
+            onClick={(e) => { e.stopPropagation(); previous(); }}
+            className="control-btn"
+            title="Precedente"
+            disabled={!currentTrack || queue.length === 0}
+          >
+            <SkipBack size={18} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); isPlaying ? pause() : play(); }}
+            className="control-btn play-btn"
+            title={isPlaying ? 'Pausa' : 'Riproduci'}
+            disabled={!currentTrack}
+          >
+            {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); next(); }}
+            className="control-btn"
+            title="Successivo"
+            disabled={!currentTrack || queue.length === 0}
+          >
+            <SkipForward size={18} />
+          </button>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="player-mobile-overlay">
+          <div className="player-mobile-header">
+            <button className="close-overlay" onClick={toggleExpand}>
+              <X size={24} />
+            </button>
+          </div>
+          <div className="player-mobile-body">
+            <div className="player-album-art large">
+              {currentTrack && coverUrl ? (
+                <img 
+                  src={coverUrl} 
+                  alt={currentTrack.title || 'Track'}
+                  className={`album-art-image ${isPlaying ? 'playing' : ''}`}
+                />
+              ) : (
+                <div className="album-art-placeholder">
+                  <Music size={48} />
+                </div>
+              )}
+            </div>
+            <div className="player-track-info mobile">
+              <div className="track-title">{currentTrack?.title || 'Nessuna traccia'}</div>
+              <div className="track-artist">{currentTrack?.artist || 'Seleziona un brano'}</div>
+            </div>
+            <div className="progress-container mobile" onClick={handleSeek}>
+              <div className="progress-bar">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                />
+              </div>
+              <div className="time-display">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+            <div className="control-buttons mobile">
+              <button 
+                onClick={() => handleSkipBackward(10)} 
+                className="control-btn skip-btn" 
+                title="Indietro 10 secondi"
+                disabled={!currentTrack}
+              >
+                <SkipBack size={18} />
+              </button>
+              <button onClick={previous} className="control-btn" title="Precedente" disabled={!currentTrack || queue.length === 0}>
+                <SkipBack size={22} />
+              </button>
+              <button
+                onClick={isPlaying ? pause : play}
+                className="control-btn play-btn large"
+                title={isPlaying ? 'Pausa' : 'Riproduci'}
+                disabled={!currentTrack}
+              >
+                {isPlaying ? <Pause size={32} /> : <Play size={32} />}
+              </button>
+              <button onClick={next} className="control-btn" title="Successivo" disabled={!currentTrack || queue.length === 0}>
+                <SkipForward size={22} />
+              </button>
+              <button 
+                onClick={() => handleSkipForward(10)} 
+                className="control-btn skip-btn" 
+                title="Avanti 10 secondi"
+                disabled={!currentTrack}
+              >
+                <SkipForward size={18} />
+              </button>
+            </div>
+            <div className="player-mobile-bottom">
+              <div className="volume-btn-wrapper">
+                <button
+                  onClick={toggleVolumeModal}
+                  className="control-btn volume-btn"
+                  title={`Volume: ${Math.round(volume * 100)}%`}
+                >
+                  {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                </button>
+              </div>
+              {queue.length > 0 && (
+                <div className="queue-preview-mobile">
+                  <span>Coda ({queue.length})</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <QueuePanel />
+      <EqualizerPanel audioElement={audioRef} />
+      {isMobile ? renderMobile() : renderDesktop()}
     </>
   );
 }
