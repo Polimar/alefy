@@ -344,16 +344,20 @@ export default function Player() {
   // Calcola posizione del modal del volume quando viene aperto
   useEffect(() => {
     if (showVolumeModal && volumeBtnRef.current) {
-      const rect = volumeBtnRef.current.getBoundingClientRect();
-      const modalHeight = 300; // Altezza approssimativa del modal
-      const margin = 12;
-      
-      setVolumeModalPosition({
-        bottom: window.innerHeight - rect.top + margin,
-        right: window.innerWidth - rect.right,
-      });
+      // Su mobile il modal è centrato, non serve calcolo dinamico
+      if (isMobile) {
+        setVolumeModalPosition({ bottom: 96, right: 0 });
+      } else {
+        const rect = volumeBtnRef.current.getBoundingClientRect();
+        const modalHeight = 300;
+        const margin = 12;
+        setVolumeModalPosition({
+          bottom: window.innerHeight - rect.top + margin,
+          right: window.innerWidth - rect.right,
+        });
+      }
     }
-  }, [showVolumeModal]);
+  }, [showVolumeModal, isMobile]);
 
   // Rileva viewport mobile
   useEffect(() => {
@@ -632,6 +636,25 @@ export default function Player() {
           >
             <SkipForward size={18} />
           </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleVolumeModal(); }}
+            className="control-btn"
+            title={`Volume: ${Math.round(volume * 100)}%`}
+          >
+            {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
+        </div>
+      </div>
+      <div className="player-mobile-mini-progress" onClick={!isExpanded ? handleSeek : undefined}>
+        <div className="mini-progress-bar">
+          <div
+            className="mini-progress-fill"
+            style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+          />
+        </div>
+        <div className="mini-time">
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(duration)}</span>
         </div>
       </div>
 
@@ -731,6 +754,49 @@ export default function Player() {
       <QueuePanel />
       <EqualizerPanel audioElement={audioRef} />
       {isMobile ? renderMobile() : renderDesktop()}
+
+      {/* Modal Volume - anche per mobile, con stile dedicato */}
+      {showVolumeModal && (
+        <>
+          <div className="volume-modal-overlay" onClick={toggleVolumeModal}></div>
+          <div 
+            ref={volumeModalRef}
+            className={`volume-modal ${isMobile ? 'mobile' : ''}`} 
+            onClick={(e) => e.stopPropagation()}
+            style={
+              isMobile
+                ? { bottom: '96px', left: '12px', right: '12px' }
+                : { bottom: `${volumeModalPosition.bottom}px`, right: `${volumeModalPosition.right}px` }
+            }
+          >
+            <div className="volume-modal-header">
+              <h3>Volume</h3>
+              <button onClick={toggleVolumeModal} className="volume-modal-close">×</button>
+            </div>
+            <div className="volume-modal-content">
+              <button
+                onClick={() => setVolume(volume > 0 ? 0 : 1)}
+                className="volume-icon-btn-modal"
+                title={volume > 0 ? 'Muta' : 'Riattiva audio'}
+              >
+                {volume === 0 ? <VolumeX size={24} /> : <Volume2 size={24} />}
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={volume}
+                onChange={(e) => setVolume(parseFloat(e.target.value))}
+                className="volume-slider-modal"
+                title={`Volume: ${Math.round(volume * 100)}%`}
+                style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
+              />
+              <span className="volume-percentage-modal">{Math.round(volume * 100)}%</span>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

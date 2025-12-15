@@ -563,6 +563,34 @@
     gap: 10px;
   }
 
+  .player-mobile-mini-progress {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mini-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .mini-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.1s linear;
+  }
+
+  .mini-time {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
   .player-content {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -668,6 +696,16 @@
   min-width: 100px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   z-index: 2000; /* Z-index alto per essere sempre in primo piano */
+}
+
+.volume-modal.mobile {
+  width: auto;
+  min-width: unset;
+  max-width: 360px;
+  margin: 0 auto;
+  left: 12px;
+  right: 12px;
+  bottom: 96px;
 }
 
 .volume-modal-header {
