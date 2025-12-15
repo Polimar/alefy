@@ -701,15 +701,11 @@
 .volume-modal.mobile {
   width: auto;
   min-width: unset;
-  max-width: none;
-  max-height: calc(100vh - 24px);
+  max-width: 360px;
   margin: 0 auto;
   left: 12px;
   right: 12px;
-  top: 12px;
-  bottom: 12px;
-  display: flex;
-  flex-direction: column;
+  bottom: 96px;
 }
 
 .volume-modal-header {

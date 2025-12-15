@@ -373,6 +373,7 @@ export default function Player() {
   }, []);
 
   const toggleExpand = () => setIsExpanded((prev) => !prev);
+  const openExpanded = () => setIsExpanded(true);
   const toggleMiniQueue = () => setShowMiniQueue((prev) => !prev);
 
   // Il player è sempre visibile, anche senza traccia corrente
@@ -593,7 +594,7 @@ export default function Player() {
       <audio ref={audioRef} />
       <div className="player-mobile-bar" onClick={!isExpanded ? toggleExpand : undefined}>
         <div className="player-mobile-info">
-          <div className="player-album-art small">
+          <div className="player-album-art small" onClick={(e) => { e.stopPropagation(); openExpanded(); }}>
             {currentTrack && coverUrl ? (
               <img 
                 src={coverUrl} 
@@ -607,8 +608,12 @@ export default function Player() {
             )}
           </div>
           <div className="player-track-info">
-            <div className="track-title">{currentTrack?.title || 'Nessuna traccia'}</div>
-            <div className="track-artist">{currentTrack?.artist || 'Seleziona un brano'}</div>
+            <div className="track-title" onClick={(e) => { e.stopPropagation(); openExpanded(); }}>
+              {currentTrack?.title || 'Nessuna traccia'}
+            </div>
+            <div className="track-artist" onClick={(e) => { e.stopPropagation(); openExpanded(); }}>
+              {currentTrack?.artist || 'Seleziona un brano'}
+            </div>
           </div>
         </div>
         <div className="player-mobile-actions">
@@ -765,7 +770,7 @@ export default function Player() {
             onClick={(e) => e.stopPropagation()}
             style={
               isMobile
-                ? { top: '12px', left: '12px', right: '12px', bottom: '12px' }
+                ? { bottom: '96px', left: '12px', right: '12px' }
                 : { bottom: `${volumeModalPosition.bottom}px`, right: `${volumeModalPosition.right}px` }
             }
           >
