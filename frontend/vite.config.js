@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const domain = process.env.DOMAIN || 'alefy.duckdns.org';
+
 export default defineConfig({
   plugins: [
     react(),
@@ -63,9 +65,10 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0',
     allowedHosts: [
-      'alefy.duckdns.org',
+      domain,
       'localhost',
-      '.duckdns.org'
+      '.duckdns.org',
+      '.alevale.it'
     ],
     proxy: {
       '^/api': {
