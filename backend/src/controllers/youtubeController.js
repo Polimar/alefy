@@ -873,19 +873,21 @@ export const searchYouTube = async (req, res, next) => {
     
     // Usa ytsearch per cercare senza scaricare
     const searchQuery = `ytsearch${maxResults}:${query}`;
-    const command = `${ytdlpPath} "${searchQuery}" --dump-json --no-playlist ${cookiesFlag}`.trim();
+    // Aggiungi flag per ridurre output e warning
+    const extraArgs = '--extractor-args "youtube:player_client=default"';
+    const command = `${ytdlpPath} "${searchQuery}" --dump-json --no-playlist ${extraArgs} ${cookiesFlag}`.trim();
 
     // Timeout dinamico basato sul numero di risultati richiesti
     // Con cookies YouTube, le ricerche possono richiedere più tempo
     let timeoutMs = 30000; // Default 30s per 5-10 risultati
-    let maxBufferSize = 5 * 1024 * 1024; // 5MB default
+    let maxBufferSize = 20 * 1024 * 1024; // 20MB default (aumentato da 5MB per evitare buffer overflow)
     
     if (maxResults === 20) {
       timeoutMs = 60000; // 60s per 20 risultati
-      maxBufferSize = 10 * 1024 * 1024; // 10MB per più risultati
+      maxBufferSize = 40 * 1024 * 1024; // 40MB per più risultati
     } else if (maxResults === 50) {
       timeoutMs = 180000; // 180s per 50 risultati
-      maxBufferSize = 20 * 1024 * 1024; // 20MB per molti risultati
+      maxBufferSize = 100 * 1024 * 1024; // 100MB per molti risultati
     }
     
     // #region agent log
@@ -1264,11 +1266,12 @@ export const parseTimestampsFromVideo = async (req, res, next) => {
             // Ottieni cookies attivi se disponibili
             const cookiesPath = await getActiveCookiesPath();
             const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
-            const command = `${ytdlpPath} "${url}" --dump-json --no-playlist ${cookiesFlag}`.trim();
+            const extraArgs = '--extractor-args "youtube:player_client=default"';
+            const command = `${ytdlpPath} "${url}" --dump-json --no-playlist ${extraArgs} ${cookiesFlag}`.trim();
     
     try {
       const { stdout } = await execAsync(command, {
-        maxBuffer: 5 * 1024 * 1024, // 5MB
+        maxBuffer: 20 * 1024 * 1024, // 20MB (aumentato da 5MB)
         timeout: 30000 // 30 secondi
       });
 
