@@ -934,30 +934,16 @@ export const searchYouTube = async (req, res, next) => {
           parseSuccess++;
           // #endregion
           
-          // Estrai descrizione completa (non solo primi 200 caratteri)
-          const fullDescription = videoData.description || '';
           const duration = videoData.duration || 0;
           
-          // Rileva se è un album e estrai timestamp (con gestione errori)
-          let albumInfo = { isAlbum: false, tracks: [] };
-          let timestamps = [];
+          // Con --flat-playlist, description non è disponibile.
+          // Mostriamo "Possibile Album" per video > 20 minuti.
+          // L'album detection completa avviene al momento del download.
+          const MIN_ALBUM_DURATION = 20 * 60; // 20 minuti in secondi
+          const isPossibleAlbum = duration >= MIN_ALBUM_DURATION;
           
-          try {
-            albumInfo = detectAlbum(duration, fullDescription);
-            timestamps = albumInfo.tracks.length > 0 
-              ? albumInfo.tracks.map(t => ({
-                  startTime: t.startTime,
-                  endTime: t.endTime,
-                  title: t.title,
-                }))
-              : [];
-          } catch (albumError) {
-            console.error(`[YouTube Search] Errore rilevamento album per video ${videoData.id}:`, albumError.message);
-            // #region agent log
-            debugLog({location:'youtubeController.js:908',message:'album detection error',data:{videoId:videoData.id,error:albumError.message},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'});
-            // #endregion
-            // Continua senza album detection se c'è un errore
-          }
+          // Nessun timestamp disponibile dalla ricerca (saranno rilevati al download)
+          let timestamps = [];
           
           // Estrai thumbnail con fallback multipli
           let thumbnailUrl = null;
@@ -986,12 +972,12 @@ export const searchYouTube = async (req, res, next) => {
             channel: videoData.channel || videoData.uploader || 'Canale sconosciuto',
             duration: duration,
             thumbnail_url: thumbnailUrl,
-            description: fullDescription.substring(0, 500), // Mostra primi 500 caratteri per preview
-            full_description: fullDescription, // Descrizione completa per parsing
+            description: '', // Non disponibile con --flat-playlist
+            full_description: '', // Sarà ottenuta al momento del download
             view_count: videoData.view_count || 0,
             url: videoData.webpage_url || `https://www.youtube.com/watch?v=${videoData.id}`,
-            isAlbum: albumInfo.isAlbum,
-            timestamps: timestamps,
+            isAlbum: isPossibleAlbum, // Basato sulla durata (>20min), conferma al download
+            timestamps: timestamps, // Vuoto, saranno rilevati al download
           };
 
           results.push(result);
