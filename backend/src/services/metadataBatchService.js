@@ -6,6 +6,48 @@ import { recognizeWithShazam, isShazamAvailable } from '../utils/shazamService.j
 import path from 'path';
 import fs from 'fs/promises';
 
+// Coda per limitare processing concorrenti e evitare OOM
+const MAX_CONCURRENT_METADATA = parseInt(process.env.MAX_CONCURRENT_METADATA || '1', 10);
+let currentProcessing = 0;
+const pendingQueue = [];
+
+/**
+ * Wrapper che limita la concorrenza di processTrack
+ * @param {number} trackId - ID della traccia
+ */
+export function queueProcessTrack(trackId) {
+  return new Promise((resolve, reject) => {
+    const task = async () => {
+      currentProcessing++;
+      try {
+        const result = await processTrackInternal(trackId);
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      } finally {
+        currentProcessing--;
+        // Processa prossimo task in coda
+        if (pendingQueue.length > 0) {
+          const nextTask = pendingQueue.shift();
+          nextTask();
+        }
+        // Hint garbage collection dopo ogni traccia
+        if (global.gc) {
+          try { global.gc(); } catch (e) {}
+        }
+      }
+    };
+
+    if (currentProcessing < MAX_CONCURRENT_METADATA) {
+      task();
+    } else {
+      // Aggiungi alla coda
+      pendingQueue.push(task);
+      console.log(`[Metadata Queue] Traccia ${trackId} in coda (${pendingQueue.length} in attesa, ${currentProcessing} in corso)`);
+    }
+  });
+}
+
 /**
  * Determina se i metadati attuali sono di bassa qualità o mancanti
  * @param {Object} track - Traccia dal database
@@ -72,11 +114,20 @@ function mergeMetadata(current, newMetadata) {
 }
 
 /**
- * Processa una singola traccia per completare metadati
+ * Processa una singola traccia per completare metadati (wrapper con coda)
  * @param {number} trackId - ID della traccia
  * @returns {Promise<boolean>} - true se aggiornata, false altrimenti
  */
 export async function processTrack(trackId) {
+  return queueProcessTrack(trackId);
+}
+
+/**
+ * Processa una singola traccia per completare metadati (implementazione interna)
+ * @param {number} trackId - ID della traccia
+ * @returns {Promise<boolean>} - true se aggiornata, false altrimenti
+ */
+async function processTrackInternal(trackId) {
   try {
     // Recupera traccia dal database
     const trackResult = await pool.query(
