@@ -872,21 +872,22 @@ export const searchYouTube = async (req, res, next) => {
     }
     
     // Usa ytsearch per cercare senza scaricare
+    // IMPORTANTE: --flat-playlist restituisce solo metadati base (MOLTO più veloce)
+    // senza estrarre tutti i formati disponibili per ogni video
     const searchQuery = `ytsearch${maxResults}:${query}`;
-    // Aggiungi flag per velocizzare: no-warnings, skip format check, use default client
-    const extraArgs = '--no-warnings --no-check-formats --extractor-args "youtube:player_client=default"';
-    const command = `${ytdlpPath} "${searchQuery}" --dump-json --no-playlist ${extraArgs} ${cookiesFlag}`.trim();
+    const extraArgs = '--no-warnings --flat-playlist';
+    const command = `${ytdlpPath} "${searchQuery}" --dump-json ${extraArgs} ${cookiesFlag}`.trim();
 
-    // Timeout molto più lunghi per permettere a yt-dlp di completare anche query lente
-    let timeoutMs = 90000; // 90s per 5-10 risultati (aumentato da 30s)
-    let maxBufferSize = 20 * 1024 * 1024; // 20MB default
+    // Timeout ridotti grazie a --flat-playlist che è molto più veloce
+    let timeoutMs = 30000; // 30s per 5-10 risultati
+    let maxBufferSize = 5 * 1024 * 1024; // 5MB default (output ridotto)
     
     if (maxResults === 20) {
-      timeoutMs = 120000; // 120s per 20 risultati
-      maxBufferSize = 40 * 1024 * 1024; // 40MB per più risultati
+      timeoutMs = 45000; // 45s per 20 risultati
+      maxBufferSize = 10 * 1024 * 1024; // 10MB per più risultati
     } else if (maxResults === 50) {
-      timeoutMs = 240000; // 240s (4 minuti) per 50 risultati
-      maxBufferSize = 100 * 1024 * 1024; // 100MB per molti risultati
+      timeoutMs = 90000; // 90s per 50 risultati
+      maxBufferSize = 20 * 1024 * 1024; // 20MB per molti risultati
     }
     
     // #region agent log
