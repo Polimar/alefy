@@ -138,6 +138,23 @@ const usePlayerStore = create((set, get) => ({
     
     set({ currentTrack: queue[prevIndex] });
   },
+  
+  // Salta a una traccia specifica nella coda per indice
+  playFromQueue: (index) => {
+    const { queue } = get();
+    if (index >= 0 && index < queue.length) {
+      set({ currentTrack: queue[index], isPlaying: true });
+    }
+  },
+  
+  // Salta a una traccia specifica nella coda per ID
+  playTrackById: (trackId) => {
+    const { queue } = get();
+    const track = queue.find(t => t.id === trackId);
+    if (track) {
+      set({ currentTrack: track, isPlaying: true });
+    }
+  },
 }));
 
 export default usePlayerStore;

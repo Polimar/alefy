@@ -21,6 +21,7 @@ export default function Player() {
   const [isMobile, setIsMobile] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showMiniQueue, setShowMiniQueue] = useState(false);
+  const [showMobileQueue, setShowMobileQueue] = useState(false);
   const {
     currentTrack,
     isPlaying,
@@ -43,6 +44,7 @@ export default function Player() {
     toggleQueue,
     toggleEqualizer,
     toggleVolumeModal,
+    playFromQueue,
   } = usePlayerStore();
   
   const [coverUrl, setCoverUrl] = useState(null);
@@ -515,17 +517,28 @@ export default function Player() {
                     <button onClick={toggleMiniQueue} className="queue-popover-close">×</button>
                   </div>
                   <div className="queue-popover-list">
-                    {queue.slice(0, 6).map((track, idx) => (
-                      <div key={track.id} className="queue-popover-item">
+                    {queue.slice(0, 10).map((track, idx) => (
+                      <div 
+                        key={track.id} 
+                        className={`queue-popover-item clickable ${currentTrack?.id === track.id ? 'active' : ''}`}
+                        onClick={() => {
+                          playFromQueue(idx);
+                          setShowMiniQueue(false);
+                        }}
+                        title={`Riproduci "${track.title}"`}
+                      >
                         <span className="queue-popover-index">{idx + 1}</span>
                         <div className="queue-popover-info">
                           <div className="queue-popover-title">{track.title || 'Senza titolo'}</div>
                           <div className="queue-popover-artist">{track.artist || 'Sconosciuto'}</div>
                         </div>
+                        {currentTrack?.id === track.id && (
+                          <span className="queue-popover-playing">▶</span>
+                        )}
                       </div>
                     ))}
-                    {queue.length > 6 && (
-                      <div className="queue-popover-more">+ {queue.length - 6} altri</div>
+                    {queue.length > 10 && (
+                      <div className="queue-popover-more">+ {queue.length - 10} altri</div>
                     )}
                   </div>
                 </div>
@@ -752,8 +765,11 @@ export default function Player() {
                 </button>
               </div>
               {queue.length > 0 && (
-                <div className="queue-preview-mobile">
-                  <span>Coda ({queue.length})</span>
+                <div 
+                  className="queue-preview-mobile clickable"
+                  onClick={() => setShowMobileQueue(true)}
+                >
+                  <span>Coda ({queue.length}) ▶</span>
                 </div>
               )}
             </div>
@@ -799,6 +815,41 @@ export default function Player() {
                 style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
               />
               <span className="volume-percentage-modal">{Math.round(volume * 100)}%</span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Modal Coda Mobile */}
+      {showMobileQueue && (
+        <>
+          <div className="queue-modal-overlay" onClick={() => setShowMobileQueue(false)}></div>
+          <div className="queue-modal-mobile">
+            <div className="queue-modal-header">
+              <h3>Coda di riproduzione</h3>
+              <button onClick={() => setShowMobileQueue(false)} className="queue-modal-close">×</button>
+            </div>
+            <div className="queue-modal-list">
+              {queue.map((track, idx) => (
+                <div 
+                  key={track.id} 
+                  className={`queue-modal-item ${currentTrack?.id === track.id ? 'active' : ''}`}
+                  onClick={() => {
+                    playFromQueue(idx);
+                    setShowMobileQueue(false);
+                    setIsPlayerExpanded(false);
+                  }}
+                >
+                  <span className="queue-modal-index">{idx + 1}</span>
+                  <div className="queue-modal-info">
+                    <div className="queue-modal-title">{track.title || 'Senza titolo'}</div>
+                    <div className="queue-modal-artist">{track.artist || 'Sconosciuto'}</div>
+                  </div>
+                  {currentTrack?.id === track.id && (
+                    <span className="queue-modal-playing">▶</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </>
