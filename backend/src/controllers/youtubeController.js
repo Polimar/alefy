@@ -873,20 +873,19 @@ export const searchYouTube = async (req, res, next) => {
     
     // Usa ytsearch per cercare senza scaricare
     const searchQuery = `ytsearch${maxResults}:${query}`;
-    // Aggiungi flag per ridurre output e warning
-    const extraArgs = '--extractor-args "youtube:player_client=default"';
+    // Aggiungi flag per velocizzare: no-warnings, skip format check, use default client
+    const extraArgs = '--no-warnings --no-check-formats --extractor-args "youtube:player_client=default"';
     const command = `${ytdlpPath} "${searchQuery}" --dump-json --no-playlist ${extraArgs} ${cookiesFlag}`.trim();
 
-    // Timeout dinamico basato sul numero di risultati richiesti
-    // Con cookies YouTube, le ricerche possono richiedere più tempo
-    let timeoutMs = 30000; // Default 30s per 5-10 risultati
-    let maxBufferSize = 20 * 1024 * 1024; // 20MB default (aumentato da 5MB per evitare buffer overflow)
+    // Timeout molto più lunghi per permettere a yt-dlp di completare anche query lente
+    let timeoutMs = 90000; // 90s per 5-10 risultati (aumentato da 30s)
+    let maxBufferSize = 20 * 1024 * 1024; // 20MB default
     
     if (maxResults === 20) {
-      timeoutMs = 60000; // 60s per 20 risultati
+      timeoutMs = 120000; // 120s per 20 risultati
       maxBufferSize = 40 * 1024 * 1024; // 40MB per più risultati
     } else if (maxResults === 50) {
-      timeoutMs = 180000; // 180s per 50 risultati
+      timeoutMs = 240000; // 240s (4 minuti) per 50 risultati
       maxBufferSize = 100 * 1024 * 1024; // 100MB per molti risultati
     }
     
@@ -1266,13 +1265,13 @@ export const parseTimestampsFromVideo = async (req, res, next) => {
             // Ottieni cookies attivi se disponibili
             const cookiesPath = await getActiveCookiesPath();
             const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
-            const extraArgs = '--extractor-args "youtube:player_client=default"';
+            const extraArgs = '--no-warnings --no-check-formats --extractor-args "youtube:player_client=default"';
             const command = `${ytdlpPath} "${url}" --dump-json --no-playlist ${extraArgs} ${cookiesFlag}`.trim();
     
     try {
       const { stdout } = await execAsync(command, {
-        maxBuffer: 20 * 1024 * 1024, // 20MB (aumentato da 5MB)
-        timeout: 30000 // 30 secondi
+        maxBuffer: 20 * 1024 * 1024, // 20MB
+        timeout: 90000 // 90 secondi (aumentato da 30s)
       });
 
       const videoData = JSON.parse(stdout.trim());
