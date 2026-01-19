@@ -825,21 +825,11 @@ export const resumeJob = async (req, res, next) => {
 };
 
 export const searchYouTube = async (req, res, next) => {
-  // #region agent log
-  const debugLog = (data) => {
-    console.log('[DEBUG-YT]', JSON.stringify({...data, timestamp: Date.now()}));
-  };
-  // #endregion
-
   try {
     const validatedData = searchSchema.parse(req.query);
     const { q: query, limit, albumOnly } = validatedData;
     const maxResults = parseInt(limit, 10);
     const filterAlbumsOnly = albumOnly === 'true';
-
-    // #region agent log
-    debugLog({location:'youtubeController.js:827',message:'searchYouTube entry',data:{query,limit,albumOnly,maxResults,filterAlbumsOnly},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1,H2,H3,H4,H5'});
-    // #endregion
 
     console.log(`[YouTube Search] Ricerca: "${query}", Limite: ${maxResults}`);
 
@@ -849,21 +839,6 @@ export const searchYouTube = async (req, res, next) => {
     // Ottieni cookies attivi se disponibili
     const cookiesPath = await getActiveCookiesPath();
     const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
-    
-    // #region agent log
-    let cookiesExist = false;
-    let cookiesSize = 0;
-    if (cookiesPath) {
-      try {
-        const cookiesStats = await fs.stat(cookiesPath);
-        cookiesExist = true;
-        cookiesSize = cookiesStats.size;
-      } catch (e) {
-        cookiesExist = false;
-      }
-    }
-    debugLog({location:'youtubeController.js:840',message:'cookies check',data:{cookiesPath,cookiesFlag,cookiesExist,cookiesSize},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1'});
-    // #endregion
     
     if (cookiesPath) {
       console.log(`[YouTube Search] Usando cookies da: ${cookiesPath}`);
@@ -890,10 +865,6 @@ export const searchYouTube = async (req, res, next) => {
       maxBufferSize = 20 * 1024 * 1024; // 20MB per molti risultati
     }
     
-    // #region agent log
-    debugLog({location:'youtubeController.js:866',message:'command before exec',data:{command,searchQuery,timeoutMs,maxBufferSize},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H4,H5'});
-    // #endregion
-    
     console.log(`[YouTube Search] Esecuzione comando yt-dlp... (timeout: ${timeoutMs}ms, buffer: ${maxBufferSize / 1024 / 1024}MB)`);
     const startTime = Date.now();
 
@@ -906,10 +877,6 @@ export const searchYouTube = async (req, res, next) => {
       const duration = Date.now() - startTime;
       console.log(`[YouTube Search] Comando completato in ${duration}ms`);
 
-      // #region agent log
-      debugLog({location:'youtubeController.js:875',message:'command completed',data:{duration,stdoutLength:stdout?.length||0,stderrLength:stderr?.length||0,stderrPreview:stderr?.substring(0,300),stdoutPreview:stdout?.substring(0,500)},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H2,H3,H4'});
-      // #endregion
-
       if (stderr && !stderr.includes('WARNING')) {
         console.log(`[YouTube Search] stderr: ${stderr.substring(0, 500)}`);
       }
@@ -917,23 +884,10 @@ export const searchYouTube = async (req, res, next) => {
       // Parse JSON results - yt-dlp restituisce un JSON per riga
       const lines = stdout.trim().split('\n').filter(line => line.trim());
       const results = [];
-      
-      // #region agent log
-      debugLog({location:'youtubeController.js:883',message:'before parsing lines',data:{totalLines:lines.length,firstLinePreview:lines[0]?.substring(0,200)},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'});
-      // #endregion
-
-      // #region agent log
-      let parseErrors = 0;
-      let parseSuccess = 0;
-      // #endregion
 
       for (const line of lines) {
         try {
           const videoData = JSON.parse(line);
-          // #region agent log
-          parseSuccess++;
-          // #endregion
-          
           const duration = videoData.duration || 0;
           
           // Con --flat-playlist, description non è disponibile.
@@ -983,17 +937,9 @@ export const searchYouTube = async (req, res, next) => {
           results.push(result);
         } catch (parseError) {
           console.error(`[YouTube Search] Errore parsing JSON:`, parseError.message);
-          // #region agent log
-          parseErrors++;
-          debugLog({location:'youtubeController.js:970',message:'JSON parse error',data:{error:parseError.message,linePreview:line?.substring(0,200)},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'});
-          // #endregion
           // Continua con il prossimo risultato
         }
       }
-
-      // #region agent log
-      debugLog({location:'youtubeController.js:975',message:'parsing summary',data:{parseSuccess,parseErrors,totalResults:results.length},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'});
-      // #endregion
 
       // Filtra per durata > 20 minuti se albumOnly è attivo
       let filteredResults = results;
@@ -1004,10 +950,6 @@ export const searchYouTube = async (req, res, next) => {
       }
 
       console.log(`[YouTube Search] Trovati ${filteredResults.length} risultati${filterAlbumsOnly ? ' (filtrati per album)' : ''}`);
-
-      // #region agent log
-      debugLog({location:'youtubeController.js:991',message:'search success before response',data:{filteredCount:filteredResults.length,totalCount:results.length,query},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1,H2,H3,H4,H5'});
-      // #endregion
 
       res.json({
         success: true,
@@ -1023,10 +965,6 @@ export const searchYouTube = async (req, res, next) => {
       console.error(`[YouTube Search] Errore dopo ${duration}ms:`, error.message);
       console.error(`[YouTube Search] stdout:`, error.stdout?.substring(0, 500));
       console.error(`[YouTube Search] stderr:`, error.stderr?.substring(0, 500));
-      
-      // #region agent log
-      debugLog({location:'youtubeController.js:1010',message:'search FAILED',data:{error:error.message,errorCode:error.code,duration,stdoutPreview:error.stdout?.substring(0,500),stderrPreview:error.stderr?.substring(0,500),query},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1,H2,H3,H4,H5'});
-      // #endregion
       
       const errorMessage = error.stderr?.includes('ERROR')
         ? error.stderr.split('ERROR')[1]?.substring(0, 200) || error.message
