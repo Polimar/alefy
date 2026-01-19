@@ -825,6 +825,15 @@ export const resumeJob = async (req, res, next) => {
 };
 
 export const searchYouTube = async (req, res, next) => {
+  // #region agent log
+  const DEBUG_LOG = '/tmp/youtube-search-debug.log';
+  const debugLog = (data) => {
+    try {
+      fs.appendFile(DEBUG_LOG, JSON.stringify({...data, timestamp: Date.now()}) + '\n').catch(() => {});
+    } catch (e) {}
+  };
+  // #endregion
+
   try {
     const validatedData = searchSchema.parse(req.query);
     const { q: query, limit, albumOnly } = validatedData;
@@ -832,7 +841,7 @@ export const searchYouTube = async (req, res, next) => {
     const filterAlbumsOnly = albumOnly === 'true';
 
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:827',message:'searchYouTube entry',data:{query,limit,albumOnly,maxResults,filterAlbumsOnly},timestamp:Date.now(),sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1,H2,H3,H4,H5'})}).catch(()=>{});
+    debugLog({location:'youtubeController.js:827',message:'searchYouTube entry',data:{query,limit,albumOnly,maxResults,filterAlbumsOnly},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1,H2,H3,H4,H5'});
     // #endregion
 
     console.log(`[YouTube Search] Ricerca: "${query}", Limite: ${maxResults}`);
@@ -856,7 +865,7 @@ export const searchYouTube = async (req, res, next) => {
         cookiesExist = false;
       }
     }
-    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:840',message:'cookies check',data:{cookiesPath,cookiesFlag,cookiesExist,cookiesSize},timestamp:Date.now(),sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1'})}).catch(()=>{});
+    debugLog({location:'youtubeController.js:840',message:'cookies check',data:{cookiesPath,cookiesFlag,cookiesExist,cookiesSize},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1'});
     // #endregion
     
     if (cookiesPath) {
@@ -883,7 +892,7 @@ export const searchYouTube = async (req, res, next) => {
     }
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:866',message:'command before exec',data:{command,searchQuery,timeoutMs,maxBufferSize},timestamp:Date.now(),sessionId:'debug-session',runId:'search-debug',hypothesisId:'H4,H5'})}).catch(()=>{});
+    debugLog({location:'youtubeController.js:866',message:'command before exec',data:{command,searchQuery,timeoutMs,maxBufferSize},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H4,H5'});
     // #endregion
     
     console.log(`[YouTube Search] Esecuzione comando yt-dlp... (timeout: ${timeoutMs}ms, buffer: ${maxBufferSize / 1024 / 1024}MB)`);
@@ -899,7 +908,7 @@ export const searchYouTube = async (req, res, next) => {
       console.log(`[YouTube Search] Comando completato in ${duration}ms`);
 
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:875',message:'command completed',data:{duration,stdoutLength:stdout?.length||0,stderrLength:stderr?.length||0,stderrPreview:stderr?.substring(0,300),stdoutPreview:stdout?.substring(0,500)},timestamp:Date.now(),sessionId:'debug-session',runId:'search-debug',hypothesisId:'H2,H3,H4'})}).catch(()=>{});
+      debugLog({location:'youtubeController.js:875',message:'command completed',data:{duration,stdoutLength:stdout?.length||0,stderrLength:stderr?.length||0,stderrPreview:stderr?.substring(0,300),stdoutPreview:stdout?.substring(0,500)},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H2,H3,H4'});
       // #endregion
 
       if (stderr && !stderr.includes('WARNING')) {
@@ -911,7 +920,7 @@ export const searchYouTube = async (req, res, next) => {
       const results = [];
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:883',message:'before parsing lines',data:{totalLines:lines.length,firstLinePreview:lines[0]?.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'})}).catch(()=>{});
+      debugLog({location:'youtubeController.js:883',message:'before parsing lines',data:{totalLines:lines.length,firstLinePreview:lines[0]?.substring(0,200)},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'});
       // #endregion
 
       // #region agent log
@@ -946,7 +955,7 @@ export const searchYouTube = async (req, res, next) => {
           } catch (albumError) {
             console.error(`[YouTube Search] Errore rilevamento album per video ${videoData.id}:`, albumError.message);
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:908',message:'album detection error',data:{videoId:videoData.id,error:albumError.message},timestamp:Date.now(),sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'})}).catch(()=>{});
+            debugLog({location:'youtubeController.js:908',message:'album detection error',data:{videoId:videoData.id,error:albumError.message},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'});
             // #endregion
             // Continua senza album detection se c'è un errore
           }
@@ -991,14 +1000,14 @@ export const searchYouTube = async (req, res, next) => {
           console.error(`[YouTube Search] Errore parsing JSON:`, parseError.message);
           // #region agent log
           parseErrors++;
-          fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:970',message:'JSON parse error',data:{error:parseError.message,linePreview:line?.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'})}).catch(()=>{});
+          debugLog({location:'youtubeController.js:970',message:'JSON parse error',data:{error:parseError.message,linePreview:line?.substring(0,200)},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'});
           // #endregion
           // Continua con il prossimo risultato
         }
       }
 
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:975',message:'parsing summary',data:{parseSuccess,parseErrors,totalResults:results.length},timestamp:Date.now(),sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'})}).catch(()=>{});
+      debugLog({location:'youtubeController.js:975',message:'parsing summary',data:{parseSuccess,parseErrors,totalResults:results.length},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H3'});
       // #endregion
 
       // Filtra per durata > 20 minuti se albumOnly è attivo
@@ -1012,7 +1021,7 @@ export const searchYouTube = async (req, res, next) => {
       console.log(`[YouTube Search] Trovati ${filteredResults.length} risultati${filterAlbumsOnly ? ' (filtrati per album)' : ''}`);
 
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:991',message:'search success before response',data:{filteredCount:filteredResults.length,totalCount:results.length,query},timestamp:Date.now(),sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1,H2,H3,H4,H5'})}).catch(()=>{});
+      debugLog({location:'youtubeController.js:991',message:'search success before response',data:{filteredCount:filteredResults.length,totalCount:results.length,query},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1,H2,H3,H4,H5'});
       // #endregion
 
       res.json({
@@ -1031,7 +1040,7 @@ export const searchYouTube = async (req, res, next) => {
       console.error(`[YouTube Search] stderr:`, error.stderr?.substring(0, 500));
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:1010',message:'search FAILED',data:{error:error.message,errorCode:error.code,duration,stdoutPreview:error.stdout?.substring(0,500),stderrPreview:error.stderr?.substring(0,500),query},timestamp:Date.now(),sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1,H2,H3,H4,H5'})}).catch(()=>{});
+      debugLog({location:'youtubeController.js:1010',message:'search FAILED',data:{error:error.message,errorCode:error.code,duration,stdoutPreview:error.stdout?.substring(0,500),stderrPreview:error.stderr?.substring(0,500),query},sessionId:'debug-session',runId:'search-debug',hypothesisId:'H1,H2,H3,H4,H5'});
       // #endregion
       
       const errorMessage = error.stderr?.includes('ERROR')
