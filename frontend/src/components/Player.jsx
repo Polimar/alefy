@@ -66,6 +66,9 @@ export default function Player() {
     };
     
     const handleCanPlay = () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Player.jsx:handleCanPlay',message:'Audio canplay event',data:{trackId:currentTrack?.id,readyState:audio.readyState,duration:audio.duration},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
       // Quando l'audio è pronto, aggiorna la durata
       updateDuration();
       // Se isPlaying è true e l'audio è pronto, riproduci automaticamente
@@ -167,6 +170,10 @@ export default function Player() {
     }
 
     const loadAudio = async () => {
+      // #region agent log
+      const loadStartTime = Date.now();
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Player.jsx:loadAudio:start',message:'Inizio caricamento audio',data:{trackId:currentTrack?.id,trackTitle:currentTrack?.title,loadStartTime},timestamp:loadStartTime,sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
       try {
         setLoading(true);
         setError(null);
@@ -242,6 +249,9 @@ export default function Player() {
         blobUrlRef.current = URL.createObjectURL(blob);
         audio.src = blobUrlRef.current;
         audio.load();
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Player.jsx:loadAudio:end',message:'Audio caricato',data:{trackId:currentTrack?.id,blobSize:blob.size,elapsed:Date.now()-loadStartTime},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+        // #endregion
         
         // L'auto-play sarà gestito dal useEffect che monitora isPlaying
         // Non serve aggiungere listener qui perché il useEffect per isPlaying lo gestirà

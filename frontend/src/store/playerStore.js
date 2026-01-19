@@ -95,6 +95,10 @@ const usePlayerStore = create((set, get) => ({
   toggleVolumeModal: () => set((state) => ({ showVolumeModal: !state.showVolumeModal })),
   
   next: () => {
+    // #region agent log
+    const startTime = Date.now();
+    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'playerStore.js:next:start',message:'next() chiamato',data:{startTime},timestamp:startTime,sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+    // #endregion
     const { queue, currentTrack, shuffle, repeat, isPlaying } = get();
     if (queue.length === 0) return;
     
@@ -126,6 +130,9 @@ const usePlayerStore = create((set, get) => ({
     }
     
     // Mantieni isPlaying a true per auto-play il prossimo brano
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'playerStore.js:next:set',message:'next() set traccia',data:{nextIndex,nextTrackId:queue[nextIndex]?.id,nextTrackTitle:queue[nextIndex]?.title,elapsed:Date.now()-startTime},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+    // #endregion
     set({ currentTrack: queue[nextIndex], isPlaying: isPlaying });
   },
   
@@ -141,8 +148,14 @@ const usePlayerStore = create((set, get) => ({
   
   // Salta a una traccia specifica nella coda per indice
   playFromQueue: (index) => {
-    const { queue } = get();
+    const { queue, currentTrack } = get();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'playerStore.js:playFromQueue',message:'playFromQueue chiamato',data:{index,queueLength:queue.length,currentTrackId:currentTrack?.id,targetTrackId:queue[index]?.id,targetTrackTitle:queue[index]?.title},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1-H2'})}).catch(()=>{});
+    // #endregion
     if (index >= 0 && index < queue.length) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'playerStore.js:playFromQueue:set',message:'Imposto nuova traccia',data:{newTrackId:queue[index].id,newTrackTitle:queue[index].title},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
       set({ currentTrack: queue[index], isPlaying: true });
     }
   },
