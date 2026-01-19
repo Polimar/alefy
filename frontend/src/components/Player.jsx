@@ -527,7 +527,7 @@ export default function Player() {
                     <button onClick={toggleMiniQueue} className="queue-popover-close">×</button>
                   </div>
                   <div className="queue-popover-list">
-                    {queue.slice(0, 10).map((track, idx) => (
+                    {queue.map((track, idx) => (
                       <div 
                         key={track.id} 
                         className={`queue-popover-item clickable ${currentTrack?.id === track.id ? 'active' : ''}`}
@@ -547,9 +547,6 @@ export default function Player() {
                         )}
                       </div>
                     ))}
-                    {queue.length > 10 && (
-                      <div className="queue-popover-more">+ {queue.length - 10} altri</div>
-                    )}
                   </div>
                 </div>
               )}
@@ -777,7 +774,11 @@ export default function Player() {
               {queue.length > 0 && (
                 <div 
                   className="queue-preview-mobile clickable"
-                  onClick={() => setShowMobileQueue(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMobileQueue(true);
+                    setIsPlayerExpanded(false); // Chiude il fullscreen prima di aprire la coda
+                  }}
                 >
                   <span>Coda ({queue.length}) ▶</span>
                 </div>
