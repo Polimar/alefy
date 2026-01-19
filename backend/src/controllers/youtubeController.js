@@ -826,11 +826,8 @@ export const resumeJob = async (req, res, next) => {
 
 export const searchYouTube = async (req, res, next) => {
   // #region agent log
-  const DEBUG_LOG = '/tmp/youtube-search-debug.log';
   const debugLog = (data) => {
-    try {
-      fs.appendFile(DEBUG_LOG, JSON.stringify({...data, timestamp: Date.now()}) + '\n').catch(() => {});
-    } catch (e) {}
+    console.log('[DEBUG-YT]', JSON.stringify({...data, timestamp: Date.now()}));
   };
   // #endregion
 
