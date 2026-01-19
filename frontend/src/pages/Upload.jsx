@@ -368,6 +368,57 @@ export default function Upload() {
     });
   };
 
+  // Carica timestamp per un album cliccando sul badge
+  const handleLoadTimestamps = async (result) => {
+    // Evita chiamate duplicate
+    if (parsingTimestamps.has(result.id)) return;
+    
+    // Aggiungi al set di parsing in corso
+    setParsingTimestamps(prev => new Set([...prev, result.id]));
+    
+    try {
+      const response = await api.post('/youtube/parse-timestamps', {
+        url: result.url,
+      });
+      
+      const tracks = response.data.data.tracks || [];
+      
+      if (tracks.length > 0) {
+        // Salva i timestamp parsati
+        setParsedTimestamps(prev => ({
+          ...prev,
+          [result.id]: tracks,
+        }));
+        
+        // Inizializza tutte le tracce come selezionate
+        setSelectedTracks(prev => ({
+          ...prev,
+          [result.id]: new Set(tracks.map((_, idx) => idx)),
+        }));
+        
+        // Espandi la lista tracce automaticamente
+        setExpandedTracks(prev => ({
+          ...prev,
+          [result.id]: true,
+        }));
+      } else {
+        // Nessun timestamp trovato
+        setSearchError(`Nessun timestamp trovato per "${result.title}"`);
+      }
+    } catch (error) {
+      console.error('Errore parsing timestamp:', error);
+      const errorMessage = error.response?.data?.error?.message || error.message || 'Errore nel parsing dei timestamp';
+      setSearchError(errorMessage);
+    } finally {
+      // Rimuovi dal set di parsing in corso
+      setParsingTimestamps(prev => {
+        const next = new Set(prev);
+        next.delete(result.id);
+        return next;
+      });
+    }
+  };
+
   const startPolling = () => {
     if (!pollingIntervalRef.current) {
       const fetchQueue = async () => {
@@ -607,8 +658,26 @@ export default function Upload() {
                     <div className="result-title-row">
                       <h4 className="result-title">{result.title}</h4>
                       {result.isAlbum && (
-                        <span className="album-badge" title="Album completo - verrà diviso automaticamente in tracce">
-                          Album
+                        <span 
+                          className={`album-badge ${parsedTimestamps[result.id] ? 'loaded' : 'clickable'} ${parsingTimestamps.has(result.id) ? 'loading' : ''}`}
+                          title={parsedTimestamps[result.id] ? `${parsedTimestamps[result.id].length} tracce rilevate` : "Clicca per rilevare le tracce dell'album"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!parsedTimestamps[result.id] && !parsingTimestamps.has(result.id)) {
+                              handleLoadTimestamps(result);
+                            }
+                          }}
+                        >
+                          {parsingTimestamps.has(result.id) ? (
+                            <>
+                              <Loader size={12} className="spinner" />
+                              Caricamento...
+                            </>
+                          ) : parsedTimestamps[result.id] ? (
+                            `Album (${parsedTimestamps[result.id].length} tracce)`
+                          ) : (
+                            'Album ▶'
+                          )}
                         </span>
                       )}
                     </div>

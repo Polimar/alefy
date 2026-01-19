@@ -245,7 +245,9 @@
 }
 
 .album-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 4px 8px;
   background-color: var(--accent, #1db954);
   color: white;
@@ -254,6 +256,34 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+}
+
+.album-badge.clickable {
+  cursor: pointer;
+}
+
+.album-badge.clickable:hover {
+  background-color: var(--accent-hover, #1ed760);
+  transform: scale(1.05);
+}
+
+.album-badge.loaded {
+  background-color: #4caf50;
+}
+
+.album-badge.loading {
+  background-color: #ff9800;
+  cursor: wait;
+}
+
+.album-badge .spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .result-description {
