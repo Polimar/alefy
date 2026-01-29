@@ -122,3 +122,5 @@ echo "3. Verifica che i file esistano in /var/www/alefy"
 echo "4. Se ci sono processi nginx attivi, fermali: systemctl stop nginx"
 echo ""
 
+
+

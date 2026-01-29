@@ -48,6 +48,7 @@ media/
 
 # Docker
 docker-compose.override.yml
+docker/traefik/letsencrypt/
 
 # Android
 android/.gradle/

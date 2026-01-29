@@ -17,6 +17,8 @@ Per far partire l’API con token permanente su alefy.alevale.it:
 2. **Esegui lo script di aggiornamento** (aggiorna repo, backend, migration 008, frontend, riavvio):
    ```bash
    cd /tmp/alefy
+   # Se git segnala "dubious ownership" (repo clonato da altro utente), una tantum:
+   git config --global --add safe.directory /tmp/alefy
    git pull origin main
    DOMAIN=alefy.alevale.it ./scripts/lxc-update.sh
    ```

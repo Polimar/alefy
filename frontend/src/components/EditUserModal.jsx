@@ -59,6 +59,9 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin
       const response = await api.get('/api-tokens');
       if (response.data.success && response.data.data.tokens) {
         const forUser = response.data.data.tokens.filter((t) => t.user_id === user.id);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditUserModal.loadApiTokens:beforeSet',message:'about to setApiTokens',data:{count:forUser.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+        // #endregion
         setApiTokens(forUser);
       }
     } catch (err) {
@@ -70,6 +73,9 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin
 
   const handleCreateToken = async (e) => {
     e.preventDefault();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditUserModal.handleCreateToken:entry',message:'handleCreateToken called',data:{userId:user?.id,name:newTokenName},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
     if (!newTokenName.trim() || !user?.id) return;
     try {
       setCreatingToken(true);
@@ -77,6 +83,10 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin
         name: newTokenName.trim(),
         user_id: user.id,
       });
+      // #region agent log
+      const hasToken = !!(response?.data?.data?.token); const success = !!response?.data?.success;
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditUserModal.handleCreateToken:afterPost',message:'response received',data:{success,hasToken},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+      // #endregion
       if (response.data.success && response.data.data.token) {
         setCreatedTokenPlain(response.data.data.token);
         setShowCreateToken(false);
@@ -84,8 +94,11 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin
         loadApiTokens();
       }
     } catch (err) {
-      console.error('Error creating API token:', err);
       const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Errore nella creazione del token';
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditUserModal.handleCreateToken:catch',message:'create token error',data:{status:err.response?.status,msgType:typeof msg,msgLen:typeof msg==='string'?msg.length:0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2,H4'})}).catch(()=>{});
+      // #endregion
+      console.error('Error creating API token:', err);
       setError(msg);
     } finally {
       setCreatingToken(false);
@@ -145,6 +158,9 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditUserModal.handleSubmit:entry',message:'handleSubmit (edit user form) called',data:{userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
     if (!user) return;
 
     setLoading(true);
