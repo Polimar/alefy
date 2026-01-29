@@ -231,6 +231,233 @@
   cursor: pointer;
 }
 
+/* Token API section */
+.user-api-tokens {
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+}
+
+.user-api-tokens h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-api-tokens h3 svg {
+  color: var(--accent);
+}
+
+.api-tokens-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+}
+
+.api-tokens-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.api-tokens-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.api-tokens-empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 12px;
+  text-align: center;
+}
+
+.api-token-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.api-token-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.api-token-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.api-token-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.api-token-revoke {
+  flex-shrink: 0;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background 0.2s;
+}
+
+.api-token-revoke:hover:not(:disabled) {
+  color: #f44336;
+  background: rgba(244, 67, 54, 0.1);
+}
+
+.api-token-revoke:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-create-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btn-create-token:hover {
+  background: rgba(29, 185, 84, 0.1);
+  color: #1ed760;
+}
+
+.api-token-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.api-token-name-input {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.api-token-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.api-token-create-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-user-form .btn-small {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.api-token-new-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.api-token-new-box {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 480px;
+  width: 100%;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.api-token-new-box h4 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.api-token-warning {
+  font-size: 13px;
+  color: #ffc107;
+  margin: 0 0 12px 0;
+}
+
+.api-token-value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.api-token-value {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.btn-copy-token {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-copy-token:hover {
+  background: #1ed760;
+}
+
 .edit-user-form .form-actions {
   display: flex;
   justify-content: flex-end;

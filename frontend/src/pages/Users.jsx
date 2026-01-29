@@ -269,6 +269,7 @@ export default function Users() {
           setEditingUser(null);
         }}
         onUpdate={handleUserUpdated}
+        isAdmin={currentUser?.is_admin ?? false}
       />
     </div>
   );

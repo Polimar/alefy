@@ -8,6 +8,43 @@ ssh root@192.168.1.186
 # Password: Polimar75
 ```
 
+## Deploy nuova implementazione (API token) su alefy.alevale.it
+
+Per far partire l’API con token permanente su alefy.alevale.it:
+
+1. **Connettiti al CT** (vedi sopra).
+
+2. **Esegui lo script di aggiornamento** (aggiorna repo, backend, migration 008, frontend, riavvio):
+   ```bash
+   cd /tmp/alefy
+   git pull origin main
+   DOMAIN=alefy.alevale.it ./scripts/lxc-update.sh
+   ```
+   Se il repo è in un’altra directory:
+   ```bash
+   cd /opt/alefy/repo   # oppure il path dove hai clonato
+   git pull origin main
+   DOMAIN=alefy.alevale.it REPO_DIR=/opt/alefy/repo ./scripts/lxc-update.sh
+   ```
+
+3. **Verifica**: lo script esegue già le migration (inclusa `008_add_api_tokens`). Controlla che il backend risponda:
+   ```bash
+   curl -s http://localhost:3000/api/health
+   ```
+
+4. **Crea il primo token API** (da un client con JWT admin, es. browser loggato come admin):
+   ```bash
+   curl -X POST https://alefy.alevale.it/api/api-tokens \
+     -H "Authorization: Bearer <JWT_ACCESS_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Beat Saber client"}'
+   ```
+   Salva il valore `data.token` dalla risposta; non viene più restituito.
+
+Documentazione completa API: [docs/EXTERNAL_API.md](EXTERNAL_API.md).
+
+---
+
 ## Aggiornamento Completo dell'Applicazione
 
 ### Metodo 1: Script Automatico (Consigliato)

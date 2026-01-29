@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Key, Plus, Trash2, Copy, Check } from 'lucide-react';
 import api from '../utils/api';
 import './EditUserModal.css';
 
-export default function EditUserModal({ user, isOpen, onClose, onUpdate }) {
+export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin }) {
   const [formData, setFormData] = useState({
     email: '',
     username: '',
@@ -14,6 +14,14 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate }) {
   const [loading, setLoading] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
   const [error, setError] = useState('');
+  const [apiTokens, setApiTokens] = useState([]);
+  const [loadingTokens, setLoadingTokens] = useState(false);
+  const [showCreateToken, setShowCreateToken] = useState(false);
+  const [newTokenName, setNewTokenName] = useState('');
+  const [creatingToken, setCreatingToken] = useState(false);
+  const [createdTokenPlain, setCreatedTokenPlain] = useState(null);
+  const [revokingId, setRevokingId] = useState(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
 
   useEffect(() => {
     if (user && isOpen) {
@@ -24,9 +32,11 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate }) {
         is_admin: user.is_admin || false,
       });
       setError('');
+      setCreatedTokenPlain(null);
       loadUserStats();
+      if (isAdmin) loadApiTokens();
     }
-  }, [user, isOpen]);
+  }, [user, isOpen, isAdmin]);
 
   const loadUserStats = async () => {
     if (!user?.id) return;
@@ -41,6 +51,80 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate }) {
     } finally {
       setLoadingStats(false);
     }
+  };
+
+  const loadApiTokens = async () => {
+    try {
+      setLoadingTokens(true);
+      const response = await api.get('/api-tokens');
+      if (response.data.success && response.data.data.tokens) {
+        const forUser = response.data.data.tokens.filter((t) => t.user_id === user.id);
+        setApiTokens(forUser);
+      }
+    } catch (err) {
+      console.error('Error loading API tokens:', err);
+    } finally {
+      setLoadingTokens(false);
+    }
+  };
+
+  const handleCreateToken = async (e) => {
+    e.preventDefault();
+    if (!newTokenName.trim() || !user?.id) return;
+    try {
+      setCreatingToken(true);
+      const response = await api.post('/api-tokens', {
+        name: newTokenName.trim(),
+        user_id: user.id,
+      });
+      if (response.data.success && response.data.data.token) {
+        setCreatedTokenPlain(response.data.data.token);
+        setShowCreateToken(false);
+        setNewTokenName('');
+        loadApiTokens();
+      }
+    } catch (err) {
+      console.error('Error creating API token:', err);
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Errore nella creazione del token';
+      setError(msg);
+    } finally {
+      setCreatingToken(false);
+    }
+  };
+
+  const handleRevokeToken = async (tokenId) => {
+    if (!confirm('Revocare questo token? Non potrà più essere usato.')) return;
+    try {
+      setRevokingId(tokenId);
+      await api.delete(`/api-tokens/${tokenId}`);
+      loadApiTokens();
+    } catch (err) {
+      console.error('Error revoking token:', err);
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  const handleCopyToken = async () => {
+    if (!createdTokenPlain) return;
+    try {
+      await navigator.clipboard.writeText(createdTokenPlain);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  };
+
+  const formatTokenDate = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const handleInputChange = (e) => {
@@ -230,6 +314,137 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate }) {
               <span>Amministratore</span>
             </label>
           </div>
+
+          {/* Token API (solo admin) */}
+          {isAdmin && (
+            <div className="user-api-tokens">
+              <h3>
+                <Key size={16} />
+                Token API
+              </h3>
+              <p className="api-tokens-hint">
+                I token permettono a software esterni (es. Beat Saber) di accedere all&apos;API con questo utente.
+              </p>
+              {loadingTokens ? (
+                <div className="api-tokens-loading">
+                  <Loader2 size={18} className="spinning" />
+                  Caricamento token...
+                </div>
+              ) : (
+                <>
+                  <div className="api-tokens-list">
+                    {apiTokens.length === 0 ? (
+                      <div className="api-tokens-empty">Nessun token per questo utente.</div>
+                    ) : (
+                      apiTokens.map((t) => (
+                        <div key={t.id} className="api-token-row">
+                          <div className="api-token-info">
+                            <span className="api-token-name">{t.name}</span>
+                            <span className="api-token-meta">
+                              Creato {formatTokenDate(t.created_at)}
+                              {t.last_used_at && ` · Ultimo uso ${formatTokenDate(t.last_used_at)}`}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="api-token-revoke"
+                            onClick={() => handleRevokeToken(t.id)}
+                            disabled={revokingId === t.id}
+                            title="Revoca token"
+                          >
+                            {revokingId === t.id ? (
+                              <Loader2 size={14} className="spinning" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  {!showCreateToken ? (
+                    <button
+                      type="button"
+                      className="btn-create-token"
+                      onClick={() => setShowCreateToken(true)}
+                    >
+                      <Plus size={16} />
+                      Crea token
+                    </button>
+                  ) : (
+                    <form onSubmit={handleCreateToken} className="api-token-create-form">
+                      <input
+                        type="text"
+                        value={newTokenName}
+                        onChange={(e) => setNewTokenName(e.target.value)}
+                        placeholder="Nome (es. Beat Saber client)"
+                        className="api-token-name-input"
+                        autoFocus
+                        maxLength={255}
+                      />
+                      <div className="api-token-create-actions">
+                        <button
+                          type="button"
+                          className="btn-secondary btn-small"
+                          onClick={() => {
+                            setShowCreateToken(false);
+                            setNewTokenName('');
+                          }}
+                        >
+                          Annulla
+                        </button>
+                        <button
+                          type="submit"
+                          className="btn-primary btn-small"
+                          disabled={creatingToken || !newTokenName.trim()}
+                        >
+                          {creatingToken ? (
+                            <>
+                              <Loader2 size={14} className="spinning" />
+                              Creazione...
+                            </>
+                          ) : (
+                            'Crea'
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Mostra token appena creato (copia una sola volta) */}
+          {createdTokenPlain && (
+            <div className="api-token-new-overlay">
+              <div className="api-token-new-box">
+                <h4>Token creato</h4>
+                <p className="api-token-warning">
+                  Copia il token ora: non sarà più mostrato.
+                </p>
+                <div className="api-token-value-row">
+                  <code className="api-token-value">{createdTokenPlain}</code>
+                  <button
+                    type="button"
+                    className="btn-copy-token"
+                    onClick={handleCopyToken}
+                    title="Copia"
+                  >
+                    {tokenCopied ? <Check size={18} /> : <Copy size={18} />}
+                    {tokenCopied ? ' Copiato' : ' Copia'}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary btn-small"
+                  onClick={() => setCreatedTokenPlain(null)}
+                >
+                  Chiudi
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="form-actions">
