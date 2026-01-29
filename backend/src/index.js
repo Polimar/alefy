@@ -196,6 +196,7 @@ import statsRoutes from './routes/statsRoutes.js';
 import usersRoutes from './routes/usersRoutes.js';
 import youtubeCookiesRoutes from './routes/youtubeCookiesRoutes.js';
 import metadataRoutes from './routes/metadataRoutes.js';
+import apiTokenRoutes from './routes/apiTokenRoutes.js';
 import downloadQueue from './utils/downloadQueue.js';
 import { processDownloadJob } from './controllers/youtubeController.js';
 import { processMissingMetadata } from './services/metadataBatchService.js';
@@ -240,6 +241,7 @@ app.use('/api/youtube/cookies', youtubeCookiesRoutes);
 app.use('/api/metadata', metadataRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/api-tokens', apiTokenRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ 

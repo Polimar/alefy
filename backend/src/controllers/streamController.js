@@ -61,7 +61,7 @@ export const streamTrack = async (req, res, next) => {
 
     // Get track from database - tracks are shared, no ownership check
     const result = await pool.query(
-      'SELECT id, file_path FROM tracks WHERE id = $1',
+      'SELECT id, file_path, title FROM tracks WHERE id = $1',
       [id]
     );
 
@@ -84,6 +84,19 @@ export const streamTrack = async (req, res, next) => {
     const stats = fs.statSync(filePath);
     const fileSize = stats.size;
 
+    const isDownload = req.query.download === '1' || req.query.download === 'true';
+    const ext = path.extname(track.file_path) || '.mp3';
+    const safeTitle = (track.title || 'track').replace(/[^\w\s\-\.]/g, '').trim() || 'track';
+    const downloadFilename = `${safeTitle}${ext}`;
+
+    const baseHeaders = {
+      'Content-Type': 'audio/mpeg',
+      'Cache-Control': 'public, max-age=31536000',
+      ...(isDownload && {
+        'Content-Disposition': `attachment; filename="${downloadFilename}"`,
+      }),
+    };
+
     // Parse range header
     const range = req.headers.range;
 
@@ -104,11 +117,10 @@ export const streamTrack = async (req, res, next) => {
 
       // Set headers for partial content
       res.status(206).set({
+        ...baseHeaders,
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': chunksize,
-        'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'public, max-age=31536000',
       });
 
       // Create read stream
@@ -117,10 +129,9 @@ export const streamTrack = async (req, res, next) => {
     } else {
       // Stream entire file
       res.status(200).set({
+        ...baseHeaders,
         'Content-Length': fileSize,
-        'Content-Type': 'audio/mpeg',
         'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=31536000',
       });
 
       const fileStream = fs.createReadStream(filePath);
