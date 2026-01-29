@@ -94,9 +94,10 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin
         loadApiTokens();
       }
     } catch (err) {
-      const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Errore nella creazione del token';
+      const raw = err.response?.data?.error?.message ?? err.response?.data?.message ?? 'Errore nella creazione del token';
+      const msg = typeof raw === 'string' ? raw : (raw?.message && typeof raw.message === 'string' ? raw.message : 'Errore nella creazione del token');
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditUserModal.handleCreateToken:catch',message:'create token error',data:{status:err.response?.status,msgType:typeof msg,msgLen:typeof msg==='string'?msg.length:0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2,H4'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditUserModal.handleCreateToken:catch',message:'create token error',data:{status:err.response?.status,msgType:typeof msg},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2,H4'})}).catch(()=>{});
       // #endregion
       console.error('Error creating API token:', err);
       setError(msg);
@@ -388,7 +389,7 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin
                       Crea token
                     </button>
                   ) : (
-                    <form onSubmit={handleCreateToken} className="api-token-create-form">
+                    <div className="api-token-create-form">
                       <input
                         type="text"
                         value={newTokenName}
@@ -397,6 +398,12 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin
                         className="api-token-name-input"
                         autoFocus
                         maxLength={255}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newTokenName.trim() && !creatingToken) handleCreateToken(e);
+                          }
+                        }}
                       />
                       <div className="api-token-create-actions">
                         <button
@@ -410,9 +417,10 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin
                           Annulla
                         </button>
                         <button
-                          type="submit"
+                          type="button"
                           className="btn-primary btn-small"
                           disabled={creatingToken || !newTokenName.trim()}
+                          onClick={(e) => handleCreateToken(e)}
                         >
                           {creatingToken ? (
                             <>
@@ -424,7 +432,7 @@ export default function EditUserModal({ user, isOpen, onClose, onUpdate, isAdmin
                           )}
                         </button>
                       </div>
-                    </form>
+                    </div>
                   )}
                 </>
               )}
