@@ -62,4 +62,20 @@ echo "=== TEST 6: Lista formati disponibili (con cookies) ==="
 $YTDLP_PATH --cookies "$COOKIES_FILE" "$URL" --list-formats --no-playlist 2>&1 | head -50 || echo "FALLITO"
 echo ""
 
+# Test 7: Download formato 140 (solo audio, estrae in mp3)
+echo "=== TEST 7: Download formato 140 con cookies (estrazione audio) ==="
+cd /tmp
+rm -f test_140.* 2>/dev/null
+$YTDLP_PATH --cookies "$COOKIES_FILE" "$URL" --format 140 -x --audio-format mp3 --audio-quality 192K -o "test_140.%(ext)s" --no-playlist 2>&1 | tail -30 || echo "FALLITO"
+ls -lh /tmp/test_140.* 2>/dev/null || echo "File non creato"
+echo ""
+
+# Test 8: Download formato 18 (video+audio combinato)
+echo "=== TEST 8: Download formato 18 con cookies (video+audio) ==="
+cd /tmp
+rm -f test_18.* 2>/dev/null
+$YTDLP_PATH --cookies "$COOKIES_FILE" "$URL" --format 18 -x --audio-format mp3 --audio-quality 192K -o "test_18.%(ext)s" --no-playlist 2>&1 | tail -30 || echo "FALLITO"
+ls -lh /tmp/test_18.* 2>/dev/null || echo "File non creato"
+echo ""
+
 echo "=== Fine test ==="
