@@ -220,7 +220,8 @@ export async function processDownloadJob(job) {
       '--no-playlist',
       '--no-warnings',
       '--no-check-formats',
-      // Non specificare player_client quando ci sono cookies - yt-dlp usa automaticamente i client corretti
+      // Forza formato che non richiede autenticazione specifica
+      '--format', 'bestaudio/best',
       '-x',
       '--audio-format', 'mp3',
       '--audio-quality', '192K',
@@ -244,8 +245,12 @@ export async function processDownloadJob(job) {
     
     args.push(url);
     
+    // Log comando completo per debug
+    const fullCommand = `${ytdlpPath} ${args.join(' ')}`;
+    console.log(`[YouTube Download] Job ${jobId}: Comando spawn completo: ${fullCommand.substring(0, 500)}...`);
+    
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:234',message:'Comando spawn completo',data:{jobId,ytdlpPath,argsCount:args.length,hasCookies:args.includes('--cookies'),url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:234',message:'Comando spawn completo',data:{jobId,ytdlpPath,argsCount:args.length,hasCookies:args.includes('--cookies'),cookiesIndex:args.indexOf('--cookies'),cookiesPath:args[args.indexOf('--cookies')+1] || 'not found',url,fullCommand:fullCommand.substring(0,300)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
 
     await new Promise((resolve, reject) => {
