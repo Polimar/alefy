@@ -225,8 +225,8 @@ export async function processDownloadJob(job) {
     // Aggiungi cookies se disponibili (CRITICO: mancava prima!)
     if (cookiesPathForDownload) {
       args.push('--cookies', cookiesPathForDownload);
-      // Quando ci sono cookies, usa client che gestiscono meglio l'autenticazione
-      args.push('--extractor-args', 'youtube:player_client=android_sdkless,web');
+      // Lascia che yt-dlp scelga automaticamente il client migliore quando ci sono cookies
+      // Non forzare un client specifico che potrebbe interferire con l'autenticazione
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:227',message:'Cookies aggiunti a spawn args',data:{jobId,cookiesPathForDownload,argsCount:args.length,argsBeforeUrl:args.slice()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
