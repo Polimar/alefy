@@ -221,9 +221,8 @@ export async function processDownloadJob(job) {
       '--no-warnings',
       '--no-check-formats',
       // Escludi formato 251 (opus webm) che richiede autenticazione specifica
-      '--reject-format', '251',
-      // Usa bestaudio come formato preferito
-      '--format', 'bestaudio/best',
+      // Sintassi: -FORMAT_ID esclude quel formato
+      '--format', 'bestaudio/-251/best',
       '-x',
       '--audio-format', 'mp3',
       '--audio-quality', '192K',
