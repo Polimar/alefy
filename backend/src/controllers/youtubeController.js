@@ -220,8 +220,9 @@ export async function processDownloadJob(job) {
       '--no-playlist',
       '--no-warnings',
       '--no-check-formats',
-      // Forza formato che non richiede autenticazione specifica
-      '--format', 'bestaudio/best',
+      // Escludi formato 251 (opus webm) che richiede autenticazione specifica
+      // Usa bestaudio ma escludi esplicitamente il formato 251
+      '--format', 'bestaudio[format_id!=251]/bestaudio/best[format_id!=251]',
       '-x',
       '--audio-format', 'mp3',
       '--audio-quality', '192K',
