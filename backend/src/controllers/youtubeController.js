@@ -220,21 +220,25 @@ export async function processDownloadJob(job) {
       '--no-playlist',
       '--no-warnings',
       '--no-check-formats',
-      // Forza formato 140 (m4a audio 128kbps) che non richiede autenticazione
-      // Se non disponibile, prova 139 (m4a audio 48kbps) o bestaudio
-      '--format', '140/139/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
-      '-x',
-      '--audio-format', 'mp3',
-      '--audio-quality', '192K',
-      '--parse-metadata', 'title:%(artist)s - %(title)s',
-      '--embed-metadata',
-      '--progress',
-      '-o', outputPath,
     ];
     
     // Aggiungi cookies se disponibili (CRITICO: mancava prima!)
     if (cookiesPathForDownload) {
       args.push('--cookies', cookiesPathForDownload);
+      // Quando ci sono cookies, usa client che gestiscono meglio l'autenticazione
+      args.push('--extractor-args', 'youtube:player_client=android_sdkless,web');
+    }
+    
+    // Forza formato 140 (m4a audio 128kbps) che non richiede autenticazione
+    // Se non disponibile, prova 139 (m4a audio 48kbps) o bestaudio
+    args.push('--format', '140/139/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best');
+    args.push('-x');
+    args.push('--audio-format', 'mp3');
+    args.push('--audio-quality', '192K');
+    args.push('--parse-metadata', 'title:%(artist)s - %(title)s');
+    args.push('--embed-metadata');
+    args.push('--progress');
+    args.push('-o', outputPath);
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:227',message:'Cookies aggiunti a spawn args',data:{jobId,cookiesPathForDownload,argsCount:args.length,argsBeforeUrl:args.slice()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
