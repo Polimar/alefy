@@ -212,12 +212,15 @@ export async function processDownloadJob(job) {
     // Ottieni cookies per il download (stesso percorso usato per info)
     const cookiesPathForDownload = await getActiveCookiesPath();
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:165',message:'Preparazione comando spawn download',data:{jobId,cookiesPathForDownload: cookiesPathForDownload || 'none',url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:213',message:'Preparazione comando spawn download',data:{jobId,cookiesPathForDownload: cookiesPathForDownload || 'none',url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
 
     // Usa spawn invece di exec per leggere progresso in tempo reale
     const args = [
       '--no-playlist',
+      '--no-warnings',
+      '--no-check-formats',
+      '--extractor-args', 'youtube:player_client=default',
       '-x',
       '--audio-format', 'mp3',
       '--audio-quality', '192K',
@@ -231,15 +234,19 @@ export async function processDownloadJob(job) {
     if (cookiesPathForDownload) {
       args.push('--cookies', cookiesPathForDownload);
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:179',message:'Cookies aggiunti a spawn args',data:{jobId,cookiesPathForDownload,argsCount:args.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:227',message:'Cookies aggiunti a spawn args',data:{jobId,cookiesPathForDownload,argsCount:args.length,argsBeforeUrl:args.slice()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
     } else {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:182',message:'Nessun cookies per spawn',data:{jobId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:230',message:'Nessun cookies per spawn',data:{jobId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
     }
     
     args.push(url);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:234',message:'Comando spawn completo',data:{jobId,ytdlpPath,argsCount:args.length,hasCookies:args.includes('--cookies'),url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
 
     await new Promise((resolve, reject) => {
       const process = spawn(ytdlpPath, args, {
