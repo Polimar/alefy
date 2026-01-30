@@ -220,7 +220,7 @@ export async function processDownloadJob(job) {
       '--no-playlist',
       '--no-warnings',
       '--no-check-formats',
-      '--extractor-args', 'youtube:player_client=default',
+      // Non specificare player_client quando ci sono cookies - yt-dlp usa automaticamente i client corretti
       '-x',
       '--audio-format', 'mp3',
       '--audio-quality', '192K',
@@ -292,11 +292,17 @@ export async function processDownloadJob(job) {
 
       process.on('close', (code) => {
         if (code !== 0) {
+          // Log completo di stderr per debug
+          console.error(`[YouTube Download] Job ${jobId}: stderr completo:`, stderr);
+          console.error(`[YouTube Download] Job ${jobId}: stdout completo:`, stdout);
+          
           const errorMessage = stderr.includes('ERROR')
             ? stderr.split('ERROR')[1]?.substring(0, 200) || 'Errore sconosciuto'
+            : stderr.includes('403') || stderr.includes('Forbidden')
+            ? stderr.substring(0, 200) || 'Errore durante il download'
             : 'Errore durante il download';
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:226',message:'Processo spawn fallito',data:{jobId,exitCode:code,errorMessage,stderr:stderr.substring(0,500),has403:stderr.includes('403') || errorMessage.includes('403'),hasForbidden:stderr.includes('Forbidden') || errorMessage.includes('Forbidden')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:226',message:'Processo spawn fallito',data:{jobId,exitCode:code,errorMessage,stderr:stderr.substring(0,1000),stdout:stdout.substring(0,500),has403:stderr.includes('403') || errorMessage.includes('403'),hasForbidden:stderr.includes('Forbidden') || errorMessage.includes('Forbidden')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
           // #endregion
           reject(new Error(errorMessage));
           return;
