@@ -94,16 +94,46 @@ export async function processDownloadJob(job) {
     let albumInfo = null;
     let finalPlaylistId = playlistId || null;
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:97',message:'Inizio recupero cookies',data:{jobId,url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     try {
       // Ottieni cookies attivi se disponibili
       const cookiesPath = await getActiveCookiesPath();
-      const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:100',message:'Cookies path ottenuto',data:{jobId,cookiesPath: cookiesPath || 'null',exists: cookiesPath ? 'checking' : 'N/A'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       
+      // Verifica che il file cookies esista se specificato
       if (cookiesPath) {
-        console.log(`[YouTube Download] Job ${jobId}: Usando cookies da: ${cookiesPath}`);
+        try {
+          await fs.access(cookiesPath);
+          const stats = await fs.stat(cookiesPath);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:107',message:'File cookies verificato',data:{jobId,cookiesPath,fileSize:stats.size,isReadable:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+          console.log(`[YouTube Download] Job ${jobId}: Usando cookies da: ${cookiesPath} (${stats.size} bytes)`);
+        } catch (accessError) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:111',message:'File cookies non accessibile',data:{jobId,cookiesPath,error:accessError.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+          console.warn(`[YouTube Download] Job ${jobId}: File cookies non accessibile: ${cookiesPath}`);
+        }
+      } else {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:115',message:'Nessun cookies attivo',data:{jobId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
       }
       
+      const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:118',message:'Comando info preparato',data:{jobId,cookiesFlag: cookiesFlag || 'none',ytdlpPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      
       const infoCommand = `${ytdlpPath} "${url}" --dump-json --no-playlist ${cookiesFlag}`.trim();
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:121',message:'Esecuzione comando info',data:{jobId,command:infoCommand.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       const { stdout: infoStdout } = await execAsync(infoCommand, {
         maxBuffer: 5 * 1024 * 1024,
         timeout: 30000,
@@ -126,6 +156,9 @@ export async function processDownloadJob(job) {
         }
       }
     } catch (infoError) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:129',message:'Errore ottenimento info video',data:{jobId,error:infoError.message,stderr:infoError.stderr?.substring(0,500) || 'none',has403:infoError.message?.includes('403') || infoError.stderr?.includes('403')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       console.warn(`[YouTube Download] Job ${jobId}: Impossibile ottenere info video: ${infoError.message}`);
       // Continua comunque con il download
     }
@@ -150,6 +183,18 @@ export async function processDownloadJob(job) {
       }
     }
     
+    // Verifica versione yt-dlp
+    try {
+      const { stdout: versionOutput } = await execAsync(`${ytdlpPath} --version`, { maxBuffer: 1024 });
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:151',message:'Versione yt-dlp',data:{jobId,ytdlpPath,version:versionOutput.trim()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+    } catch (versionError) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:154',message:'Errore verifica versione yt-dlp',data:{jobId,error:versionError.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+    }
+    
     const storagePath = getStoragePath();
     const tempDir = path.join(storagePath, 'temp', 'youtube');
     await ensureDirectoryExists(tempDir);
@@ -164,6 +209,12 @@ export async function processDownloadJob(job) {
       statusMessage: 'Download in corso...'
     });
 
+    // Ottieni cookies per il download (stesso percorso usato per info)
+    const cookiesPathForDownload = await getActiveCookiesPath();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:165',message:'Preparazione comando spawn download',data:{jobId,cookiesPathForDownload: cookiesPathForDownload || 'none',url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
     // Usa spawn invece di exec per leggere progresso in tempo reale
     const args = [
       '--no-playlist',
@@ -174,8 +225,21 @@ export async function processDownloadJob(job) {
       '--embed-metadata',
       '--progress',
       '-o', outputPath,
-      url,
     ];
+    
+    // Aggiungi cookies se disponibili (CRITICO: mancava prima!)
+    if (cookiesPathForDownload) {
+      args.push('--cookies', cookiesPathForDownload);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:179',message:'Cookies aggiunti a spawn args',data:{jobId,cookiesPathForDownload,argsCount:args.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+    } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:182',message:'Nessun cookies per spawn',data:{jobId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+    }
+    
+    args.push(url);
 
     await new Promise((resolve, reject) => {
       const process = spawn(ytdlpPath, args, {
@@ -224,13 +288,22 @@ export async function processDownloadJob(job) {
           const errorMessage = stderr.includes('ERROR')
             ? stderr.split('ERROR')[1]?.substring(0, 200) || 'Errore sconosciuto'
             : 'Errore durante il download';
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:226',message:'Processo spawn fallito',data:{jobId,exitCode:code,errorMessage,stderr:stderr.substring(0,500),has403:stderr.includes('403') || errorMessage.includes('403'),hasForbidden:stderr.includes('Forbidden') || errorMessage.includes('Forbidden')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           reject(new Error(errorMessage));
           return;
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:230',message:'Processo spawn completato con successo',data:{jobId,exitCode:code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         resolve();
       });
 
       process.on('error', (error) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:237',message:'Errore spawn process',data:{jobId,error:error.message,errorCode:error.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         reject(error);
       });
     });
