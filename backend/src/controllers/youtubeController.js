@@ -236,9 +236,9 @@ export async function processDownloadJob(job) {
       // #endregion
     }
     
-    // Forza formato 140 (m4a audio 128kbps) che non richiede autenticazione
-    // Se non disponibile, prova 139 (m4a audio 48kbps) o bestaudio
-    args.push('--format', '140/139/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best');
+    // Usa formato 18 (video+audio combinato) che funziona con cookies
+    // Se non disponibile, prova bestaudio o best
+    args.push('--format', '18/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best');
     args.push('-x');
     args.push('--audio-format', 'mp3');
     args.push('--audio-quality', '192K');
