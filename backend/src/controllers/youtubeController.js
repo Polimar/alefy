@@ -227,6 +227,13 @@ export async function processDownloadJob(job) {
       args.push('--cookies', cookiesPathForDownload);
       // Quando ci sono cookies, usa client che gestiscono meglio l'autenticazione
       args.push('--extractor-args', 'youtube:player_client=android_sdkless,web');
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:227',message:'Cookies aggiunti a spawn args',data:{jobId,cookiesPathForDownload,argsCount:args.length,argsBeforeUrl:args.slice()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+    } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:230',message:'Nessun cookies per spawn',data:{jobId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
     }
     
     // Forza formato 140 (m4a audio 128kbps) che non richiede autenticazione
@@ -239,14 +246,6 @@ export async function processDownloadJob(job) {
     args.push('--embed-metadata');
     args.push('--progress');
     args.push('-o', outputPath);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:227',message:'Cookies aggiunti a spawn args',data:{jobId,cookiesPathForDownload,argsCount:args.length,argsBeforeUrl:args.slice()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-    } else {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'youtubeController.js:230',message:'Nessun cookies per spawn',data:{jobId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-    }
     
     args.push(url);
     
