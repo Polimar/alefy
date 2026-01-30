@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import usePlayerStore from '../store/playerStore';
 import api from '../utils/api';
-import { getTrackOffline } from '../utils/offlineStorage';
+import { getTrackOffline, isTrackOffline } from '../utils/offlineStorage';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, ListMusic, Music, Sliders, Rewind, FastForward, X } from 'lucide-react';
 import AudioWaveform from './AudioWaveform';
 import QueuePanel from './QueuePanel';
@@ -159,6 +159,89 @@ export default function Player() {
     audio.volume = volume;
   }, [volume]);
 
+  /**
+   * Trova la prossima traccia disponibile offline nella queue
+   * @returns {Promise<number|null>} Indice della traccia trovata o null se non ce ne sono
+   */
+  const findNextAvailableOfflineTrack = async () => {
+    const { queue, currentTrack, shuffle, repeat } = usePlayerStore.getState();
+    if (queue.length === 0) return null;
+
+    const currentIndex = queue.findIndex(t => t.id === currentTrack?.id);
+    if (currentIndex === -1) return null;
+
+    // Limite per evitare loop infiniti
+    const maxAttempts = queue.length * 2;
+    let attempts = 0;
+    const checkedIndices = new Set();
+
+    // Funzione per ottenere il prossimo indice da controllare
+    const getNextIndex = (startIndex) => {
+      if (startIndex === null || startIndex === undefined) {
+        return null;
+      }
+      
+      if (shuffle) {
+        // In shuffle, scegli casualmente tra tutte le tracce
+        let randomIndex;
+        do {
+          randomIndex = Math.floor(Math.random() * queue.length);
+        } while (randomIndex === currentIndex && queue.length > 1);
+        return randomIndex;
+      } else {
+        // In ordine normale, vai alla prossima
+        let nextIndex = startIndex + 1;
+        if (nextIndex >= queue.length) {
+          if (repeat === 'all') {
+            // Con repeat='all', riparti dall'inizio
+            return 0;
+          } else {
+            // Con repeat='off', non ci sono più tracce
+            return null;
+          }
+        }
+        return nextIndex;
+      }
+    };
+
+    // Inizia dalla prossima traccia dopo quella corrente
+    let searchIndex = getNextIndex(currentIndex);
+    
+    while (searchIndex !== null && attempts < maxAttempts) {
+      attempts++;
+      
+      // Se abbiamo già controllato questo indice, passa al prossimo
+      if (checkedIndices.has(searchIndex)) {
+        // Se in shuffle, continua a cercare casualmente
+        if (shuffle) {
+          searchIndex = getNextIndex(currentIndex);
+          // Se abbiamo già controllato tutte le tracce, esci
+          if (checkedIndices.size >= queue.length) {
+            break;
+          }
+        } else {
+          // In ordine normale, passa alla prossima
+          searchIndex = getNextIndex(searchIndex);
+        }
+        continue;
+      }
+      
+      checkedIndices.add(searchIndex);
+      const track = queue[searchIndex];
+      
+      if (track && await isTrackOffline(track.id)) {
+        console.log(`[Player] Trovata traccia offline disponibile: ${track.title} (indice ${searchIndex})`);
+        return searchIndex;
+      }
+      
+      // Passa alla prossima traccia
+      searchIndex = getNextIndex(searchIndex);
+    }
+
+    console.log('[Player] Nessuna traccia disponibile offline trovata nella queue');
+    return null;
+  };
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentTrack) return;
@@ -257,8 +340,35 @@ export default function Player() {
         // Non serve aggiungere listener qui perché il useEffect per isPlaying lo gestirà
       } catch (err) {
         console.error('Error loading audio:', err);
-        setError(err.message || 'Errore nel caricamento del brano');
-        pause();
+        
+        // Rileva se è un network error (offline)
+        const isNetworkError = 
+          err.message?.includes('Failed to fetch') ||
+          err.message?.includes('NetworkError') ||
+          err.message?.includes('Network request failed') ||
+          err.name === 'TypeError' ||
+          (err.message && !err.message.includes('Errore') && !err.message.includes('401') && !err.message.includes('404') && !err.message.includes('500'));
+        
+        // Se è un network error, cerca la prossima traccia disponibile offline
+        if (isNetworkError) {
+          console.log('[Player] Network error rilevato, cerco prossima traccia disponibile offline...');
+          const nextOfflineIndex = await findNextAvailableOfflineTrack();
+          
+          if (nextOfflineIndex !== null) {
+            // Trovata una traccia disponibile offline, riproduci quella
+            console.log(`[Player] Passo alla traccia offline disponibile (indice ${nextOfflineIndex})`);
+            playFromQueue(nextOfflineIndex);
+            return; // Esci senza mostrare errore o pausare
+          } else {
+            // Nessuna traccia disponibile offline nella queue
+            setError('Nessuna traccia disponibile offline nella coda. Connettiti a internet per continuare.');
+            pause();
+          }
+        } else {
+          // Altri errori (404, 500, auth, ecc.) - comportamento normale
+          setError(err.message || 'Errore nel caricamento del brano');
+          pause();
+        }
       } finally {
         setLoading(false);
       }
