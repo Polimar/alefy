@@ -26,8 +26,51 @@ const addTrackSchema = z.object({
 export const getPlaylists = async (req, res, next) => {
   try {
     const userId = req.user.userId;
+    const addable = req.query.addable === 'true';
 
-    // Query migliorata per includere thumbnail della prima traccia
+    if (addable) {
+      // Per modal "Aggiungi a playlist": proprie + pubbliche di altri (aggiungibili)
+      const result = await pool.query(
+        `SELECT p.*, 
+         u.username as creator_username,
+         COUNT(pt.track_id) as track_count,
+         COALESCE(SUM(t.duration), 0) as total_duration,
+         (p.user_id != $1 AND p.is_public = true) as is_shared,
+         (
+           SELECT t2.cover_art_path 
+           FROM playlist_tracks pt2
+           JOIN tracks t2 ON pt2.track_id = t2.id
+           WHERE pt2.playlist_id = p.id
+           ORDER BY pt2.position ASC
+           LIMIT 1
+         ) as first_track_cover_art_path,
+         (
+           SELECT t2.id 
+           FROM playlist_tracks pt2
+           JOIN tracks t2 ON pt2.track_id = t2.id
+           WHERE pt2.playlist_id = p.id
+           ORDER BY pt2.position ASC
+           LIMIT 1
+         ) as first_track_id
+         FROM playlists p
+         LEFT JOIN users u ON p.user_id = u.id
+         LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id
+         LEFT JOIN tracks t ON pt.track_id = t.id
+         WHERE p.user_id = $1 OR (p.is_public = true AND p.user_id != $1)
+         GROUP BY p.id, u.username
+         ORDER BY p.user_id = $1 DESC, p.created_at DESC`,
+        [userId]
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          playlists: result.rows,
+        },
+      });
+    }
+
+    // Solo playlist proprie (default)
     const result = await pool.query(
       `SELECT p.*, 
        COUNT(pt.track_id) as track_count,
@@ -340,9 +383,9 @@ export const addTrack = async (req, res, next) => {
     const userId = req.user.userId;
     const validatedData = addTrackSchema.parse(req.body);
 
-    // Check playlist ownership
+    // Check playlist: user must be owner OR playlist must be public (addable by anyone)
     const playlistResult = await pool.query(
-      'SELECT id FROM playlists WHERE id = $1 AND user_id = $2',
+      'SELECT id FROM playlists WHERE id = $1 AND (user_id = $2 OR is_public = true)',
       [id, userId]
     );
 

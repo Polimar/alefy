@@ -297,6 +297,24 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/api/youtube/que
 journalctl -u alefy -f
 ```
 
+## Script `serve` per sviluppo con rebuild automatico
+
+Per ambiente LXC o sviluppo locale con aggiornamenti via SCP:
+
+```bash
+cd /opt/alefy/repo   # o la directory del progetto
+npm install          # installa concurrently (root package.json)
+npm run serve
+```
+
+Lo script avvia:
+- **Backend** con nodemon (riavvio automatico al cambio file backend)
+- **Frontend** con `vite build --watch` (rebuild al cambio file frontend)
+
+Il frontend viene compilato in `frontend/dist` e servito dal backend tramite `FRONTEND_STATIC_PATH`. Dopo SCP dei file:
+- I file frontend si ricompilano automaticamente e il backend serve la nuova build
+- I file backend richiedono riavvio tramite nodemon (automatico al salvataggio)
+
 ## Note Importanti
 
 - **Sempre eseguire come root** quando si gestiscono i servizi systemd

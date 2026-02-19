@@ -46,6 +46,10 @@ export const downloadYouTube = async (req, res, next) => {
 
     console.log(`[YouTube Download] Aggiunta job alla coda per URL: ${url}, User ID: ${userId}`);
 
+    if (downloadQueue.hasUrlInQueue(userId, url)) {
+      return next(new AppError('URL già in coda', 409));
+    }
+
     // Aggiungi il job alla coda invece di eseguire direttamente
     const jobId = downloadQueue.addJob(userId, {
       url,

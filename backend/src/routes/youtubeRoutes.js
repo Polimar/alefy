@@ -5,11 +5,13 @@ import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
 
-// Stricter rate limiting for YouTube downloads
+// Stricter rate limiting for YouTube downloads (configurable via YOUTUBE_DOWNLOAD_RATE_LIMIT, default 30/hour)
 const downloadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // 5 downloads per hour
+  max: parseInt(process.env.YOUTUBE_DOWNLOAD_RATE_LIMIT, 10) || 30,
   message: 'Troppi download da YouTube, riprova più tardi.',
+  standardHeaders: true, // Sends RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset for frontend popup
+  legacyHeaders: false,
 });
 
 // More permissive rate limiting for searches

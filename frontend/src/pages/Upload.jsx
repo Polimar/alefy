@@ -1,7 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import { Download, Music, Search, X, CheckCircle, XCircle, Clock, Loader, Pause, Play, Trash2 } from 'lucide-react';
+import RateLimitModal from '../components/RateLimitModal';
 import './Upload.css';
+
+/** Estrae i minuti rimanenti da una risposta 429 (RateLimit-Reset o Retry-After) */
+function getMinutesUntilRateLimitReset(error) {
+  const headers = error?.response?.headers || {};
+  const reset = headers['ratelimit-reset'];
+  if (reset) {
+    const val = parseInt(reset, 10);
+    if (!isNaN(val)) {
+      // Se > 1e9 è Unix timestamp (secondi), altrimenti secondi rimanenti
+      const secondsRemaining = val > 1e9 ? (val - Math.floor(Date.now() / 1000)) : val;
+      return Math.max(0, secondsRemaining / 60);
+    }
+  }
+  const retryAfter = headers['retry-after'];
+  if (retryAfter) {
+    const seconds = parseInt(retryAfter, 10);
+    if (!isNaN(seconds)) return seconds / 60;
+  }
+  return 60; // Default 60 minuti se non specificato
+}
 
 export default function Upload() {
   const [files, setFiles] = useState([]);
@@ -33,6 +54,10 @@ export default function Upload() {
   const [uploadPlaylistOption, setUploadPlaylistOption] = useState('none'); // 'none', 'existing', 'new'
   const [uploadSelectedPlaylistId, setUploadSelectedPlaylistId] = useState(null);
   const [uploadNewPlaylistName, setUploadNewPlaylistName] = useState('');
+  const [rateLimitModal, setRateLimitModal] = useState({ show: false, minutesRemaining: 0 });
+  const [downloadingResultIds, setDownloadingResultIds] = useState(new Set());
+  const [downloadingConfirm, setDownloadingConfirm] = useState(false);
+  const [downloadingUrl, setDownloadingUrl] = useState(false);
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -109,7 +134,8 @@ export default function Upload() {
 
     try {
       setYoutubeError(null);
-      
+      setDownloadingUrl(true);
+
       await api.post('/youtube/download', {
         url: youtubeUrl.trim(),
       });
@@ -120,8 +146,18 @@ export default function Upload() {
       // Non serve avviarlo manualmente qui
     } catch (error) {
       console.error('YouTube download error:', error);
+      if (error.response?.status === 429) {
+        setRateLimitModal({ show: true, minutesRemaining: getMinutesUntilRateLimitReset(error) });
+        return;
+      }
+      if (error.response?.status === 409) {
+        setYoutubeError('URL già in coda');
+        return;
+      }
       const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
       setYoutubeError(errorMessage);
+    } finally {
+      setDownloadingUrl(false);
     }
   };
 
@@ -282,7 +318,7 @@ export default function Upload() {
   useEffect(() => {
     const loadPlaylists = async () => {
       try {
-        const response = await api.get('/playlists');
+        const response = await api.get('/playlists', { params: { addable: true } });
         setPlaylists(response.data.data.playlists || []);
       } catch (error) {
         console.error('Error loading playlists:', error);
@@ -502,7 +538,7 @@ export default function Upload() {
   const handleDownloadFromSearch = async (result) => {
     try {
       setYoutubeError(null);
-      
+
       // Verifica se ha timestamp parsati manualmente
       const hasParsedTimestamps = parsedTimestamps[result.id] && parsedTimestamps[result.id].length > 0;
       
@@ -523,16 +559,37 @@ export default function Upload() {
         setNewPlaylistName(suggestedName);
         return;
       }
-      
+
       // Download normale per non-album
-      await api.post('/youtube/download', {
-        url: result.url,
-        thumbnailUrl: result.thumbnail_url || null,
-      });
-      
-      startPolling();
+      setDownloadingResultIds(prev => new Set(prev).add(result.id));
+      try {
+        await api.post('/youtube/download', {
+          url: result.url,
+          thumbnailUrl: result.thumbnail_url || null,
+        });
+        startPolling();
+      } finally {
+        setDownloadingResultIds(prev => {
+          const next = new Set(prev);
+          next.delete(result.id);
+          return next;
+        });
+      }
     } catch (error) {
       console.error('YouTube download error:', error);
+      setDownloadingResultIds(prev => {
+        const next = new Set(prev);
+        next.delete(result.id);
+        return next;
+      });
+      if (error.response?.status === 429) {
+        setRateLimitModal({ show: true, minutesRemaining: getMinutesUntilRateLimitReset(error) });
+        return;
+      }
+      if (error.response?.status === 409) {
+        setYoutubeError('URL già in coda');
+        return;
+      }
       const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
       setYoutubeError(errorMessage);
     }
@@ -540,21 +597,21 @@ export default function Upload() {
 
   const handleConfirmDownload = async () => {
     if (!selectedResult) return;
-    
+
     // Usa timestamp parsati se disponibili, altrimenti quelli del risultato
     const timestampsToUse = parsedTimestamps[selectedResult.id] || selectedResult.timestamps || [];
-    
     const selectedIndices = selectedTracks[selectedResult.id] || new Set();
     const tracksToDownload = timestampsToUse.filter((_, idx) => selectedIndices.has(idx));
-    
+
     if (tracksToDownload.length === 0) {
       alert('Seleziona almeno una traccia da scaricare');
       return;
     }
-    
+
     try {
       setYoutubeError(null);
-      
+      setDownloadingConfirm(true);
+
       const downloadData = {
         url: selectedResult.url,
         thumbnailUrl: selectedResult.thumbnail_url || null,
@@ -569,18 +626,28 @@ export default function Upload() {
       }
       
       await api.post('/youtube/download', downloadData);
-      
+
       setShowPlaylistModal(false);
       setSelectedResult(null);
       setPlaylistOption('none');
       setSelectedPlaylistId(null);
       setNewPlaylistName('');
-      
+
       startPolling();
     } catch (error) {
       console.error('YouTube download error:', error);
+      if (error.response?.status === 429) {
+        setRateLimitModal({ show: true, minutesRemaining: getMinutesUntilRateLimitReset(error) });
+        return;
+      }
+      if (error.response?.status === 409) {
+        setYoutubeError('URL già in coda');
+        return;
+      }
       const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
       setYoutubeError(errorMessage);
+    } finally {
+      setDownloadingConfirm(false);
     }
   };
 
@@ -768,13 +835,25 @@ export default function Upload() {
                       )}
                       <button
                         onClick={() => handleDownloadFromSearch(result)}
-                        disabled={queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading' || job.status === 'paused'))}
+                        disabled={
+                          queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading' || job.status === 'paused')) ||
+                          downloadingResultIds.has(result.id)
+                        }
                         className="result-download-btn"
                       >
-                        <Download size={16} />
-                        {queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading' || job.status === 'paused')) 
-                          ? 'In coda...' 
-                          : (result.isAlbum || (parsedTimestamps[result.id] && parsedTimestamps[result.id].length > 0)) ? 'Scarica e dividi' : 'Scarica'}
+                        {downloadingResultIds.has(result.id) ? (
+                          <>
+                            <Loader size={16} className="spinning" />
+                            Scarica...
+                          </>
+                        ) : (
+                          <>
+                            <Download size={16} />
+                            {queue.some(job => job.url === result.url && (job.status === 'pending' || job.status === 'downloading' || job.status === 'paused'))
+                              ? 'In coda...'
+                              : (result.isAlbum || (parsedTimestamps[result.id] && parsedTimestamps[result.id].length > 0)) ? 'Scarica e dividi' : 'Scarica'}
+                          </>
+                        )}
                       </button>
                     </div>
                     
@@ -883,10 +962,10 @@ export default function Upload() {
             />
             <button
               type="submit"
-              disabled={!youtubeUrl.trim() || !isValidYouTubeUrl(youtubeUrl)}
+              disabled={!youtubeUrl.trim() || !isValidYouTubeUrl(youtubeUrl) || downloadingUrl}
               className="youtube-download-btn"
             >
-              Aggiungi alla coda
+              {downloadingUrl ? 'Aggiunta...' : 'Aggiungi alla coda'}
             </button>
           </div>
           {!isValidYouTubeUrl(youtubeUrl) && youtubeUrl.trim() && (
@@ -1086,7 +1165,7 @@ export default function Upload() {
                   <option value="">Seleziona playlist...</option>
                   {playlists.map(playlist => (
                     <option key={playlist.id} value={playlist.id}>
-                      {playlist.name} ({playlist.track_count || 0} brani)
+                      {playlist.name}{playlist.is_shared ? ' (Condivisa)' : ''} ({playlist.track_count || 0} brani)
                     </option>
                   ))}
                 </select>
@@ -1128,11 +1207,19 @@ export default function Upload() {
                 className="btn-primary"
                 onClick={handleConfirmDownload}
                 disabled={
+                  downloadingConfirm ||
                   (playlistOption === 'existing' && !selectedPlaylistId) ||
                   (playlistOption === 'new' && !newPlaylistName.trim())
                 }
               >
-                Scarica
+                {downloadingConfirm ? (
+                  <>
+                    <Loader size={16} className="spinning" style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                    Scarica...
+                  </>
+                ) : (
+                  'Scarica'
+                )}
               </button>
             </div>
           </div>
@@ -1185,7 +1272,7 @@ export default function Upload() {
                   <option value="">Seleziona playlist...</option>
                   {playlists.map(playlist => (
                     <option key={playlist.id} value={playlist.id}>
-                      {playlist.name} ({playlist.track_count || 0} brani)
+                      {playlist.name}{playlist.is_shared ? ' (Condivisa)' : ''} ({playlist.track_count || 0} brani)
                     </option>
                   ))}
                 </select>
@@ -1236,6 +1323,13 @@ export default function Upload() {
             </div>
           </div>
         </div>
+      )}
+
+      {rateLimitModal.show && (
+        <RateLimitModal
+          minutesRemaining={rateLimitModal.minutesRemaining}
+          onClose={() => setRateLimitModal({ show: false, minutesRemaining: 0 })}
+        />
       )}
     </div>
   );

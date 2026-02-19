@@ -53,6 +53,30 @@ class DownloadQueue extends EventEmitter {
   }
 
   /**
+   * Verifica se un URL è già in coda per l'utente (qualsiasi stato attivo o recente)
+   */
+  hasUrlInQueue(userId, url) {
+    const jobs = this.getUserJobs(userId);
+    const sixtySecondsAgo = Date.now() - 60 * 1000;
+
+    for (const job of jobs) {
+      if (job.url !== url) continue;
+      if (['pending', 'downloading', 'paused'].includes(job.status)) {
+        return true;
+      }
+      // Evita re-add immediati: blocca anche URL completed/failed negli ultimi 60s
+      if (
+        (job.status === 'completed' || job.status === 'failed') &&
+        job.updatedAt &&
+        job.updatedAt.getTime() > sixtySecondsAgo
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Ottiene tutti i job di un utente
    */
   getUserJobs(userId) {

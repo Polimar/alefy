@@ -101,8 +101,8 @@ export default function Library() {
 
   const loadPlaylists = async () => {
     try {
-      const response = await api.get('/playlists');
-      setPlaylists(response.data.data.playlists);
+      const response = await api.get('/playlists', { params: { addable: true } });
+      setPlaylists(response.data.data.playlists || []);
     } catch (error) {
       console.error('Error loading playlists:', error);
     }
@@ -635,9 +635,17 @@ export default function Library() {
                     onClick={() => handleAddTrackToPlaylist(playlist.id)}
                   >
                     <div className="playlist-select-info">
-                      <div className="playlist-select-name">{playlist.name}</div>
+                      <div className="playlist-select-name">
+                        {playlist.name}
+                        {playlist.is_shared && (
+                          <span className="playlist-shared-badge">Condivisa</span>
+                        )}
+                      </div>
                       <div className="playlist-select-count">
                         {playlist.track_count || 0} brani
+                        {playlist.is_shared && playlist.creator_username && (
+                          <> • {playlist.creator_username}</>
+                        )}
                       </div>
                     </div>
                     <Plus size={20} />

@@ -1256,6 +1256,33 @@
   cursor: not-allowed;
 }
 
+/* Rate limit modal */
+.rate-limit-modal {
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  padding: 32px;
+}
+
+.rate-limit-modal .rate-limit-icon {
+  color: var(--warning, #f59e0b);
+  margin-bottom: 16px;
+}
+
+.rate-limit-modal h2 {
+  margin-bottom: 12px;
+}
+
+.rate-limit-modal p {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.rate-limit-modal .btn-primary {
+  width: 100%;
+}
+
 @media (max-width: 768px) {
   .playlist-modal {
     width: 95%;

@@ -1,0 +1,14 @@
+{
+  "name": "alefy",
+  "version": "1.0.0",
+  "description": "ALEFY - Sistema di Streaming Musicale Personale",
+  "private": true,
+  "scripts": {
+    "serve": "concurrently \"npm run serve:backend\" \"npm run serve:frontend\"",
+    "serve:backend": "cd backend && FRONTEND_STATIC_PATH=../frontend/dist nodemon src/index.js",
+    "serve:frontend": "cd frontend && vite build --watch"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
