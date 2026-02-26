@@ -40,7 +40,7 @@ alefy/
 
 ### Prerequisiti
 - Node.js 20+
-- PostgreSQL 15+
+- PostgreSQL 15+ (lo script `start-dev.sh` lo installa e configura se mancante)
 - Docker e Docker Compose (opzionale)
 - FFmpeg
 - yt-dlp
@@ -81,6 +81,20 @@ npm run dev
 cd frontend
 npm install
 npm run dev
+```
+
+**Avvio rapido** (dopo il primo setup):
+```bash
+# Dalla root del progetto (/home/alefy), non da scripts/
+./scripts/start-dev.sh
+```
+Avvia backend e frontend in parallelo.
+
+**Se npm non è trovato:** carica nvm (`source ~/.nvm/nvm.sh`) oppure installa Node.js 20+:
+```bash
+# Come root (senza sudo)
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get install -y nodejs
 ```
 
 ### Docker

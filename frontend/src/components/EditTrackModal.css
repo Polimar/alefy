@@ -47,10 +47,10 @@
 
 .form-error {
   padding: 12px;
-  background-color: rgba(255, 68, 68, 0.1);
-  border: 1px solid #ff4444;
-  border-radius: 4px;
-  color: #ff4444;
+  background-color: var(--error-dim);
+  border: 1px solid var(--error);
+  border-radius: var(--radius-sm);
+  color: var(--error);
   margin-bottom: 20px;
   font-size: 14px;
 }
@@ -180,7 +180,7 @@
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1ed760;
+  background: var(--accent-hover);
   transform: scale(1.02);
 }
 

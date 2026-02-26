@@ -187,8 +187,8 @@
 }
 
 .queue-item-remove:hover {
-  color: #ff4444;
-  background-color: rgba(255, 68, 68, 0.1);
+  color: var(--error);
+  background-color: var(--error-dim);
 }
 
 @media (max-width: 768px) {

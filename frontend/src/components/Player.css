@@ -4,7 +4,7 @@
   min-height: 130px;
   max-height: 130px;
   background: linear-gradient(to top, #141414 0%, #1f1f1f 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-subtle);
   padding: 0 20px;
   display: flex;
   align-items: center;
@@ -488,7 +488,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: #ff4444;
+  background: var(--error);
   color: white;
   padding: 6px 16px;
   border-radius: 4px;

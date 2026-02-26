@@ -141,11 +141,11 @@
 
 .youtube-search-error {
   font-size: 14px;
-  color: var(--error, #ff4444);
+  color: var(--error);
   padding: 12px;
   background-color: rgba(255, 68, 68, 0.1);
   border-radius: 6px;
-  border: 1px solid var(--error, #ff4444);
+  border: 1px solid var(--error);
 }
 
 .youtube-search-results {
@@ -269,11 +269,11 @@
 }
 
 .album-badge.loaded {
-  background-color: #4caf50;
+  background-color: var(--accent);
 }
 
 .album-badge.loading {
-  background-color: #ff9800;
+  background-color: var(--warning);
   cursor: wait;
 }
 
@@ -370,7 +370,7 @@
 }
 
 .result-download-status.queue-item-failed {
-  border-left-color: var(--error, #ff4444);
+  border-left-color: var(--error);
 }
 
 .result-download-status.queue-item-paused {
@@ -438,7 +438,7 @@
 
 .result-download-error {
   font-size: 12px;
-  color: var(--error, #ff4444);
+  color: var(--error);
   margin-top: 8px;
 }
 
@@ -582,11 +582,11 @@
 
 .youtube-error {
   font-size: 14px;
-  color: var(--error, #ff4444);
+  color: var(--error);
   padding: 12px;
   background-color: rgba(255, 68, 68, 0.1);
   border-radius: 6px;
-  border: 1px solid var(--error, #ff4444);
+  border: 1px solid var(--error);
 }
 
 .youtube-progress {
@@ -609,9 +609,9 @@
 }
 
 .youtube-progress.error {
-  color: var(--error, #ff4444);
+  color: var(--error);
   background-color: rgba(255, 68, 68, 0.1);
-  border: 1px solid var(--error, #ff4444);
+  border: 1px solid var(--error);
 }
 
 .progress-message {
@@ -660,9 +660,9 @@
 }
 
 .youtube-progress.error {
-  color: var(--error, #ff4444);
+  color: var(--error);
   background-color: rgba(255, 68, 68, 0.1);
-  border: 1px solid var(--error, #ff4444);
+  border: 1px solid var(--error);
 }
 
 .upload-area {
@@ -907,7 +907,7 @@
 }
 
 .queue-item-failed {
-  border-left: 4px solid var(--error, #ff4444);
+  border-left: 4px solid var(--error);
 }
 
 .queue-item-paused {
@@ -939,7 +939,7 @@
 }
 
 .status-icon.failed {
-  color: var(--error, #ff4444);
+  color: var(--error);
 }
 
 .status-icon.downloading {
@@ -999,8 +999,8 @@
 }
 
 .queue-cancel-btn:hover {
-  background-color: var(--error, #ff4444);
-  border-color: var(--error, #ff4444);
+  background-color: var(--error);
+  border-color: var(--error);
   color: white;
 }
 
@@ -1042,18 +1042,18 @@
 .queue-item-error {
   margin-top: 12px;
   padding: 8px 12px;
-  background-color: rgba(255, 68, 68, 0.1);
-  border-radius: 6px;
-  color: var(--error, #ff4444);
+  background-color: var(--error-dim);
+  border-radius: var(--radius-md);
+  color: var(--error);
   font-size: 13px;
 }
 
 .queue-item-success {
   margin-top: 12px;
   padding: 8px 12px;
-  background-color: rgba(29, 185, 84, 0.1);
-  border-radius: 6px;
-  color: var(--accent, #1db954);
+  background-color: var(--accent-dim);
+  border-radius: var(--radius-md);
+  color: var(--accent);
   font-size: 13px;
   font-weight: 500;
 }
@@ -1265,7 +1265,7 @@
 }
 
 .rate-limit-modal .rate-limit-icon {
-  color: var(--warning, #f59e0b);
+  color: var(--warning);
   margin-bottom: 16px;
 }
 

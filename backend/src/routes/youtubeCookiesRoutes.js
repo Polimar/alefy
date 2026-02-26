@@ -17,7 +17,18 @@ router.post(
   '/upload',
   authenticate,
   requireAdmin,
-  upload.single('cookies'),
+  (req, res, next) => {
+    upload.single('cookies')(req, res, (err) => {
+      if (err && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({
+          success: false,
+          error: { message: 'File troppo grande. Limite 10MB.' },
+        });
+      }
+      if (err) return next(err);
+      next();
+    });
+  },
   uploadCookies
 );
 

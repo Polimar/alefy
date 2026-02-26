@@ -60,17 +60,13 @@ if (process.env.CORS_ORIGIN) {
   corsOrigins = ['http://localhost:5173'];
 }
 
-// Aggiungi DOMAIN se disponibile (costruito dinamicamente)
+// Aggiungi DOMAIN se disponibile (entrambi i protocolli: proxy HTTPS servito come HTTP)
 if (process.env.DOMAIN) {
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-  const domainOrigin = `${protocol}://${process.env.DOMAIN}`;
-  if (!corsOrigins.includes(domainOrigin)) {
-    corsOrigins.push(domainOrigin);
-  }
-  // Aggiungi anche versione http se siamo in produzione (per redirect)
-  if (process.env.NODE_ENV === 'production' && !corsOrigins.includes(`http://${process.env.DOMAIN}`)) {
-    corsOrigins.push(`http://${process.env.DOMAIN}`);
-  }
+  const domain = process.env.DOMAIN.replace(/\/$/, '');
+  const origins = [`https://${domain}`, `http://${domain}`];
+  origins.forEach((o) => {
+    if (!corsOrigins.includes(o)) corsOrigins.push(o);
+  });
 }
 
 logger.info('[CORS] Origins permessi:', JSON.stringify(corsOrigins));
@@ -256,12 +252,11 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Serve frontend static files (solo in produzione o se FRONTEND_STATIC_PATH è definito)
-// IMPORTANTE: Questo deve essere DOPO le route API ma PRIMA dell'error handler
+// Serve frontend static files (SPA fallback per /youtube-cookies, /login, ecc.)
+// Serve quando la directory esiste (produzione o dopo lxc-rebuild-frontend)
 const frontendStaticPath = process.env.FRONTEND_STATIC_PATH || '/var/www/alefy';
-if (process.env.NODE_ENV === 'production' || process.env.FRONTEND_STATIC_PATH) {
+if (fs.existsSync(frontendStaticPath) && fs.existsSync(path.join(frontendStaticPath, 'index.html'))) {
   try {
-    if (fs.existsSync(frontendStaticPath)) {
       // Serve file statici del frontend (CSS, JS, immagini, ecc.)
       app.use(express.static(frontendStaticPath, {
         maxAge: '1y',
@@ -285,13 +280,12 @@ if (process.env.NODE_ENV === 'production' || process.env.FRONTEND_STATIC_PATH) {
         }
       });
       
-      logger.info(`Frontend static files serviti da: ${frontendStaticPath}`);
-    } else {
-      logger.warn(`Frontend static path non trovato: ${frontendStaticPath}`);
-    }
+    logger.info(`Frontend static files serviti da: ${frontendStaticPath}`);
   } catch (error) {
     logger.error(`Errore nel servire file statici frontend: ${error.message}`);
   }
+} else {
+  logger.warn(`Frontend non servito: ${frontendStaticPath} non trovato o index.html assente`);
 }
 
 // 404 handler per API

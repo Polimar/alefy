@@ -32,10 +32,6 @@ export default function YouTubeCookies() {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 100 * 1024) {
-        alert('Il file è troppo grande. Massimo 100KB.');
-        return;
-      }
       setSelectedFile(file);
     }
   };

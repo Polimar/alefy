@@ -28,7 +28,7 @@ const storage = multer.diskStorage({
 export const upload = multer({
   storage,
   limits: {
-    fileSize: 100 * 1024, // 100KB max per file cookies
+    fileSize: 10 * 1024 * 1024, // 10MB max - il file viene filtrato per conservare solo cookies YouTube
   },
   fileFilter: (req, file, cb) => {
     // Accetta solo file .txt (formato Netscape cookies)

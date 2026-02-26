@@ -124,8 +124,8 @@
   align-items: center;
   gap: 0.375rem;
   padding: 0.375rem 0.75rem;
-  background: rgba(255, 193, 7, 0.1);
-  color: #ffc107;
+  background: var(--warning-dim);
+  color: var(--warning);
   border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 500;
@@ -177,14 +177,14 @@
 }
 
 .action-btn.delete-btn:hover {
-  color: #ff4444;
-  border-color: #ff4444;
+  color: var(--error);
+  border-color: var(--error);
 }
 
 .error-message {
   padding: 0.75rem;
-  background: rgba(220, 53, 69, 0.1);
-  color: #dc3545;
+  background: var(--error-dim);
+  color: var(--error);
   border-radius: 6px;
   margin-bottom: 1rem;
   font-size: 0.875rem;

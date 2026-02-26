@@ -207,14 +207,14 @@ tail -f /var/log/nginx/alefy-error.log
 ### PostgreSQL
 
 ```bash
-# Accesso database
-sudo -u postgres psql alefy_db
+# Accesso database (come root)
+runuser -u postgres -- psql alefy_db
 
 # Backup database
-sudo -u postgres pg_dump alefy_db > backup_$(date +%Y%m%d).sql
+runuser -u postgres -- pg_dump alefy_db > backup_$(date +%Y%m%d).sql
 
 # Ripristino database
-sudo -u postgres psql alefy_db < backup.sql
+runuser -u postgres -- psql alefy_db < backup.sql
 ```
 
 ## Struttura Directory
@@ -267,11 +267,11 @@ systemctl reload nginx
 ### Backup Database
 
 ```bash
-# Backup manuale
-sudo -u postgres pg_dump alefy_db > /backup/alefy_db_$(date +%Y%m%d_%H%M%S).sql
+# Backup manuale (come root)
+runuser -u postgres -- pg_dump alefy_db > /backup/alefy_db_$(date +%Y%m%d_%H%M%S).sql
 
 # Backup automatico (cron)
-# Aggiungi a crontab: 0 2 * * * sudo -u postgres pg_dump alefy_db > /backup/alefy_db_$(date +\%Y\%m\%d).sql
+# Aggiungi a crontab: 0 2 * * * runuser -u postgres -- pg_dump alefy_db > /backup/alefy_db_$(date +\%Y\%m\%d).sql
 ```
 
 ### Backup Storage
@@ -351,11 +351,11 @@ curl http://localhost:3000/api/auth/me
 # Verifica PostgreSQL
 systemctl status postgresql
 
-# Test connessione
-sudo -u postgres psql -c "SELECT version();"
+# Test connessione (come root)
+runuser -u postgres -- psql -c "SELECT version();"
 
 # Verifica database
-sudo -u postgres psql alefy_db -c "\dt"
+runuser -u postgres -- psql alefy_db -c "\dt"
 ```
 
 ### Problemi SSL

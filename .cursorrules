@@ -1,0 +1,17 @@
+## Design Context
+
+### Users
+Circa 10 utenti, uso personale/familiare. Contesto: ascolto a casa o in movimento. Obiettivo: gestire la propria libreria musicale e le playlist senza dipendere da servizi esterni.
+
+### Brand Personality
+Personale, funzionale, discreto. Voce neutra, tono sobrio. Nessun protagonismo dell'interfaccia: l'attenzione resta sulla musica.
+
+### Aesthetic Direction
+Come Spotify, ma privato: dark theme, palette scura, accent verde (#1db954). Nessun gradient viola né effetti vistosi. Typography con system font stack, layout pulito e familiare. Anti-riferimenti: look generico AI (Inter, gradient viola, card su card), grafica aggressiva o “playful”.
+
+### Design Principles
+1. **Calma** — l'interfaccia non deve competere con la musica; ritmo visivo morbido, transizioni discrete.
+2. **Funzionalità prima** — ogni elemento ha uno scopo chiaro; evitare decorazioni superflue.
+3. **Coerenza** — mantenere token esistenti (--bg-primary, --accent, --border) e convenzioni attuali (sidebar, player fisso, tabelle).
+4. **Discrezione** — contrasti leggibili ma non forti; evitare call-to-action urlanti o animazioni eccessive.
+5. **Accessibilità base** — contrasto WCAG AA, focus visibili, testi non troppo piccoli; niente riduzione movimento se non richiesta.

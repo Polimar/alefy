@@ -227,8 +227,8 @@
 }
 
 .test-result.error {
-  background-color: rgba(255, 0, 0, 0.1);
-  color: #ff4444;
+  background-color: var(--error-dim);
+  color: var(--error);
 }
 
 .toggle-btn,
@@ -267,8 +267,8 @@
 }
 
 .delete-btn:hover {
-  background-color: rgba(255, 0, 0, 0.1);
-  color: #ff4444;
+  background-color: var(--error-dim);
+  color: var(--error);
 }
 
 @media (max-width: 768px) {

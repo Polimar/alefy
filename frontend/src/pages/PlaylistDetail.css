@@ -141,11 +141,11 @@
 }
 
 .playlist-menu-item.danger {
-  color: #ff4444;
+  color: var(--error);
 }
 
 .playlist-menu-item.danger:hover {
-  background-color: rgba(255, 68, 68, 0.1);
+  background-color: var(--error-dim);
 }
 
 .playlist-info h1 {

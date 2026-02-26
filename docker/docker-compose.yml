@@ -50,7 +50,7 @@ services:
       - alefy-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`${DOMAIN:-alefy.duckdns.org}`) && PathPrefix(`/api`) && !PathPrefix(`/api/upload`) && !PathPrefix(`/api/stream`)"
+      - "traefik.http.routers.backend.rule=Host(`${DOMAIN:-alefy.duckdns.org}`) && PathPrefix(`/api`) && !PathPrefix(`/api/upload`) && !PathPrefix(`/api/stream`) && !PathPrefix(`/api/youtube/cookies`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.backend.middlewares=backend-headers"
@@ -73,6 +73,14 @@ services:
       - "traefik.http.services.backend-stream.loadbalancer.server.port=3000"
       - "traefik.http.middlewares.backend-stream-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
       - "traefik.http.middlewares.backend-stream-headers.buffering.maxRequestBodyBytes=0"
+      - "traefik.http.routers.backend-cookies.rule=Host(`${DOMAIN:-alefy.duckdns.org}`) && PathPrefix(`/api/youtube/cookies`)"
+      - "traefik.http.routers.backend-cookies.entrypoints=websecure"
+      - "traefik.http.routers.backend-cookies.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend-cookies.middlewares=backend-cookies-headers"
+      - "traefik.http.routers.backend-cookies.service=backend-cookies"
+      - "traefik.http.services.backend-cookies.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.backend-cookies-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.middlewares.backend-cookies-headers.buffering.maxRequestBodyBytes=10485760"
 
   frontend:
     build:
