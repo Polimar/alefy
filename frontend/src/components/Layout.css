@@ -87,7 +87,7 @@
 
   .main-content {
     width: 100%;
-    /* Nessun padding-bottom, il player ha il suo spazio */
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
   }
 
   .sidebar-header {

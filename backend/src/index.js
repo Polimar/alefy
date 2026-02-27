@@ -253,8 +253,11 @@ app.get('/api', (req, res) => {
 });
 
 // Serve frontend static files (SPA fallback per /youtube-cookies, /login, ecc.)
-// Serve quando la directory esiste (produzione o dopo lxc-rebuild-frontend)
-const frontendStaticPath = process.env.FRONTEND_STATIC_PATH || '/var/www/alefy';
+// Risolvi path relativi rispetto a cwd (backend/ quando avviato con cd backend)
+const rawFrontendPath = process.env.FRONTEND_STATIC_PATH || '/var/www/alefy';
+const frontendStaticPath = path.isAbsolute(rawFrontendPath)
+  ? rawFrontendPath
+  : path.resolve(process.cwd(), rawFrontendPath);
 if (fs.existsSync(frontendStaticPath) && fs.existsSync(path.join(frontendStaticPath, 'index.html'))) {
   try {
       // Serve file statici del frontend (CSS, JS, immagini, ecc.)

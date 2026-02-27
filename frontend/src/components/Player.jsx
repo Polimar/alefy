@@ -887,7 +887,7 @@ export default function Player() {
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowMobileQueue(true);
-                    setIsPlayerExpanded(false); // Chiude il fullscreen prima di aprire la coda
+                    setIsExpanded(false); // Chiude il fullscreen prima di aprire la coda
                   }}
                 >
                   <span>Coda ({queue.length}) ▶</span>
@@ -958,7 +958,7 @@ export default function Player() {
                   onClick={() => {
                     playFromQueue(idx);
                     setShowMobileQueue(false);
-                    setIsPlayerExpanded(false);
+                    setIsExpanded(false);
                   }}
                 >
                   <span className="queue-modal-index">{idx + 1}</span>

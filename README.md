@@ -1,6 +1,6 @@
 # ALEFY - Sistema di Streaming Musicale Personale
 
-Sistema completo di streaming musicale personale con web application e app Android.
+Sistema completo di streaming musicale personale con web application.
 
 ## Struttura Progetto
 
@@ -8,8 +8,7 @@ Sistema completo di streaming musicale personale con web application e app Andro
 alefy/
 ├── backend/          # API server Node.js/Express
 ├── frontend/         # Web application React
-├── android/          # App Android (Kotlin)
-├── docker/           # Configurazioni Docker
+├── scripts/          # Script di avvio e setup
 ├── docs/             # Documentazione
 └── assets/           # Risorse condivise
 ```
@@ -29,81 +28,57 @@ alefy/
 - React Router per routing
 - Axios per API calls
 
-### Android
-- Kotlin
-- Jetpack Compose
-- ExoPlayer
-- Room Database
-- Retrofit
-
 ## Setup
 
 ### Prerequisiti
+
 - Node.js 20+
-- PostgreSQL 15+ (lo script `start-dev.sh` lo installa e configura se mancante)
-- Docker e Docker Compose (opzionale)
-- FFmpeg
-- yt-dlp
+- Sistema Debian/Ubuntu con `apt` (per installazione automatica di PostgreSQL, yt-dlp, FFmpeg)
 
-### Installazione
+### Primo avvio
 
-1. Clona il repository:
 ```bash
 git clone <repository-url>
 cd alefy
-```
-
-2. Configura le variabili d'ambiente:
-```bash
-cp .env.example .env
-# Modifica .env con le tue configurazioni
-```
-
-3. Setup database:
-```bash
-cd backend
 npm install
-npm run migrate
-npm run seed  # Crea utente admin di default
+npm run serve
 ```
 
-L'utente admin di default è:
+Al primo `npm run serve` lo script esegue automaticamente:
+- Installazione PostgreSQL (se mancante), creazione utente e database
+- Installazione yt-dlp e FFmpeg (se mancanti)
+- Creazione `.env` da `env.example` (se manca)
+- `npm install` per backend e frontend
+- Migrazioni database e seed
+
+**Utente admin di default:**
 - Email: `valerio@free-ware.it`
 - Password: `La_F3ss4_d3_Mamm3ta`
 
-4. Avvia il backend:
+L'applicazione è disponibile su **http://localhost:3000** (backend + frontend sulla stessa porta).
+
+### Configurazione
+
+Prima del primo avvio, puoi modificare `.env` (creato automaticamente da `env.example`). Variabili principali:
+- `DOMAIN` - dominio per link condivisi (es. `alefy.alevale.it`)
+- `STORAGE_PATH` - impostato automaticamente come path assoluto da `setup.sh`
+
+### Avvio automatico al reboot
+
+Per far partire ALEFY automaticamente quando la macchina si riavvia:
+
 ```bash
-npm run dev
+./scripts/install-systemd.sh
 ```
 
-5. Setup frontend:
-```bash
-cd frontend
-npm install
-npm run dev
-```
+Comandi utili: `systemctl status alefy` | `systemctl stop alefy` | `systemctl restart alefy`
 
-**Avvio rapido** (dopo il primo setup):
-```bash
-# Dalla root del progetto (/home/alefy), non da scripts/
-./scripts/start-dev.sh
-```
-Avvia backend e frontend in parallelo.
+### Se npm non è trovato
 
-**Se npm non è trovato:** carica nvm (`source ~/.nvm/nvm.sh`) oppure installa Node.js 20+:
+Su Debian/Ubuntu come root:
 ```bash
-# Come root (senza sudo)
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs
-```
-
-### Docker
-
-Per avviare tutto con Docker:
-
-```bash
-cd docker
-docker-compose up -d
 ```
 
 ## API Endpoints
@@ -165,29 +140,17 @@ docker-compose up -d
 - ✅ Player audio integrato
 - ✅ Gestione playlist
 
-### Android (da implementare)
-- Player con ExoPlayer
-- Background playback
-- Download offline
-- Sincronizzazione
-
 ## Sviluppo
 
-### Backend
 ```bash
-cd backend
-npm run dev
+npm run serve
 ```
 
-### Frontend
-```bash
-cd frontend
-npm run dev
-```
+Avvia backend (con nodemon) e frontend (vite build --watch) sulla porta 3000. Le modifiche a backend e frontend vengono ricompilate automaticamente.
 
 ## Deployment
 
-Vedi `docker/docker-compose.yml` per la configurazione completa.
+Backend e frontend sono serviti insieme sulla porta 3000. Per produzione dietro un reverse proxy (es. Nginx Proxy Manager), indirizza il traffico verso `http://localhost:3000`.
 
 ## Licenza
 

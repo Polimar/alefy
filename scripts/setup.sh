@@ -1,10 +1,13 @@
 #!/bin/bash
-# ALEFY - Avvio ambiente di sviluppo
-# Uso: ./scripts/start-dev.sh (dalla root del progetto)
+# ALEFY - Setup iniziale (PostgreSQL, yt-dlp, FFmpeg, npm deps, migrate, seed)
+# Richiamato da serve.sh al primo avvio
 set -e
 
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
+
+echo "[Setup] ALEFY - Primo avvio"
+echo ""
 
 # Carica Node/npm se non in PATH
 if ! command -v npm &>/dev/null; then
@@ -15,22 +18,21 @@ if ! command -v npm &>/dev/null; then
   elif [[ -d "$HOME/.fnm" ]]; then
     eval "$(fnm env)"
   fi
-  # Prova anche PATH comuni
   export PATH="/usr/local/bin:/usr/bin:$HOME/.local/bin:$PATH"
 fi
 
 if ! command -v npm &>/dev/null; then
   echo "Errore: npm non trovato."
-  echo "Come root:"
+  echo "Installa Node.js 20+:"
   echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -"
   echo "  apt-get install -y nodejs"
   exit 1
 fi
 
 # .env
-if [[ ! -f .env ]]; then
-  cp env.example .env
-  echo "[OK] .env creato da env.example"
+if [[ ! -f "$ROOT/.env" ]]; then
+  cp "$ROOT/env.example" "$ROOT/.env"
+  echo "[Setup] .env creato da env.example"
 fi
 set -a
 source "$ROOT/.env" 2>/dev/null || true
@@ -38,7 +40,7 @@ set +a
 
 # PostgreSQL
 install_postgres() {
-  echo "[PostgreSQL] Installazione..."
+  echo "[Setup] Installazione PostgreSQL..."
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
   apt-get install -y postgresql postgresql-contrib
@@ -53,7 +55,7 @@ if ! command -v psql &>/dev/null; then
 fi
 
 if ! pg_ok; then
-  echo "[PostgreSQL] Avvio servizio..."
+  echo "[Setup] Avvio PostgreSQL..."
   systemctl start postgresql 2>/dev/null || service postgresql start 2>/dev/null || true
   sleep 2
 fi
@@ -74,41 +76,59 @@ runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$PG_USER
 runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname='$PG_DB'" 2>/dev/null | grep -q 1 || \
   runuser -u postgres -- psql -c "CREATE DATABASE $PG_DB OWNER $PG_USER;"
 
-# Backend
-echo "[1/4] Backend: install, migrate, seed..."
+# yt-dlp
+if ! command -v yt-dlp &>/dev/null; then
+  echo "[Setup] Installazione yt-dlp..."
+  apt-get update -qq
+  apt-get install -y yt-dlp
+fi
+
+# FFmpeg
+if ! command -v ffmpeg &>/dev/null; then
+  echo "[Setup] Installazione FFmpeg..."
+  apt-get update -qq
+  apt-get install -y ffmpeg
+fi
+
+# Storage: crea directory e migra da backend/storage se esiste
+STORAGE_ABSOLUTE="$ROOT/storage"
+mkdir -p "$STORAGE_ABSOLUTE"
+
+if [[ -d "$ROOT/backend/storage" ]]; then
+  echo "[Setup] Migrazione storage da backend/storage..."
+  cp -a "$ROOT/backend/storage"/. "$STORAGE_ABSOLUTE/" 2>/dev/null || true
+  rm -rf "$ROOT/backend/storage"
+  echo "[Setup] Migrazione completata"
+fi
+
+# Aggiorna STORAGE_PATH nel .env con path assoluto
+if grep -q "^STORAGE_PATH=" "$ROOT/.env"; then
+  sed -i "s|^STORAGE_PATH=.*|STORAGE_PATH=$STORAGE_ABSOLUTE|" "$ROOT/.env"
+else
+  echo "STORAGE_PATH=$STORAGE_ABSOLUTE" >> "$ROOT/.env"
+fi
+
+# npm install
+echo "[Setup] Installazione dipendenze npm..."
 cd "$ROOT/backend"
 npm install
-npm run migrate
-npm run seed
-
-# Frontend
-echo "[2/4] Frontend: install..."
 cd "$ROOT/frontend"
 npm install
-
-# Root deps (concurrently)
 cd "$ROOT"
 npm install
 
-# Libera porte 3000 e 5173 se occupate da sessioni precedenti
-kill_port() {
-  local port=$1
-  local pid
-  pid=$(lsof -ti :$port 2>/dev/null || true)
-  if [[ -n "$pid" ]]; then
-    echo "[Porte] Terminando processo $pid sulla porta $port..."
-    kill $pid 2>/dev/null || kill -9 $pid 2>/dev/null || true
-    sleep 1
-  fi
-}
-kill_port 3000
-kill_port 5173
+# Migrate e seed
+echo "[Setup] Migrazioni database e seed..."
+cd "$ROOT/backend"
+npm run migrate
+npm run seed
 
-# Avvia backend e frontend in parallelo
-echo "[3/4] Avvio backend (:3000) e frontend (:5173)..."
+# Build frontend iniziale (serve.sh aspetta frontend/dist)
+echo "[Setup] Build frontend iniziale..."
+cd "$ROOT/frontend"
+npm run build
+
+# Marker di inizializzazione
+touch "$ROOT/.alefy-initialized"
 echo ""
-echo "=== ALEFY ==="
-echo "  Frontend: http://localhost:5173"
-echo "  Backend:  http://localhost:3000"
-echo ""
-npx concurrently "cd backend && npm run dev" "cd frontend && npm run dev"
+echo "[Setup] Completato. ALEFY pronto."

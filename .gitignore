@@ -21,6 +21,9 @@ build/
 .env.local
 .env.*.local
 
+# Setup marker (first-run)
+.alefy-initialized
+
 # IDE
 .vscode/
 .idea/
@@ -50,17 +53,6 @@ media/
 # Docker
 docker-compose.override.yml
 docker/traefik/letsencrypt/
-
-# Android
-android/.gradle/
-android/build/
-android/app/build/
-android/.idea/
-android/local.properties
-android/*.iml
-android/.externalNativeBuild/
-android/captures/
-android/.cxx/
 
 # Temporary files
 tmp/

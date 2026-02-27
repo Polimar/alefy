@@ -5,8 +5,14 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Root del progetto (backend/src/utils -> ../../..)
+const PROJECT_ROOT = path.join(__dirname, '../../..');
+
 export const getStoragePath = () => {
-  return process.env.STORAGE_PATH || path.join(__dirname, '../../storage');
+  const raw = process.env.STORAGE_PATH || 'storage';
+  return path.isAbsolute(raw)
+    ? raw
+    : path.join(PROJECT_ROOT, raw.replace(/^\.\//, ''));
 };
 
 export const getUserStoragePath = (userId) => {
