@@ -12,6 +12,7 @@ import { parseTimestampsFromDescription } from '../utils/timestampParser.js';
 import { splitAudioFile } from '../utils/audioSplitter.js';
 import { searchTrackMetadata } from '../utils/metadataSearch.js';
 import { getActiveCookiesPath } from './youtubeCookiesController.js';
+import { getYtdlpPath } from '../utils/ytdlp.js';
 import { processTrack } from '../services/metadataBatchService.js';
 import { z } from 'zod';
 
@@ -154,9 +155,6 @@ export async function processDownloadJob(job) {
       }
     }
 
-    // Risolvi percorso yt-dlp
-    let ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
-    
     // Prima ottieni i metadati del video per rilevare se è un album
     console.log(`[YouTube Download] Job ${jobId}: Rilevamento album...`);
     let videoInfo = null;
@@ -179,8 +177,8 @@ export async function processDownloadJob(job) {
       }
       
       const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
-      
-      const infoCommand = `${ytdlpPath} "${url}" --dump-json --no-playlist ${cookiesFlag}`.trim();
+      const ytdlpPathForInfo = await getYtdlpPath();
+      const infoCommand = `${ytdlpPathForInfo} "${url}" --dump-json --no-playlist ${cookiesFlag}`.trim();
       const { stdout: infoStdout } = await execAsync(infoCommand, {
         maxBuffer: 5 * 1024 * 1024,
         timeout: 30000,
@@ -206,27 +204,9 @@ export async function processDownloadJob(job) {
       console.warn(`[YouTube Download] Job ${jobId}: Impossibile ottenere info video: ${infoError.message}`);
       // Continua comunque con il download
     }
-    
-    if (ytdlpPath.startsWith('/')) {
-      try {
-        await fs.access(ytdlpPath);
-      } catch (error) {
-        try {
-          const { stdout } = await execAsync('which yt-dlp', { maxBuffer: 1024 });
-          ytdlpPath = stdout.trim();
-        } catch (pathError) {
-          throw new Error('yt-dlp non è installato o non è nel PATH.');
-        }
-      }
-    } else {
-      try {
-        const { stdout } = await execAsync(`which ${ytdlpPath}`, { maxBuffer: 1024 });
-        ytdlpPath = stdout.trim();
-      } catch (error) {
-        throw new Error('yt-dlp non è installato o non è nel PATH.');
-      }
-    }
-    
+
+    const ytdlpPath = await getYtdlpPath();
+
     // Verifica versione yt-dlp
     try {
       const { stdout: versionOutput } = await execAsync(`${ytdlpPath} --version`, { maxBuffer: 1024 });
@@ -815,34 +795,6 @@ export async function addTracksToPlaylist(userId, playlistId, trackIds) {
     }
   }
 }
-
-// Helper function per ottenere il percorso di yt-dlp
-const getYtdlpPath = async () => {
-  let ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
-  
-  if (ytdlpPath.startsWith('/')) {
-    try {
-      await fs.access(ytdlpPath);
-      return ytdlpPath;
-    } catch (error) {
-      console.error(`[YouTube Search] yt-dlp non trovato al percorso: ${ytdlpPath}`);
-      try {
-        const { stdout } = await execAsync('which yt-dlp', { maxBuffer: 1024 });
-        return stdout.trim();
-      } catch (pathError) {
-        throw new AppError('yt-dlp non è installato o non è nel PATH. Verifica l\'installazione.', 500);
-      }
-    }
-  } else {
-    try {
-      const { stdout } = await execAsync(`which ${ytdlpPath}`, { maxBuffer: 1024 });
-      return stdout.trim();
-    } catch (error) {
-      console.error(`[YouTube Search] yt-dlp non trovato nel PATH: ${ytdlpPath}`);
-      throw new AppError('yt-dlp non è installato o non è nel PATH. Verifica l\'installazione.', 500);
-    }
-  }
-};
 
 export const getQueue = async (req, res, next) => {
   try {

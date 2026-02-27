@@ -1,9 +1,14 @@
 import pool from '../database/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getStoragePath, ensureDirectoryExists } from '../utils/storage.js';
+import { getYtdlpPath } from '../utils/ytdlp.js';
 import path from 'path';
 import fs from 'fs/promises';
 import multer from 'multer';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 import { z } from 'zod';
 
 const updateCookiesSchema = z.object({
@@ -303,19 +308,7 @@ export const testCookies = async (req, res, next) => {
       throw new AppError('File cookies non trovato', 404);
     }
 
-    // Test con una ricerca semplice su YouTube
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
-
-    // Trova yt-dlp
-    let ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
-    try {
-      const { stdout } = await execAsync(`which ${ytdlpPath}`, { maxBuffer: 1024 });
-      ytdlpPath = stdout.trim();
-    } catch (error) {
-      throw new AppError('yt-dlp non trovato', 500);
-    }
+    const ytdlpPath = await getYtdlpPath();
 
     // Esegui una ricerca di test semplice
     const testQuery = 'ytsearch1:test';

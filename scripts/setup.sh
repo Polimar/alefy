@@ -82,6 +82,11 @@ if ! command -v yt-dlp &>/dev/null; then
   apt-get update -qq
   apt-get install -y yt-dlp
 fi
+YTDLP_ACTUAL=$(which yt-dlp 2>/dev/null || true)
+if [[ -n "$YTDLP_ACTUAL" ]] && [[ -f "$ROOT/.env" ]] && grep -q "^YTDLP_PATH=" "$ROOT/.env"; then
+  sed -i "s|^YTDLP_PATH=.*|YTDLP_PATH=$YTDLP_ACTUAL|" "$ROOT/.env"
+  echo "[Setup] YTDLP_PATH aggiornato a $YTDLP_ACTUAL"
+fi
 
 # FFmpeg
 if ! command -v ffmpeg &>/dev/null; then
