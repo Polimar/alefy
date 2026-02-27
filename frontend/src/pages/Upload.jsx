@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import { Download, Music, Search, X, CheckCircle, XCircle, Clock, Loader, Pause, Play, Trash2 } from 'lucide-react';
 import RateLimitModal from '../components/RateLimitModal';
@@ -63,6 +64,17 @@ export default function Upload() {
   const [bulkPlaylistOption, setBulkPlaylistOption] = useState('none');
   const [bulkSelectedPlaylistId, setBulkSelectedPlaylistId] = useState(null);
   const [bulkNewPlaylistName, setBulkNewPlaylistName] = useState('');
+  // Stati per playlist YouTube
+  const [playlistUrl, setPlaylistUrl] = useState('');
+  const [playlistResults, setPlaylistResults] = useState([]);
+  const [playlistLoading, setPlaylistLoading] = useState(false);
+  const [playlistError, setPlaylistError] = useState(null);
+  const [selectedPlaylistCardIds, setSelectedPlaylistCardIds] = useState(new Set());
+  const [showPlaylistBulkModal, setShowPlaylistBulkModal] = useState(false);
+  const [playlistBulkOption, setPlaylistBulkOption] = useState('none');
+  const [playlistBulkPlaylistId, setPlaylistBulkPlaylistId] = useState(null);
+  const [playlistBulkName, setPlaylistBulkName] = useState('');
+  const [downloadingPlaylistBulk, setDownloadingPlaylistBulk] = useState(false);
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -164,6 +176,14 @@ export default function Upload() {
     } finally {
       setDownloadingUrl(false);
     }
+  };
+
+  const isValidYouTubePlaylistUrl = (url) => {
+    if (!url?.trim()) return false;
+    const trimmed = url.trim();
+    const isYoutube = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/.+/.test(trimmed);
+    const hasPlaylist = trimmed.includes('list=') || trimmed.includes('/playlist');
+    return isYoutube && hasPlaylist;
   };
 
   const isValidYouTubeUrl = (url) => {
@@ -384,6 +404,93 @@ export default function Upload() {
       setSearchError(errorMessage);
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handleLoadPlaylist = async (e) => {
+    e.preventDefault();
+    if (!playlistUrl.trim() || !isValidYouTubePlaylistUrl(playlistUrl)) return;
+    setPlaylistLoading(true);
+    setPlaylistError(null);
+    setPlaylistResults([]);
+    setSelectedPlaylistCardIds(new Set());
+    try {
+      const response = await api.get('/youtube/playlist', { params: { url: playlistUrl.trim() } });
+      const results = response.data.data.results || [];
+      setPlaylistResults(results);
+      setSelectedPlaylistCardIds(new Set(results.map(r => r.id)));
+    } catch (error) {
+      console.error('Playlist load error:', error);
+      const msg = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore nel caricamento della playlist';
+      setPlaylistError(msg);
+    } finally {
+      setPlaylistLoading(false);
+    }
+  };
+
+  const togglePlaylistCardSelection = (resultId) => {
+    setSelectedPlaylistCardIds(prev => {
+      const next = new Set(prev);
+      if (next.has(resultId)) next.delete(resultId);
+      else next.add(resultId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllPlaylistCards = () => {
+    if (selectedPlaylistCardIds.size === playlistResults.length) {
+      setSelectedPlaylistCardIds(new Set());
+    } else {
+      setSelectedPlaylistCardIds(new Set(playlistResults.map(r => r.id)));
+    }
+  };
+
+  const openPlaylistBulkModal = () => {
+    if (selectedPlaylistCardIds.size === 0) return;
+    setShowPlaylistBulkModal(true);
+    setPlaylistBulkOption('none');
+    setPlaylistBulkPlaylistId(null);
+    setPlaylistBulkName(playlistResults[0]?.channel || 'Playlist YouTube');
+  };
+
+  const handlePlaylistBulkDownload = async () => {
+    const toDownload = playlistResults.filter(r => selectedPlaylistCardIds.has(r.id));
+    if (toDownload.length === 0) return;
+    if (playlistBulkOption === 'existing' && !playlistBulkPlaylistId) {
+      alert('Seleziona una playlist');
+      return;
+    }
+    if (playlistBulkOption === 'new' && !playlistBulkName.trim()) {
+      alert('Inserisci il nome della playlist');
+      return;
+    }
+    setDownloadingPlaylistBulk(true);
+    try {
+      for (const result of toDownload) {
+        const downloadData = {
+          url: result.url,
+          thumbnailUrl: result.thumbnail_url || null,
+        };
+        if (playlistBulkOption === 'existing' && playlistBulkPlaylistId) {
+          downloadData.playlistId = playlistBulkPlaylistId;
+        } else if (playlistBulkOption === 'new' && playlistBulkName.trim()) {
+          downloadData.playlistName = playlistBulkName.trim();
+        }
+        await api.post('/youtube/download', downloadData);
+      }
+      setShowPlaylistBulkModal(false);
+      setSelectedPlaylistCardIds(new Set());
+      startPolling();
+      alert(`${toDownload.length} download avviati!`);
+    } catch (error) {
+      if (error.response?.status === 429) {
+        setRateLimitModal({ show: true, minutesRemaining: getMinutesUntilRateLimitReset(error) });
+        return;
+      }
+      const msg = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
+      alert(msg);
+    } finally {
+      setDownloadingPlaylistBulk(false);
     }
   };
 
@@ -1057,7 +1164,12 @@ export default function Upload() {
                           </div>
                         )}
                         {job.status === 'failed' && job.error && (
-                          <div className="result-download-error">{job.error}</div>
+                          <div className="result-download-error">
+                            {job.error}
+                            {job.error.includes('Cookies YouTube') && (
+                              <Link to="/youtube-cookies" className="error-cookies-link">Configura cookie</Link>
+                            )}
+                          </div>
                         )}
                         {job.status === 'completed' && job.track && (
                           <div className="result-download-success">
@@ -1066,6 +1178,111 @@ export default function Upload() {
                         )}
                       </div>
                     ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Playlist YouTube Section */}
+      <div className="youtube-section">
+        <h2>
+          <Download size={20} />
+          Playlist YouTube
+        </h2>
+        <form onSubmit={handleLoadPlaylist} className="youtube-form">
+          <div className="youtube-input-group">
+            <input
+              type="text"
+              value={playlistUrl}
+              onChange={(e) => {
+                setPlaylistUrl(e.target.value);
+                setPlaylistError(null);
+              }}
+              placeholder="Incolla qui l'URL della playlist YouTube..."
+              className="youtube-input"
+            />
+            <button
+              type="submit"
+              disabled={playlistLoading || !playlistUrl.trim() || !isValidYouTubePlaylistUrl(playlistUrl)}
+              className="youtube-download-btn"
+            >
+              {playlistLoading ? 'Caricamento...' : 'Carica playlist'}
+            </button>
+          </div>
+          {!isValidYouTubePlaylistUrl(playlistUrl) && playlistUrl.trim() && (
+            <div className="youtube-hint">
+              Inserisci un URL playlist YouTube (deve contenere list= o /playlist)
+            </div>
+          )}
+          {playlistError && (
+            <div className="youtube-error">
+              {playlistError}
+            </div>
+          )}
+        </form>
+
+        {playlistResults.length > 0 && (
+          <div className="youtube-search-results">
+            <div className="search-results-header">
+              <h3>Trovati {playlistResults.length} video nella playlist</h3>
+              <label className="select-all-cards-label">
+                <input
+                  type="checkbox"
+                  checked={selectedPlaylistCardIds.size === playlistResults.length}
+                  onChange={toggleSelectAllPlaylistCards}
+                  aria-label="Seleziona tutti"
+                />
+                <span>Seleziona tutti</span>
+              </label>
+            </div>
+            {selectedPlaylistCardIds.size > 0 && (
+              <div className="bulk-actions-bar">
+                <span className="bulk-actions-count">
+                  {selectedPlaylistCardIds.size} selezionat{selectedPlaylistCardIds.size === 1 ? 'o' : 'i'}
+                </span>
+                <button className="btn-bulk-download" onClick={openPlaylistBulkModal}>
+                  <Download size={18} />
+                  Scarica selezionat{selectedPlaylistCardIds.size === 1 ? 'o' : 'i'}
+                </button>
+                <button className="btn-bulk-clear" onClick={() => setSelectedPlaylistCardIds(new Set())}>
+                  Deseleziona
+                </button>
+              </div>
+            )}
+            <div className="search-results-grid">
+              {playlistResults.map((result) => (
+                <div key={result.id} className="search-result-card">
+                  <div
+                    className="result-card-checkbox"
+                    onClick={(e) => togglePlaylistCardSelection(result.id)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedPlaylistCardIds.has(result.id)}
+                      onChange={(e) => togglePlaylistCardSelection(result.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Seleziona ${result.title}`}
+                    />
+                  </div>
+                  {result.thumbnail_url && (
+                    <div className="result-thumbnail">
+                      <img src={result.thumbnail_url} alt={result.title} />
+                    </div>
+                  )}
+                  <div className="result-content">
+                    <h4 className="result-title">{result.title}</h4>
+                    <p className="result-channel">{result.channel}</p>
+                    <div className="result-meta">
+                      <span className="result-duration">{formatDuration(result.duration)}</span>
+                      {result.view_count > 0 && (
+                        <span className="result-views">
+                          {result.view_count.toLocaleString()} visualizzazioni
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1113,15 +1330,15 @@ export default function Upload() {
         </form>
       </div>
 
-      {/* Download Queue Section - Mostra solo download da URL diretto (non da ricerca) */}
-      {queue.filter(job => !searchResults.some(result => result.url === job.url)).length > 0 && (
+      {/* Download Queue Section - Mostra solo download da URL diretto (non da ricerca/playlist) */}
+      {queue.filter(job => !searchResults.some(r => r.url === job.url) && !playlistResults.some(r => r.url === job.url)).length > 0 && (
         <div className="download-queue-section">
           <h2>
             <Download size={20} />
-            Coda Download ({queue.filter(job => !searchResults.some(result => result.url === job.url)).length})
+            Coda Download ({queue.filter(job => !searchResults.some(r => r.url === job.url) && !playlistResults.some(r => r.url === job.url)).length})
           </h2>
           <div className="queue-list">
-            {queue.filter(job => !searchResults.some(result => result.url === job.url)).map((job) => (
+            {queue.filter(job => !searchResults.some(r => r.url === job.url) && !playlistResults.some(r => r.url === job.url)).map((job) => (
               <div key={job.id} className={`queue-item queue-item-${job.status}`}>
                 <div className="queue-item-header">
                   <div className="queue-item-status">
@@ -1189,7 +1406,12 @@ export default function Upload() {
                   </div>
                 )}
                 {job.status === 'failed' && job.error && (
-                  <div className="queue-item-error">{job.error}</div>
+                  <div className="queue-item-error">
+                    {job.error}
+                    {job.error.includes('Cookies YouTube') && (
+                      <Link to="/youtube-cookies" className="error-cookies-link">Configura cookie</Link>
+                    )}
+                  </div>
                 )}
                 {job.status === 'completed' && job.track && (
                   <div className="queue-item-success">
@@ -1544,14 +1766,59 @@ export default function Upload() {
                   (bulkPlaylistOption === 'new' && !bulkNewPlaylistName.trim())
                 }
               >
-                {downloadingConfirm ? (
-                  <>
-                    <Loader size={16} className="spinning" style={{ marginRight: 8, verticalAlign: 'middle' }} />
-                    Download...
-                  </>
-                ) : (
-                  'Scarica'
-                )}
+                {downloadingConfirm ? 'Download in corso...' : 'Scarica'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal bulk download playlist YouTube */}
+      {showPlaylistBulkModal && selectedPlaylistCardIds.size > 0 && (
+        <div className="modal-overlay" onClick={() => !downloadingPlaylistBulk && setShowPlaylistBulkModal(false)}>
+          <div className="modal-content playlist-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Scarica selezionat{selectedPlaylistCardIds.size === 1 ? 'o' : 'i'}</h2>
+            <p className="modal-subtitle">
+              {selectedPlaylistCardIds.size} video verrà {selectedPlaylistCardIds.size === 1 ? 'scaricato' : 'scaricati'}
+            </p>
+            <p className="modal-info">Vuoi aggiungere le tracce a una playlist?</p>
+            <div className="playlist-options">
+              <label className="radio-option">
+                <input type="radio" name="playlist-bulk-option" value="none" checked={playlistBulkOption === 'none'} onChange={(e) => setPlaylistBulkOption(e.target.value)} />
+                <span>Non aggiungere a playlist</span>
+              </label>
+              <label className="radio-option">
+                <input type="radio" name="playlist-bulk-option" value="existing" checked={playlistBulkOption === 'existing'} onChange={(e) => setPlaylistBulkOption(e.target.value)} />
+                <span>Aggiungi a playlist esistente</span>
+              </label>
+              {playlistBulkOption === 'existing' && (
+                <select value={playlistBulkPlaylistId || ''} onChange={(e) => setPlaylistBulkPlaylistId(e.target.value ? parseInt(e.target.value) : null)} className="playlist-select">
+                  <option value="">Seleziona playlist...</option>
+                  {playlists.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}{p.is_shared ? ' (Condivisa)' : ''} ({p.track_count || 0} brani)</option>
+                  ))}
+                </select>
+              )}
+              <label className="radio-option">
+                <input type="radio" name="playlist-bulk-option" value="new" checked={playlistBulkOption === 'new'} onChange={(e) => setPlaylistBulkOption(e.target.value)} />
+                <span>Crea nuova playlist</span>
+              </label>
+              {playlistBulkOption === 'new' && (
+                <input type="text" value={playlistBulkName} onChange={(e) => setPlaylistBulkName(e.target.value)} placeholder="Nome playlist..." className="playlist-name-input" />
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => !downloadingPlaylistBulk && setShowPlaylistBulkModal(false)} disabled={downloadingPlaylistBulk}>Annulla</button>
+              <button
+                className="btn-primary"
+                onClick={handlePlaylistBulkDownload}
+                disabled={
+                  downloadingPlaylistBulk ||
+                  (playlistBulkOption === 'existing' && !playlistBulkPlaylistId) ||
+                  (playlistBulkOption === 'new' && !playlistBulkName.trim())
+                }
+              >
+                {downloadingPlaylistBulk ? 'Download in corso...' : 'Scarica'}
               </button>
             </div>
           </div>

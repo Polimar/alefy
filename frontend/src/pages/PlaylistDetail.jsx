@@ -1,14 +1,208 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
-import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1, Download, CheckCircle2, Loader, MoreVertical, Edit, Globe, Lock, Share2 } from 'lucide-react';
+import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1, Download, CheckCircle2, Loader, MoreVertical, Edit, Globe, Lock, Share2, GripVertical } from 'lucide-react';
 import EditPlaylistModal from '../components/EditPlaylistModal';
 import { saveTrackOffline, isTrackOffline, removeTrackOffline, getOfflineTracksForPlaylist } from '../utils/offlineStorage';
 import useAuthStore from '../store/authStore';
 import './PlaylistDetail.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
+
+function SortableTrackRow({
+  track,
+  index,
+  offlineMode,
+  selectedTracks,
+  offlineTracks,
+  downloadingTracks,
+  toggleTrackSelection,
+  handlePlayTrack,
+  removeOfflineTrack,
+  handleRemoveTrack,
+  formatDuration,
+  isOwner,
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: track.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className={`track-row ${isDragging ? 'track-row-dragging' : ''}`}
+    >
+      {offlineMode && (
+        <td className="track-offline-checkbox">
+          <label className="offline-checkbox-label">
+            <input
+              type="checkbox"
+              checked={selectedTracks.has(track.id)}
+              onChange={() => toggleTrackSelection(track.id)}
+              disabled={downloadingTracks.has(track.id)}
+            />
+            {offlineTracks.has(track.id) && (
+              <CheckCircle2 size={16} className="offline-indicator" title="Disponibile offline" />
+            )}
+          </label>
+        </td>
+      )}
+      {isOwner && (
+        <td className="track-drag-handle" {...attributes} {...listeners}>
+          <GripVertical size={16} />
+        </td>
+      )}
+      <td className="track-number">{index + 1}</td>
+      <td className="track-info">
+        <div className="track-title">{track.title}</div>
+        <div className="track-artist">{track.artist || 'Artista sconosciuto'}</div>
+      </td>
+      <td className="track-album">{track.album || '-'}</td>
+      <td className="track-duration">{formatDuration(track.duration)}</td>
+      <td className="track-actions">
+        <button
+          className="action-btn"
+          onClick={() => handlePlayTrack(track)}
+          title="Riproduci"
+        >
+          <Play size={16} />
+        </button>
+        {offlineMode && offlineTracks.has(track.id) && (
+          <button
+            className="action-btn"
+            onClick={() => removeOfflineTrack(track.id)}
+            title="Rimuovi offline"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+        {!offlineMode && (
+          <button
+            className="action-btn"
+            onClick={() => handleRemoveTrack(track.id)}
+            title="Rimuovi"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function SortableTrackCard({
+  track,
+  index,
+  offlineMode,
+  selectedTracks,
+  offlineTracks,
+  downloadingTracks,
+  toggleTrackSelection,
+  handlePlayTrack,
+  removeOfflineTrack,
+  handleRemoveTrack,
+  formatDuration,
+  isOwner,
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: track.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`track-card ${isDragging ? 'track-card-dragging' : ''}`}
+    >
+      {isOwner && (
+        <div className="track-card-drag-handle" {...attributes} {...listeners}>
+          <GripVertical size={18} />
+        </div>
+      )}
+      {offlineMode && (
+        <div className="track-card-offline-checkbox">
+          <label className="offline-checkbox-label">
+            <input
+              type="checkbox"
+              checked={selectedTracks.has(track.id)}
+              onChange={() => toggleTrackSelection(track.id)}
+              disabled={downloadingTracks.has(track.id)}
+            />
+            {offlineTracks.has(track.id) && (
+              <CheckCircle2 size={16} className="offline-indicator" title="Disponibile offline" />
+            )}
+          </label>
+        </div>
+      )}
+      <div className="track-card-number">{index + 1}</div>
+      <div className="track-card-info">
+        <div className="track-card-title">{track.title}</div>
+        <div className="track-card-artist">{track.artist || 'Artista sconosciuto'}</div>
+      </div>
+      <div className="track-card-duration">{formatDuration(track.duration)}</div>
+      <div className="track-card-actions">
+        <button
+          className="action-btn"
+          onClick={() => handlePlayTrack(track)}
+          title="Riproduci"
+        >
+          <Play size={18} />
+        </button>
+        {offlineMode && offlineTracks.has(track.id) && (
+          <button
+            className="action-btn"
+            onClick={() => removeOfflineTrack(track.id)}
+            title="Rimuovi offline"
+          >
+            <Trash2 size={18} />
+          </button>
+        )}
+        {!offlineMode && (
+          <button
+            className="action-btn"
+            onClick={() => handleRemoveTrack(track.id)}
+            title="Rimuovi"
+          >
+            <Trash2 size={18} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function PlaylistDetail() {
   const { id } = useParams();
@@ -31,10 +225,16 @@ export default function PlaylistDetail() {
     shuffle,
     repeat,
     toggleShuffle,
-    setRepeat
+    toggleRepeat,
   } = usePlayerStore();
   
   const isOwner = playlist && user && playlist.user_id === user.id;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   useEffect(() => {
     loadPlaylist();
@@ -237,6 +437,30 @@ export default function PlaylistDetail() {
     loadPlaylist();
   };
 
+  const handleReorderTracks = async (newTracks) => {
+    const previousTracks = [...tracks];
+    setTracks(newTracks);
+    try {
+      await api.put(`/playlists/${id}/reorder`, {
+        track_ids: newTracks.map(t => t.id),
+      });
+    } catch (error) {
+      console.error('Error reordering tracks:', error);
+      setTracks(previousTracks);
+      alert('Errore nel riordinamento delle tracce');
+    }
+  };
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = tracks.findIndex(t => t.id === active.id);
+    const newIndex = tracks.findIndex(t => t.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newTracks = arrayMove(tracks, oldIndex, newIndex);
+    handleReorderTracks(newTracks);
+  };
+
   const formatDuration = (seconds) => {
     if (!seconds) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -435,11 +659,7 @@ export default function PlaylistDetail() {
             </button>
             <button 
               className={`control-btn ${repeat !== 'off' ? 'active' : ''}`}
-              onClick={() => {
-                if (repeat === 'off') setRepeat('all');
-                else if (repeat === 'all') setRepeat('one');
-                else setRepeat('off');
-              }}
+              onClick={toggleRepeat}
               title={repeat === 'off' ? 'Repeat' : repeat === 'all' ? 'Repeat All' : 'Repeat One'}
             >
               {repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
@@ -496,129 +716,65 @@ export default function PlaylistDetail() {
         ) : (
           <>
             {/* Desktop: Tabella */}
-            <table className="tracks-table tracks-table-desktop">
-              <thead>
-                <tr>
-                  {offlineMode && <th></th>}
-                  <th>#</th>
-                  <th>Titolo</th>
-                  <th>Album</th>
-                  <th>Durata</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {tracks.map((track, index) => (
-                  <tr key={track.id} className="track-row">
-                    {offlineMode && (
-                      <td className="track-offline-checkbox">
-                        <label className="offline-checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={selectedTracks.has(track.id)}
-                            onChange={() => toggleTrackSelection(track.id)}
-                            disabled={downloadingTracks.has(track.id)}
-                          />
-                          {offlineTracks.has(track.id) && (
-                            <CheckCircle2 size={16} className="offline-indicator" title="Disponibile offline" />
-                          )}
-                        </label>
-                      </td>
-                    )}
-                    <td className="track-number">{index + 1}</td>
-                    <td className="track-info">
-                      <div className="track-title">{track.title}</div>
-                      <div className="track-artist">{track.artist || 'Artista sconosciuto'}</div>
-                    </td>
-                    <td className="track-album">{track.album || '-'}</td>
-                    <td className="track-duration">{formatDuration(track.duration)}</td>
-                    <td className="track-actions">
-                      <button
-                        className="action-btn"
-                        onClick={() => handlePlayTrack(track)}
-                        title="Riproduci"
-                      >
-                        <Play size={16} />
-                      </button>
-                      {offlineMode && offlineTracks.has(track.id) && (
-                        <button
-                          className="action-btn"
-                          onClick={() => removeOfflineTrack(track.id)}
-                          title="Rimuovi offline"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                      {!offlineMode && (
-                        <button
-                          className="action-btn"
-                          onClick={() => handleRemoveTrack(track.id)}
-                          title="Rimuovi"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </td>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <table className="tracks-table tracks-table-desktop">
+                <thead>
+                  <tr>
+                    {offlineMode && <th></th>}
+                    {isOwner && <th className="th-drag"></th>}
+                    <th>#</th>
+                    <th>Titolo</th>
+                    <th>Album</th>
+                    <th>Durata</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  <SortableContext items={tracks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                    {tracks.map((track, index) => (
+                      <SortableTrackRow
+                        key={track.id}
+                        track={track}
+                        index={index}
+                        offlineMode={offlineMode}
+                        selectedTracks={selectedTracks}
+                        offlineTracks={offlineTracks}
+                        downloadingTracks={downloadingTracks}
+                        toggleTrackSelection={toggleTrackSelection}
+                        handlePlayTrack={handlePlayTrack}
+                        removeOfflineTrack={removeOfflineTrack}
+                        handleRemoveTrack={handleRemoveTrack}
+                        formatDuration={formatDuration}
+                        isOwner={isOwner}
+                      />
+                    ))}
+                  </SortableContext>
+                </tbody>
+              </table>
 
-            {/* Mobile: Cards */}
-            <div className="tracks-table-mobile">
-              {tracks.map((track, index) => (
-                <div key={track.id} className="track-card">
-                  {offlineMode && (
-                    <div className="track-card-offline-checkbox">
-                      <label className="offline-checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedTracks.has(track.id)}
-                          onChange={() => toggleTrackSelection(track.id)}
-                          disabled={downloadingTracks.has(track.id)}
-                        />
-                        {offlineTracks.has(track.id) && (
-                          <CheckCircle2 size={16} className="offline-indicator" title="Disponibile offline" />
-                        )}
-                      </label>
-                    </div>
-                  )}
-                  <div className="track-card-number">{index + 1}</div>
-                  <div className="track-card-info">
-                    <div className="track-card-title">{track.title}</div>
-                    <div className="track-card-artist">{track.artist || 'Artista sconosciuto'}</div>
-                  </div>
-                  <div className="track-card-duration">{formatDuration(track.duration)}</div>
-                  <div className="track-card-actions">
-                    <button
-                      className="action-btn"
-                      onClick={() => handlePlayTrack(track)}
-                      title="Riproduci"
-                    >
-                      <Play size={18} />
-                    </button>
-                    {offlineMode && offlineTracks.has(track.id) && (
-                      <button
-                        className="action-btn"
-                        onClick={() => removeOfflineTrack(track.id)}
-                        title="Rimuovi offline"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                    {!offlineMode && (
-                      <button
-                        className="action-btn"
-                        onClick={() => handleRemoveTrack(track.id)}
-                        title="Rimuovi"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+              {/* Mobile: Cards */}
+              <div className="tracks-table-mobile">
+                <SortableContext items={tracks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  {tracks.map((track, index) => (
+                    <SortableTrackCard
+                      key={track.id}
+                      track={track}
+                      index={index}
+                      offlineMode={offlineMode}
+                      selectedTracks={selectedTracks}
+                      offlineTracks={offlineTracks}
+                      downloadingTracks={downloadingTracks}
+                      toggleTrackSelection={toggleTrackSelection}
+                      handlePlayTrack={handlePlayTrack}
+                      removeOfflineTrack={removeOfflineTrack}
+                      handleRemoveTrack={handleRemoveTrack}
+                      formatDuration={formatDuration}
+                      isOwner={isOwner}
+                    />
+                  ))}
+                </SortableContext>
+              </div>
+            </DndContext>
           </>
         )}
       </div>

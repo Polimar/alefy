@@ -69,6 +69,14 @@ const usePlayerStore = create((set, get) => ({
     const nextIndex = (currentIndex + 1) % modes.length;
     set({ repeat: modes[nextIndex] });
   },
+
+  /** Cicla repeat: off -> all -> one -> off */
+  toggleRepeat: () => {
+    const { repeat } = get();
+    const modes = ['off', 'all', 'one'];
+    const nextIndex = (modes.indexOf(repeat) + 1) % modes.length;
+    set({ repeat: modes[nextIndex] });
+  },
   
   toggleLike: (trackId) => set((state) => {
     const newLiked = new Set(state.likedTracks);

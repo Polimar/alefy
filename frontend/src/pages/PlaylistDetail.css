@@ -272,6 +272,31 @@
   background-color: var(--bg-secondary);
 }
 
+.track-row-dragging {
+  opacity: 0.5;
+  background-color: var(--bg-tertiary);
+}
+
+.track-drag-handle {
+  cursor: grab;
+  color: var(--text-secondary);
+  padding: 8px !important;
+  width: 36px;
+}
+
+.track-drag-handle:active {
+  cursor: grabbing;
+}
+
+.track-drag-handle:hover {
+  color: var(--text-primary);
+}
+
+.th-drag {
+  width: 36px;
+  padding: 8px !important;
+}
+
 .track-row td {
   padding: 12px;
   vertical-align: middle;
@@ -364,6 +389,25 @@
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+
+  .track-card-dragging {
+    opacity: 0.5;
+  }
+
+  .track-card-drag-handle {
+    cursor: grab;
+    color: var(--text-secondary);
+    padding: 8px;
+    touch-action: none;
+  }
+
+  .track-card-drag-handle:active {
+    cursor: grabbing;
+  }
+
+  .track-card-drag-handle:hover {
+    color: var(--text-primary);
   }
 
   .track-card-number {

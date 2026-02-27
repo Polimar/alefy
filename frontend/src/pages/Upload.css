@@ -534,6 +534,20 @@
   margin-top: 8px;
 }
 
+.result-download-error .error-cookies-link,
+.queue-item-error .error-cookies-link {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--accent);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.result-download-error .error-cookies-link:hover,
+.queue-item-error .error-cookies-link:hover {
+  color: var(--accent-hover);
+}
+
 .result-download-success {
   font-size: 12px;
   color: var(--accent, #1db954);
@@ -1147,6 +1161,10 @@
   border-radius: var(--radius-md);
   color: var(--error);
   font-size: 13px;
+}
+
+.queue-item-error .error-cookies-link {
+  margin-top: 8px;
 }
 
 .queue-item-success {

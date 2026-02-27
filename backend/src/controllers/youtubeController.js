@@ -50,6 +50,10 @@ const searchSchema = z.object({
   albumOnly: z.enum(['true', 'false']).optional().default('false'),
 });
 
+const playlistSchema = z.object({
+  url: z.string().url('URL playlist non valido'),
+});
+
 export const downloadYouTube = async (req, res, next) => {
   try {
     const userId = req.user.userId;
@@ -326,11 +330,16 @@ export async function processDownloadJob(job) {
           console.error(`[YouTube Download] Job ${jobId}: stderr completo:`, stderr);
           console.error(`[YouTube Download] Job ${jobId}: stdout completo:`, stdout);
           
-          const errorMessage = stderr.includes('ERROR')
-            ? stderr.split('ERROR')[1]?.substring(0, 200) || 'Errore sconosciuto'
-            : stderr.includes('403') || stderr.includes('Forbidden')
-            ? stderr.substring(0, 200) || 'Errore durante il download'
-            : 'Errore durante il download';
+          let errorMessage;
+          if (/Sign in to confirm your age|confirm your age|inappropriate for some users/i.test(stderr) || /cookies|authentication/i.test(stderr)) {
+            errorMessage = 'VIDEO_RESTRICTED: Questo video richiede accesso autenticato (es. conferma età). Configura i cookie YouTube in Impostazioni > Cookies YouTube per poterlo scaricare.';
+          } else if (stderr.includes('ERROR')) {
+            errorMessage = stderr.split('ERROR')[1]?.substring(0, 200) || 'Errore sconosciuto';
+          } else if (stderr.includes('403') || stderr.includes('Forbidden')) {
+            errorMessage = stderr.substring(0, 200) || 'Errore durante il download';
+          } else {
+            errorMessage = stderr.substring(0, 300) || 'Errore durante il download';
+          }
           reject(new Error(errorMessage));
           return;
         }
@@ -1121,6 +1130,88 @@ export const searchYouTube = async (req, res, next) => {
       return next(new AppError(error.errors[0].message, 400));
     }
     next(error);
+  }
+};
+
+export const getYouTubePlaylist = async (req, res, next) => {
+  try {
+    const validatedData = playlistSchema.parse(req.query);
+    const { url } = validatedData;
+
+    if (!url || (!url.includes('list=') && !url.includes('/playlist'))) {
+      return next(new AppError('URL deve essere una playlist YouTube (deve contenere list= o /playlist)', 400));
+    }
+
+    console.log(`[YouTube Playlist] Estrazione playlist da: ${url}`);
+
+    const ytdlpPath = await getYtdlpPath();
+    const cookiesPath = await getActiveCookiesPath();
+    const cookiesFlag = cookiesPath ? `--cookies "${cookiesPath}"` : '';
+
+    const extraArgs = '--no-warnings --flat-playlist';
+    const command = `${ytdlpPath} "${url}" --dump-json ${extraArgs} ${cookiesFlag}`.trim();
+
+    const { stdout, stderr } = await execAsync(command, {
+      maxBuffer: 20 * 1024 * 1024,
+      timeout: 120000,
+    });
+
+    if (stderr && !stderr.includes('WARNING')) {
+      console.log(`[YouTube Playlist] stderr: ${stderr.substring(0, 500)}`);
+    }
+
+    const lines = stdout.trim().split('\n').filter(line => line.trim());
+    const results = [];
+
+    for (const line of lines) {
+      try {
+        const videoData = JSON.parse(line);
+        if (!videoData.id) continue;
+
+        const duration = videoData.duration || 0;
+        let thumbnailUrl = videoData.thumbnail || null;
+        if (!thumbnailUrl && videoData.thumbnails?.[0]?.url) {
+          thumbnailUrl = videoData.thumbnails[0].url;
+        }
+        if (!thumbnailUrl && videoData.id) {
+          thumbnailUrl = `https://img.youtube.com/vi/${videoData.id}/hqdefault.jpg`;
+        }
+
+        results.push({
+          id: videoData.id,
+          title: videoData.title || 'Senza titolo',
+          channel: videoData.channel || videoData.uploader || 'Canale sconosciuto',
+          duration,
+          thumbnail_url: thumbnailUrl,
+          view_count: videoData.view_count || 0,
+          url: videoData.webpage_url || `https://www.youtube.com/watch?v=${videoData.id}`,
+          isAlbum: duration >= 20 * 60,
+          timestamps: [],
+        });
+      } catch (parseError) {
+        console.error(`[YouTube Playlist] Errore parsing JSON:`, parseError.message);
+      }
+    }
+
+    console.log(`[YouTube Playlist] Trovati ${results.length} video`);
+
+    res.json({
+      success: true,
+      data: {
+        results,
+        count: results.length,
+        playlistUrl: url,
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    console.error(`[YouTube Playlist] Errore:`, error.message);
+    const errorMessage = error.stderr?.includes('ERROR')
+      ? error.stderr.split('ERROR')[1]?.substring(0, 200) || error.message
+      : error.message;
+    return next(new AppError('Errore durante l\'estrazione della playlist: ' + errorMessage, 500));
   }
 };
 

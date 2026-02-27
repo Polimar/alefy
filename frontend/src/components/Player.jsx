@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import usePlayerStore from '../store/playerStore';
 import api from '../utils/api';
 import { getTrackOffline, isTrackOffline } from '../utils/offlineStorage';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, ListMusic, Music, Sliders, Rewind, FastForward, X } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, ListMusic, Music, Sliders, X, Shuffle, Repeat, Repeat1 } from 'lucide-react';
 import AudioWaveform from './AudioWaveform';
 import QueuePanel from './QueuePanel';
 import EqualizerPanel from './EqualizerPanel';
@@ -45,6 +45,10 @@ export default function Player() {
     toggleEqualizer,
     toggleVolumeModal,
     playFromQueue,
+    shuffle,
+    repeat,
+    toggleShuffle,
+    toggleRepeat,
   } = usePlayerStore();
   
   const [coverUrl, setCoverUrl] = useState(null);
@@ -85,11 +89,16 @@ export default function Player() {
     };
     
     const handleEnded = () => {
-      // Se c'è una queue, passa al prossimo brano
+      const { repeat: currentRepeat } = usePlayerStore.getState();
+      if (currentRepeat === 'one') {
+        // Ripeti la stessa traccia
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+        return;
+      }
       if (queue.length > 0) {
         next();
       } else {
-        // Altrimenti ferma la riproduzione
         pause();
       }
     };
@@ -547,21 +556,19 @@ export default function Player() {
 
         <div className="player-center">
           <div className="control-buttons">
-            <button 
-              onClick={() => handleSkipBackward(30)} 
-              className="control-btn skip-btn" 
-              title="Indietro 30 secondi"
-              disabled={!currentTrack}
+            <button
+              onClick={toggleShuffle}
+              className={`control-btn shuffle-btn ${shuffle ? 'active' : ''}`}
+              title="Shuffle"
             >
-              <Rewind size={18} />
+              <Shuffle size={18} />
             </button>
-            <button 
-              onClick={() => handleSkipBackward(10)} 
-              className="control-btn skip-btn" 
-              title="Indietro 10 secondi"
-              disabled={!currentTrack}
+            <button
+              onClick={toggleRepeat}
+              className={`control-btn repeat-btn ${repeat !== 'off' ? 'active' : ''}`}
+              title={repeat === 'off' ? 'Repeat' : repeat === 'all' ? 'Repeat All' : 'Repeat One'}
             >
-              <SkipBack size={18} />
+              {repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
             </button>
             <button onClick={previous} className="control-btn" title="Precedente" disabled={!currentTrack || queue.length === 0}>
               <SkipBack size={22} />
@@ -576,22 +583,6 @@ export default function Player() {
             </button>
             <button onClick={next} className="control-btn" title="Successivo" disabled={!currentTrack || queue.length === 0}>
               <SkipForward size={22} />
-            </button>
-            <button 
-              onClick={() => handleSkipForward(10)} 
-              className="control-btn skip-btn" 
-              title="Avanti 10 secondi"
-              disabled={!currentTrack}
-            >
-              <SkipForward size={18} />
-            </button>
-            <button 
-              onClick={() => handleSkipForward(30)} 
-              className="control-btn skip-btn" 
-              title="Avanti 30 secondi"
-              disabled={!currentTrack}
-            >
-              <FastForward size={18} />
             </button>
           </div>
           <div className="progress-container" onClick={handleSeek}>
@@ -771,13 +762,6 @@ export default function Player() {
           >
             <SkipForward size={18} />
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); toggleVolumeModal(); }}
-            className="control-btn"
-            title={`Volume: ${Math.round(volume * 100)}%`}
-          >
-            {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
         </div>
       </div>
       <div className="player-mobile-mini-progress" onClick={!isExpanded ? handleSeek : undefined}>
@@ -872,15 +856,27 @@ export default function Player() {
               </button>
             </div>
             <div className="player-fullscreen-bottom">
-              <div className="volume-btn-wrapper">
-                <button
-                  onClick={toggleVolumeModal}
-                  className="control-btn volume-btn"
-                  title={`Volume: ${Math.round(volume * 100)}%`}
-                >
-                  {volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                </button>
-              </div>
+              <button
+                onClick={toggleVolumeModal}
+                className="control-btn volume-btn fullscreen-bottom-btn"
+                title={`Volume: ${Math.round(volume * 100)}%`}
+              >
+                {volume === 0 ? <VolumeX size={22} /> : <Volume2 size={22} />}
+              </button>
+              <button
+                onClick={toggleShuffle}
+                className={`control-btn shuffle-btn fullscreen-bottom-btn ${shuffle ? 'active' : ''}`}
+                title="Shuffle"
+              >
+                <Shuffle size={22} />
+              </button>
+              <button
+                onClick={toggleRepeat}
+                className={`control-btn repeat-btn fullscreen-bottom-btn ${repeat !== 'off' ? 'active' : ''}`}
+                title={repeat === 'off' ? 'Repeat' : repeat === 'all' ? 'Repeat All' : 'Repeat One'}
+              >
+                {repeat === 'one' ? <Repeat1 size={22} /> : <Repeat size={22} />}
+              </button>
               {queue.length > 0 && (
                 <div 
                   className="queue-preview-mobile clickable"
