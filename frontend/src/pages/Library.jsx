@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
 import { Play, Music, MoreVertical, Plus, Trash2, Scissors, Edit, Share2 } from 'lucide-react';
@@ -14,13 +15,18 @@ export default function Library() {
   const [playlists, setPlaylists] = useState([]);
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState(null);
+  const [selectedTracks, setSelectedTracks] = useState([]);
+  const [selectedTrackIds, setSelectedTrackIds] = useState(new Set());
   const [menuOpen, setMenuOpen] = useState(null);
+  const [menuAnchor, setMenuAnchor] = useState(null);
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [splitTrack, setSplitTrack] = useState(null);
   const [splitTimestamps, setSplitTimestamps] = useState([]);
   const [splitLoading, setSplitLoading] = useState(false);
   const [editingTrack, setEditingTrack] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreatePlaylistForm, setShowCreatePlaylistForm] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
   const { setCurrentTrack, setQueue, play } = usePlayerStore();
   const searchTimeoutRef = useRef(null);
 
@@ -175,10 +181,39 @@ export default function Library() {
     return null;
   };
 
-  const handleAddToPlaylist = (track) => {
-    setSelectedTrack(track);
+  const openAddToPlaylistModal = (tracksToAdd) => {
+    setSelectedTracks(tracksToAdd);
     setShowAddToPlaylist(true);
+    setShowCreatePlaylistForm(false);
+    setNewPlaylistName('');
     setMenuOpen(null);
+    setMenuAnchor(null);
+  };
+
+  const handleAddToPlaylist = (track) => openAddToPlaylistModal([track]);
+
+  const handleAddSelectedToPlaylist = () => {
+    const toAdd = tracks.filter(t => selectedTrackIds.has(t.id));
+    if (toAdd.length === 0) return;
+    openAddToPlaylistModal(toAdd);
+  };
+
+  const toggleTrackSelection = (trackId, e) => {
+    e.stopPropagation();
+    setSelectedTrackIds(prev => {
+      const next = new Set(prev);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTrackIds.size === tracks.length) {
+      setSelectedTrackIds(new Set());
+    } else {
+      setSelectedTrackIds(new Set(tracks.map(t => t.id)));
+    }
   };
 
   const handleEditTrack = (track) => {
@@ -193,21 +228,37 @@ export default function Library() {
   };
 
   const handleAddTrackToPlaylist = async (playlistId) => {
-    if (!selectedTrack) return;
+    if (!selectedTracks.length) return;
 
     try {
-      await api.post(`/playlists/${playlistId}/tracks`, {
-        track_id: selectedTrack.id,
-      });
+      for (const track of selectedTracks) {
+        await api.post(`/playlists/${playlistId}/tracks`, {
+          track_id: track.id,
+        });
+      }
       setShowAddToPlaylist(false);
-      setSelectedTrack(null);
-      // Ricarica le playlist per aggiornare i conteggi
+      setSelectedTracks([]);
+      setSelectedTrackIds(new Set());
       loadPlaylists();
-      alert('Traccia aggiunta alla playlist!');
+      const n = selectedTracks.length;
+      alert(n === 1 ? 'Traccia aggiunta alla playlist!' : `${n} tracce aggiunte alla playlist!`);
     } catch (error) {
       console.error('Error adding track to playlist:', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error?.message || 'Errore nell\'aggiunta della traccia alla playlist';
       alert(errorMessage);
+    }
+  };
+
+  const handleCreatePlaylistAndAdd = async (name) => {
+    if (!name.trim() || !selectedTracks.length) return;
+    try {
+      const { data } = await api.post('/playlists', { name: name.trim() });
+      const playlistId = data.data.playlist.id;
+      await handleAddTrackToPlaylist(playlistId);
+      loadPlaylists();
+    } catch (error) {
+      console.error('Error creating playlist:', error);
+      alert(error?.response?.data?.message || 'Errore nella creazione della playlist');
     }
   };
 
@@ -353,14 +404,22 @@ export default function Library() {
   const handleMenuClick = (trackId, e) => {
     e.stopPropagation();
     e.preventDefault();
-    setMenuOpen(menuOpen === trackId ? null : trackId);
+    const btn = e.currentTarget;
+    if (menuOpen === trackId) {
+      setMenuOpen(null);
+      setMenuAnchor(null);
+    } else {
+      const rect = btn.getBoundingClientRect();
+      setMenuAnchor({ top: rect.bottom + 4, left: rect.right - 200, trackId });
+      setMenuOpen(trackId);
+    }
   };
 
   useEffect(() => {
-    // Chiudi il menu quando si clicca fuori
     const handleClickOutside = (e) => {
-      if (menuOpen && !e.target.closest('.track-actions') && !e.target.closest('.action-menu')) {
+      if (menuOpen && !e.target.closest('.track-actions') && !e.target.closest('.action-menu-portal')) {
         setMenuOpen(null);
+        setMenuAnchor(null);
       }
     };
 
@@ -374,6 +433,52 @@ export default function Library() {
       document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [menuOpen]);
+
+  const renderActionMenu = (track) => (
+    <div
+      className="action-menu action-menu-portal"
+      style={
+        menuAnchor
+          ? {
+              position: 'fixed',
+              top: menuAnchor.top,
+              left: menuAnchor.left,
+              right: 'auto',
+              marginTop: 0,
+            }
+          : undefined
+      }
+    >
+      <button
+        className="action-menu-item"
+        onClick={() => handleAddToPlaylist(track)}
+      >
+        <Plus size={16} />
+        Aggiungi a playlist
+      </button>
+      <button className="action-menu-item" onClick={() => handleEditTrack(track)}>
+        <Edit size={16} />
+        Modifica metadati
+      </button>
+      <button className="action-menu-item" onClick={(e) => handleShareWhatsApp(track, e)}>
+        <Share2 size={16} />
+        Condividi su WhatsApp
+      </button>
+      {track.duration > 1800 && (
+        <button className="action-menu-item" onClick={(e) => handleSplitTrack(track, e)}>
+          <Scissors size={16} />
+          Dividi in tracce
+        </button>
+      )}
+      <button
+        className="action-menu-item danger"
+        onClick={(e) => handleDeleteTrack(track.id, e)}
+      >
+        <Trash2 size={16} />
+        Elimina
+      </button>
+    </div>
+  );
 
   return (
     <div className="library">
@@ -396,11 +501,40 @@ export default function Library() {
         </div>
       ) : (
         <>
+          {selectedTrackIds.size > 0 && (
+            <div className="bulk-actions-bar">
+              <span className="bulk-actions-count">
+                {selectedTrackIds.size} tracce selezionate
+              </span>
+              <button
+                className="btn-bulk-add"
+                onClick={handleAddSelectedToPlaylist}
+              >
+                <Plus size={18} />
+                Aggiungi a playlist
+              </button>
+              <button
+                className="btn-bulk-clear"
+                onClick={() => setSelectedTrackIds(new Set())}
+              >
+                Deseleziona
+              </button>
+            </div>
+          )}
           {/* Desktop: Tabella */}
           <div className="tracks-container">
             <table className="tracks-table">
               <thead>
                 <tr>
+                  <th className="track-checkbox-th">
+                    <input
+                      type="checkbox"
+                      checked={selectedTrackIds.size === tracks.length && tracks.length > 0}
+                      onChange={toggleSelectAll}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Seleziona tutte"
+                    />
+                  </th>
                   <th></th>
                   <th>Titolo</th>
                   <th>Artista</th>
@@ -414,14 +548,21 @@ export default function Library() {
               <tbody>
                 {tracks.map((track) => {
                   const coverUrl = coverUrls[track.id];
-                  // RIMOSSO: chiamata durante il render (anti-pattern)
-                  // Le cover vengono caricate nel useEffect sopra
                   return (
                     <tr
                       key={track.id}
                       className="track-row"
                       onClick={(e) => handleTrackClick(track, e)}
                     >
+                      <td className="track-checkbox-cell" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedTrackIds.has(track.id)}
+                          onChange={(e) => toggleTrackSelection(track.id, e)}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Seleziona ${track.title}`}
+                        />
+                      </td>
                       <td className="track-cover-cell">
                         {coverUrl ? (
                           <img
@@ -465,47 +606,8 @@ export default function Library() {
                           >
                             <MoreVertical size={16} />
                           </button>
-                          {menuOpen === track.id && (
-                            <div className="action-menu" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                className="action-menu-item"
-                                onClick={() => handleAddToPlaylist(track)}
-                              >
-                                <Plus size={16} />
-                                Aggiungi a playlist
-                              </button>
-                              <button
-                                className="action-menu-item"
-                                onClick={() => handleEditTrack(track)}
-                              >
-                                <Edit size={16} />
-                                Modifica metadati
-                              </button>
-                              <button
-                                className="action-menu-item"
-                                onClick={(e) => handleShareWhatsApp(track, e)}
-                              >
-                                <Share2 size={16} />
-                                Condividi su WhatsApp
-                              </button>
-                              {track.duration > 1800 && (
-                                <button
-                                  className="action-menu-item"
-                                  onClick={(e) => handleSplitTrack(track, e)}
-                                >
-                                  <Scissors size={16} />
-                                  Dividi in tracce
-                                </button>
-                              )}
-                              <button
-                                className="action-menu-item danger"
-                                onClick={(e) => handleDeleteTrack(track.id, e)}
-                              >
-                                <Trash2 size={16} />
-                                Elimina
-                              </button>
-                            </div>
-                          )}
+                          {menuOpen === track.id && menuAnchor?.trackId === track.id && typeof window !== 'undefined' && window.innerWidth >= 769 &&
+                            createPortal(renderActionMenu(track), document.body)}
                         </div>
                       </td>
                     </tr>
@@ -519,14 +621,21 @@ export default function Library() {
           <div className="tracks-table-mobile">
             {tracks.map((track) => {
               const coverUrl = coverUrls[track.id];
-              // RIMOSSO: chiamata durante il render (anti-pattern)
-              // Le cover vengono caricate nel useEffect sopra
               return (
                 <div
                   key={track.id}
                   className="track-card"
                   onClick={(e) => handleTrackClick(track, e)}
                 >
+                  <div className="track-card-checkbox" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedTrackIds.has(track.id)}
+                      onChange={(e) => toggleTrackSelection(track.id, e)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Seleziona ${track.title}`}
+                    />
+                  </div>
                   {coverUrl ? (
                     <img
                       src={coverUrl}
@@ -603,67 +712,104 @@ export default function Library() {
         </>
       )}
 
-      {showAddToPlaylist && (
+      {showAddToPlaylist && selectedTracks.length > 0 && (
         <div className="modal-overlay" onClick={() => {
           setShowAddToPlaylist(false);
-          setSelectedTrack(null);
+          setSelectedTracks([]);
+          setShowCreatePlaylistForm(false);
+          setNewPlaylistName('');
         }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>Aggiungi a Playlist</h2>
             <p className="modal-subtitle">
-              Seleziona una playlist per "{selectedTrack?.title}"
+              {selectedTracks.length === 1
+                ? `Seleziona una playlist per "${selectedTracks[0].title}"`
+                : `Le ${selectedTracks.length} tracce selezionate verranno aggiunte alla playlist`}
             </p>
-            {playlists.length === 0 ? (
-              <div className="no-playlists">
-                <p>Nessuna playlist disponibile</p>
-                <button
-                  className="btn-primary"
-                  onClick={() => {
-                    setShowAddToPlaylist(false);
-                    window.location.href = '/playlists';
-                  }}
-                >
-                  Crea Playlist
-                </button>
+            {showCreatePlaylistForm ? (
+              <div className="create-playlist-inline">
+                <input
+                  type="text"
+                  placeholder="Nome nuova playlist"
+                  value={newPlaylistName}
+                  onChange={(e) => setNewPlaylistName(e.target.value)}
+                  className="create-playlist-input"
+                  autoFocus
+                />
+                <div className="create-playlist-actions">
+                  <button
+                    className="btn-cancel"
+                    onClick={() => {
+                      setShowCreatePlaylistForm(false);
+                      setNewPlaylistName('');
+                    }}
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() => handleCreatePlaylistAndAdd(newPlaylistName)}
+                    disabled={!newPlaylistName.trim()}
+                  >
+                    Crea e aggiungi
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="playlists-list">
-                {playlists.map((playlist) => (
-                  <button
-                    key={playlist.id}
-                    className="playlist-select-item"
-                    onClick={() => handleAddTrackToPlaylist(playlist.id)}
-                  >
-                    <div className="playlist-select-info">
-                      <div className="playlist-select-name">
-                        {playlist.name}
-                        {playlist.is_shared && (
-                          <span className="playlist-shared-badge">Condivisa</span>
-                        )}
-                      </div>
-                      <div className="playlist-select-count">
-                        {playlist.track_count || 0} brani
-                        {playlist.is_shared && playlist.creator_username && (
-                          <> • {playlist.creator_username}</>
-                        )}
-                      </div>
-                    </div>
-                    <Plus size={20} />
-                  </button>
-                ))}
+              <>
+                <button
+                  className="btn-create-playlist-top"
+                  onClick={() => setShowCreatePlaylistForm(true)}
+                >
+                  <Plus size={18} />
+                  Crea nuova playlist
+                </button>
+                {playlists.length === 0 ? (
+                  <div className="no-playlists">
+                    <p>Nessuna playlist esistente. Crea la prima qui sopra.</p>
+                  </div>
+                ) : (
+                  <div className="playlists-list">
+                    {playlists.map((playlist) => (
+                      <button
+                        key={playlist.id}
+                        className="playlist-select-item"
+                        onClick={() => handleAddTrackToPlaylist(playlist.id)}
+                      >
+                        <div className="playlist-select-info">
+                          <div className="playlist-select-name">
+                            {playlist.name}
+                            {playlist.is_shared && (
+                              <span className="playlist-shared-badge">Condivisa</span>
+                            )}
+                          </div>
+                          <div className="playlist-select-count">
+                            {playlist.track_count || 0} brani
+                            {playlist.is_shared && playlist.creator_username && (
+                              <> • {playlist.creator_username}</>
+                            )}
+                          </div>
+                        </div>
+                        <Plus size={20} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+            {!showCreatePlaylistForm && (
+              <div className="modal-actions">
+                <button
+                  className="btn-cancel"
+                  onClick={() => {
+                    setShowAddToPlaylist(false);
+                    setSelectedTracks([]);
+                  }}
+                >
+                  Annulla
+                </button>
               </div>
             )}
-            <div className="modal-actions">
-              <button
-                className="btn-cancel"
-                onClick={() => {
-                  setShowAddToPlaylist(false);
-                  setSelectedTrack(null);
-                }}
-              >
-                Annulla
-              </button>
-            </div>
           </div>
         </div>
       )}
