@@ -248,12 +248,11 @@ export const updateTrack = async (req, res, next) => {
 export const deleteTrack = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
 
-    // Get track info
+    // Get track info (tracce condivise: nessun check user_id)
     const trackResult = await pool.query(
-      'SELECT file_path, cover_art_path FROM tracks WHERE id = $1 AND user_id = $2',
-      [id, userId]
+      'SELECT file_path, cover_art_path FROM tracks WHERE id = $1',
+      [id]
     );
 
     if (trackResult.rows.length === 0) {
@@ -292,7 +291,7 @@ export const deleteTrack = async (req, res, next) => {
       // Non bloccare l'eliminazione della traccia se fallisce l'eliminazione dei token
     }
     
-    await pool.query('DELETE FROM tracks WHERE id = $1 AND user_id = $2', [id, userId]);
+    await pool.query('DELETE FROM tracks WHERE id = $1', [id]);
 
     res.json({
       success: true,

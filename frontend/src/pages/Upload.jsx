@@ -58,6 +58,11 @@ export default function Upload() {
   const [downloadingResultIds, setDownloadingResultIds] = useState(new Set());
   const [downloadingConfirm, setDownloadingConfirm] = useState(false);
   const [downloadingUrl, setDownloadingUrl] = useState(false);
+  const [selectedCardIds, setSelectedCardIds] = useState(new Set());
+  const [showBulkDownloadModal, setShowBulkDownloadModal] = useState(false);
+  const [bulkPlaylistOption, setBulkPlaylistOption] = useState('none');
+  const [bulkSelectedPlaylistId, setBulkSelectedPlaylistId] = useState(null);
+  const [bulkNewPlaylistName, setBulkNewPlaylistName] = useState('');
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -351,6 +356,7 @@ export default function Upload() {
     setSearchResults([]);
     setExpandedTracks({});
     setSelectedTracks({});
+    setSelectedCardIds(new Set());
 
     try {
       const response = await api.get('/youtube/search', {
@@ -481,6 +487,95 @@ export default function Upload() {
         }
       };
       pollingIntervalRef.current = setInterval(fetchQueue, 5000);
+    }
+  };
+
+  const toggleCardSelection = (resultId, e) => {
+    e?.stopPropagation();
+    setSelectedCardIds(prev => {
+      const next = new Set(prev);
+      if (next.has(resultId)) next.delete(resultId);
+      else next.add(resultId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllCards = () => {
+    if (selectedCardIds.size === searchResults.length) {
+      setSelectedCardIds(new Set());
+    } else {
+      setSelectedCardIds(new Set(searchResults.map(r => r.id)));
+    }
+  };
+
+  const openBulkDownloadModal = () => {
+    if (selectedCardIds.size === 0) return;
+    setShowBulkDownloadModal(true);
+    setBulkPlaylistOption('none');
+    setBulkSelectedPlaylistId(null);
+    const firstResult = searchResults.find(r => selectedCardIds.has(r.id));
+    setBulkNewPlaylistName(firstResult?.channel || firstResult?.title?.split(' - ')[0] || '');
+  };
+
+  const handleBulkDownload = async () => {
+    const toDownload = searchResults.filter(r => selectedCardIds.has(r.id));
+    if (toDownload.length === 0) return;
+
+    if (bulkPlaylistOption === 'existing' && !bulkSelectedPlaylistId) {
+      alert('Seleziona una playlist');
+      return;
+    }
+    if (bulkPlaylistOption === 'new' && !bulkNewPlaylistName.trim()) {
+      alert('Inserisci il nome della playlist');
+      return;
+    }
+
+    setDownloadingConfirm(true);
+    try {
+      for (const result of toDownload) {
+        const hasParsedTimestamps = parsedTimestamps[result.id] && parsedTimestamps[result.id].length > 0;
+        const isAlbumWithTracks = (result.isAlbum && result.timestamps?.length > 0) || hasParsedTimestamps;
+
+        let downloadData = {
+          url: result.url,
+          thumbnailUrl: result.thumbnail_url || null,
+        };
+
+        if (isAlbumWithTracks) {
+          const timestampsToUse = parsedTimestamps[result.id] || result.timestamps || [];
+          const selectedIndices = selectedTracks[result.id] || new Set();
+          const tracksToDownload = timestampsToUse.filter((_, idx) => selectedIndices.has(idx));
+          if (tracksToDownload.length > 0 && tracksToDownload.length < timestampsToUse.length) {
+            downloadData.selectedTracks = tracksToDownload;
+          }
+        }
+
+        if (bulkPlaylistOption === 'existing' && bulkSelectedPlaylistId) {
+          downloadData.playlistId = bulkSelectedPlaylistId;
+        } else if (bulkPlaylistOption === 'new' && bulkNewPlaylistName.trim()) {
+          downloadData.playlistName = bulkNewPlaylistName.trim();
+        }
+
+        await api.post('/youtube/download', downloadData);
+      }
+
+      setShowBulkDownloadModal(false);
+      setSelectedCardIds(new Set());
+      setBulkPlaylistOption('none');
+      setBulkSelectedPlaylistId(null);
+      setBulkNewPlaylistName('');
+      startPolling();
+      alert(`${toDownload.length} download avviati!`);
+    } catch (error) {
+      console.error('Bulk download error:', error);
+      if (error.response?.status === 429) {
+        setRateLimitModal({ show: true, minutesRemaining: getMinutesUntilRateLimitReset(error) });
+        return;
+      }
+      const msg = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Errore durante il download';
+      alert(msg);
+    } finally {
+      setDownloadingConfirm(false);
     }
   };
 
@@ -712,10 +807,47 @@ export default function Upload() {
 
         {searchResults.length > 0 && (
           <div className="youtube-search-results">
-            <h3>Trovati {searchResults.length} risultati</h3>
+            <div className="search-results-header">
+              <h3>Trovati {searchResults.length} risultati</h3>
+              <label className="select-all-cards-label">
+                <input
+                  type="checkbox"
+                  checked={selectedCardIds.size === searchResults.length && searchResults.length > 0}
+                  onChange={toggleSelectAllCards}
+                  aria-label="Seleziona tutti"
+                />
+                <span>Seleziona tutti</span>
+              </label>
+            </div>
+            {selectedCardIds.size > 0 && (
+              <div className="bulk-actions-bar">
+                <span className="bulk-actions-count">
+                  {selectedCardIds.size} risult{selectedCardIds.size === 1 ? 'o' : 'i'} selezionat{selectedCardIds.size === 1 ? 'o' : 'i'}
+                </span>
+                <button className="btn-bulk-download" onClick={openBulkDownloadModal}>
+                  <Download size={18} />
+                  Scarica selezionat{selectedCardIds.size === 1 ? 'o' : 'i'}
+                </button>
+                <button className="btn-bulk-clear" onClick={() => setSelectedCardIds(new Set())}>
+                  Deseleziona
+                </button>
+              </div>
+            )}
             <div className="search-results-grid">
               {searchResults.map((result) => (
                 <div key={result.id} className="search-result-card">
+                  <div
+                    className="result-card-checkbox"
+                    onClick={(e) => toggleCardSelection(result.id, e)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCardIds.has(result.id)}
+                      onChange={(e) => toggleCardSelection(result.id, e)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Seleziona ${result.title}`}
+                    />
+                  </div>
                   {result.thumbnail_url && (
                     <div className="result-thumbnail">
                       <img src={result.thumbnail_url} alt={result.title} />
@@ -1319,6 +1451,107 @@ export default function Upload() {
                 }
               >
                 {uploading ? 'Caricamento...' : 'Carica'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal bulk download con playlist */}
+      {showBulkDownloadModal && selectedCardIds.size > 0 && (
+        <div className="modal-overlay" onClick={() => !downloadingConfirm && (setShowBulkDownloadModal(false))}>
+          <div className="modal-content playlist-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Scarica selezionat{selectedCardIds.size === 1 ? 'o' : 'i'}</h2>
+            <p className="modal-subtitle">
+              {selectedCardIds.size} risult{selectedCardIds.size === 1 ? 'o' : 'i'} verrà {selectedCardIds.size === 1 ? 'scaricato' : 'scaricati'}
+            </p>
+            <p className="modal-info">
+              Vuoi aggiungere le tracce a una playlist?
+            </p>
+
+            <div className="playlist-options">
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="bulk-playlist-option"
+                  value="none"
+                  checked={bulkPlaylistOption === 'none'}
+                  onChange={(e) => setBulkPlaylistOption(e.target.value)}
+                />
+                <span>Non aggiungere a playlist</span>
+              </label>
+
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="bulk-playlist-option"
+                  value="existing"
+                  checked={bulkPlaylistOption === 'existing'}
+                  onChange={(e) => setBulkPlaylistOption(e.target.value)}
+                />
+                <span>Aggiungi a playlist esistente</span>
+              </label>
+              {bulkPlaylistOption === 'existing' && (
+                <select
+                  value={bulkSelectedPlaylistId || ''}
+                  onChange={(e) => setBulkSelectedPlaylistId(e.target.value ? parseInt(e.target.value) : null)}
+                  className="playlist-select"
+                >
+                  <option value="">Seleziona playlist...</option>
+                  {playlists.map(playlist => (
+                    <option key={playlist.id} value={playlist.id}>
+                      {playlist.name}{playlist.is_shared ? ' (Condivisa)' : ''} ({playlist.track_count || 0} brani)
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="bulk-playlist-option"
+                  value="new"
+                  checked={bulkPlaylistOption === 'new'}
+                  onChange={(e) => setBulkPlaylistOption(e.target.value)}
+                />
+                <span>Crea nuova playlist</span>
+              </label>
+              {bulkPlaylistOption === 'new' && (
+                <input
+                  type="text"
+                  value={bulkNewPlaylistName}
+                  onChange={(e) => setBulkNewPlaylistName(e.target.value)}
+                  placeholder="Nome playlist..."
+                  className="playlist-name-input"
+                />
+              )}
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => !downloadingConfirm && setShowBulkDownloadModal(false)}
+                disabled={downloadingConfirm}
+              >
+                Annulla
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleBulkDownload}
+                disabled={
+                  downloadingConfirm ||
+                  (bulkPlaylistOption === 'existing' && !bulkSelectedPlaylistId) ||
+                  (bulkPlaylistOption === 'new' && !bulkNewPlaylistName.trim())
+                }
+              >
+                {downloadingConfirm ? (
+                  <>
+                    <Loader size={16} className="spinning" style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                    Download...
+                  </>
+                ) : (
+                  'Scarica'
+                )}
               </button>
             </div>
           </div>

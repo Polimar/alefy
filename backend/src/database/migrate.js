@@ -8,7 +8,11 @@ const { Client } = pg;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
+// Carica .env: prima backend/.env, poi root progetto (come serve.sh)
+const backendEnv = path.join(__dirname, '../../.env');
+const rootEnv = path.join(__dirname, '../../../.env');
+const envPath = fs.existsSync(backendEnv) ? backendEnv : fs.existsSync(rootEnv) ? rootEnv : undefined;
+if (envPath) dotenv.config({ path: envPath }); else dotenv.config();
 
 const client = new Client({
   connectionString: process.env.DATABASE_URL || `postgresql://${process.env.POSTGRES_USER || 'alefy'}:${process.env.POSTGRES_PASSWORD || 'alefy_password'}@${process.env.POSTGRES_HOST || 'localhost'}:${process.env.POSTGRES_PORT || 5432}/${process.env.POSTGRES_DB || 'alefy_db'}`

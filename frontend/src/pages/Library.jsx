@@ -276,6 +276,27 @@ export default function Library() {
     }
   };
 
+  const handleDeleteSelectedTracks = async (e) => {
+    e?.stopPropagation();
+    if (selectedTrackIds.size === 0) return;
+    if (!confirm(`Eliminare le ${selectedTrackIds.size} tracce selezionate? L'operazione non può essere annullata.`)) return;
+
+    try {
+      const ids = Array.from(selectedTrackIds);
+      for (const id of ids) {
+        await api.delete(`/tracks/${id}`);
+      }
+      setSelectedTrackIds(new Set());
+      setMenuOpen(null);
+      setMenuAnchor(null);
+      loadTracks();
+      alert(`${ids.length} tracce eliminate`);
+    } catch (error) {
+      console.error('Error deleting tracks:', error);
+      alert('Errore nell\'eliminazione delle tracce');
+    }
+  };
+
   const handleSplitTrack = (track, e) => {
     e.stopPropagation();
     setSplitTrack(track);
@@ -477,6 +498,15 @@ export default function Library() {
         <Trash2 size={16} />
         Elimina
       </button>
+      {selectedTrackIds.size > 0 && (
+        <button
+          className="action-menu-item danger"
+          onClick={(e) => handleDeleteSelectedTracks(e)}
+        >
+          <Trash2 size={16} />
+          Elimina le tracce selezionate
+        </button>
+      )}
     </div>
   );
 
@@ -702,6 +732,15 @@ export default function Library() {
                           <Trash2 size={16} />
                           Elimina
                         </button>
+                        {selectedTrackIds.size > 0 && (
+                          <button
+                            className="action-menu-item danger"
+                            onClick={(e) => handleDeleteSelectedTracks(e)}
+                          >
+                            <Trash2 size={16} />
+                            Elimina le tracce selezionate
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

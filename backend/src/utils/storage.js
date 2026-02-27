@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+import pool from '../database/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,6 +26,12 @@ export const getTrackStoragePath = (userId, artist, album) => {
   const sanitizedArtist = sanitizeFilename(artist || 'Unknown Artist');
   const sanitizedAlbum = sanitizeFilename(album || 'Unknown Album');
   return path.join(userPath, sanitizedArtist, sanitizedAlbum);
+};
+
+/** Percorso per file condivisi (YouTube dedup globale) - relativo a storage root */
+export const getSharedTrackPath = (videoId, filename) => {
+  const basePath = getStoragePath();
+  return path.join(basePath, 'shared', videoId, filename);
 };
 
 export const sanitizeFilename = (filename) => {

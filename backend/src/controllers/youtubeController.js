@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import pool from '../database/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { extractMetadata, saveCoverArt, downloadThumbnail } from '../utils/audioMetadata.js';
-import { getTrackStoragePath, ensureDirectoryExists, getStoragePath, getFileStats, isDuplicateFile } from '../utils/storage.js';
+import { getTrackStoragePath, getSharedTrackPath, ensureDirectoryExists, getStoragePath, getFileStats, isDuplicateFile } from '../utils/storage.js';
 import downloadQueue from '../utils/downloadQueue.js';
 import { detectAlbum } from '../utils/albumDetector.js';
 import { parseTimestampsFromDescription } from '../utils/timestampParser.js';
@@ -16,6 +16,18 @@ import { processTrack } from '../services/metadataBatchService.js';
 import { z } from 'zod';
 
 const execAsync = promisify(exec);
+
+/** Estrae video_id da URL YouTube e ritorna URL normalizzato */
+function extractYouTubeVideoIdAndNormalizeUrl(url) {
+  if (!url || typeof url !== 'string') return { videoId: null, normalizedUrl: null };
+  let videoId = null;
+  const watchMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  if (watchMatch) {
+    videoId = watchMatch[1];
+  }
+  if (!videoId) return { videoId: null, normalizedUrl: null };
+  return { videoId, normalizedUrl: `https://www.youtube.com/watch?v=${videoId}` };
+}
 
 const downloadSchema = z.object({
   url: z.string().url('URL non valido'),
@@ -88,6 +100,55 @@ export async function processDownloadJob(job) {
     });
 
     console.log(`[YouTube Download] Inizio download job ${jobId} per URL: ${url}, User ID: ${userId}`);
+
+    // Controllo duplicato: se esiste già una track con questo source_youtube_url, salta download
+    const { videoId, normalizedUrl } = extractYouTubeVideoIdAndNormalizeUrl(url);
+    if (normalizedUrl) {
+      const existingTracksResult = await pool.query(
+        'SELECT id FROM tracks WHERE source_youtube_url = $1 ORDER BY id',
+        [normalizedUrl]
+      );
+      if (existingTracksResult.rows.length > 0) {
+        const existingTrackIds = existingTracksResult.rows.map(r => r.id);
+        console.log(`[YouTube Download] Job ${jobId}: Traccia già presente (duplicato), skip download. Track IDs: ${existingTrackIds.join(', ')}`);
+
+        // Risolvi playlist per aggiungere le tracce esistenti
+        let finalPlaylistId = playlistId || null;
+        if (playlistName && !finalPlaylistId) {
+          const existingPlaylist = await pool.query(
+            'SELECT id FROM playlists WHERE user_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))',
+            [userId, playlistName]
+          );
+          if (existingPlaylist.rows.length > 0) {
+            finalPlaylistId = existingPlaylist.rows[0].id;
+          } else {
+            const insertPlaylist = await pool.query(
+              'INSERT INTO playlists (user_id, name, description, is_public) VALUES ($1, $2, $3, $4) RETURNING id',
+              [userId, playlistName, null, false]
+            );
+            finalPlaylistId = insertPlaylist.rows[0].id;
+          }
+        }
+        if (finalPlaylistId) {
+          const playlistCheck = await pool.query(
+            'SELECT id FROM playlists WHERE id = $1 AND user_id = $2',
+            [finalPlaylistId, userId]
+          );
+          if (playlistCheck.rows.length > 0) {
+            await addTracksToPlaylist(userId, finalPlaylistId, existingTrackIds);
+          }
+        }
+
+        downloadQueue.updateJob(jobId, {
+          status: 'completed',
+          progress: 100,
+          statusMessage: 'Già presente (duplicato)',
+          track: { id: existingTrackIds[0], title: 'Già in libreria' },
+        });
+        downloadQueue.jobFinished(userId, jobId);
+        return;
+      }
+    }
 
     // Risolvi percorso yt-dlp
     let ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
@@ -316,18 +377,26 @@ export async function processDownloadJob(job) {
     });
     const metadata = await extractMetadata(filePath);
     
-    // Gestisci creazione playlist se necessario
+    // Gestisci creazione playlist se necessario (find-or-create)
     if (playlistName && !finalPlaylistId) {
-      console.log(`[YouTube Download] Job ${jobId}: Creazione playlist "${playlistName}"...`);
-      downloadQueue.updateJob(jobId, { 
-        statusMessage: `Creazione playlist "${playlistName}"...`
-      });
-      
-      const playlistResult = await pool.query(
-        'INSERT INTO playlists (user_id, name, description, is_public) VALUES ($1, $2, $3, $4) RETURNING id',
-        [userId, playlistName, null, false]
+      const existing = await pool.query(
+        'SELECT id FROM playlists WHERE user_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))',
+        [userId, playlistName]
       );
-      finalPlaylistId = playlistResult.rows[0].id;
+      if (existing.rows.length > 0) {
+        finalPlaylistId = existing.rows[0].id;
+        console.log(`[YouTube Download] Job ${jobId}: Playlist esistente "${playlistName}" trovata (id: ${finalPlaylistId})`);
+      } else {
+        console.log(`[YouTube Download] Job ${jobId}: Creazione playlist "${playlistName}"...`);
+        downloadQueue.updateJob(jobId, { 
+          statusMessage: `Creazione playlist "${playlistName}"...`
+        });
+        const playlistResult = await pool.query(
+          'INSERT INTO playlists (user_id, name, description, is_public) VALUES ($1, $2, $3, $4) RETURNING id',
+          [userId, playlistName, null, false]
+        );
+        finalPlaylistId = playlistResult.rows[0].id;
+      }
     }
     
     // Verifica playlist esistente se necessario
@@ -475,26 +544,36 @@ export async function processDownloadJob(job) {
           sampleRate: fileMetadata.sampleRate,
         };
         
-        // Determina percorso finale per questa traccia
-        const finalPath = getTrackStoragePath(userId, finalMetadata.artist, finalMetadata.album);
-        await ensureDirectoryExists(finalPath);
-        
-        // Sposta file
-        const finalFilePath = path.join(finalPath, path.basename(splitTrack.path));
-        const relativeFilePath = path.relative(storagePath, finalFilePath);
+        // Determina percorso finale (shared se videoId, altrimenti per-user)
+        let finalFilePath;
+        let relativeFilePath;
+        if (videoId) {
+          const sharedFilename = `track_${String(i + 1).padStart(3, '0')}.mp3`;
+          finalFilePath = getSharedTrackPath(videoId, sharedFilename);
+          relativeFilePath = path.join('shared', videoId, sharedFilename);
+          await ensureDirectoryExists(path.dirname(finalFilePath));
+        } else {
+          const finalPath = getTrackStoragePath(userId, finalMetadata.artist, finalMetadata.album);
+          await ensureDirectoryExists(finalPath);
+          finalFilePath = path.join(finalPath, path.basename(splitTrack.path));
+          relativeFilePath = path.relative(storagePath, finalFilePath);
+        }
 
         // Verifica duplicati prima di spostare il file
-        const isDuplicate = await isDuplicateFile(userId, relativeFilePath);
-        if (isDuplicate) {
-          console.warn(`[YouTube Download] File duplicato ignorato: ${relativeFilePath}`);
-          // Rimuovi il file temporaneo
+        if (videoId) {
           try {
-            await fs.unlink(splitTrack.path);
-          } catch (unlinkError) {
-            // Ignora errori di cleanup
+            await fs.access(finalFilePath);
+            console.warn(`[YouTube Download] File condiviso già presente (race?), skip: ${relativeFilePath}`);
+            try { await fs.unlink(splitTrack.path); } catch (_) {}
+            continue;
+          } catch (_) {}
+        } else {
+          const isDuplicate = await isDuplicateFile(userId, relativeFilePath);
+          if (isDuplicate) {
+            console.warn(`[YouTube Download] File duplicato ignorato: ${relativeFilePath}`);
+            try { await fs.unlink(splitTrack.path); } catch (_) {}
+            continue;
           }
-          // Continua con la prossima traccia senza bloccare
-          continue;
         }
 
         await fs.rename(splitTrack.path, finalFilePath);
@@ -507,8 +586,8 @@ export async function processDownloadJob(job) {
           `INSERT INTO tracks (
             user_id, title, artist, album, album_artist, genre, year,
             track_number, disc_number, duration, file_path, file_size,
-            file_format, bitrate, sample_rate, cover_art_path
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            file_format, bitrate, sample_rate, cover_art_path, source_youtube_url
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
           RETURNING id, title, artist, album, duration, file_size, created_at`,
           [
             userId,
@@ -521,12 +600,13 @@ export async function processDownloadJob(job) {
             finalMetadata.trackNumber,
             finalMetadata.discNumber,
             finalMetadata.duration,
-            path.relative(storagePath, finalFilePath),
+            relativeFilePath,
             stats?.size || 0,
             path.extname(finalFilePath).substring(1).toLowerCase(),
             finalMetadata.bitrate ? Math.round(finalMetadata.bitrate) : null,
             finalMetadata.sampleRate ? Math.round(finalMetadata.sampleRate) : null,
             coverArtPath,
+            normalizedUrl || null,
           ]
         );
         
@@ -570,26 +650,33 @@ export async function processDownloadJob(job) {
       downloadQueue.jobFinished(userId, jobId);
     } else {
       // Comportamento normale: singola traccia
-      // Determina percorso finale
-      const finalPath = getTrackStoragePath(userId, metadata.artist, metadata.album);
-      await ensureDirectoryExists(finalPath);
-
-      // Sposta file
-      const finalFilePath = path.join(finalPath, path.basename(filePath));
-      const relativeFilePath = path.relative(storagePath, finalFilePath);
-
-      // Verifica duplicati prima di spostare il file
-      const isDuplicate = await isDuplicateFile(userId, relativeFilePath);
-      if (isDuplicate) {
-        console.warn(`[YouTube Download] File duplicato ignorato: ${relativeFilePath}`);
-        // Rimuovi il file temporaneo
+      let finalFilePath;
+      let relativeFilePath;
+      if (videoId) {
+        finalFilePath = getSharedTrackPath(videoId, 'audio.mp3');
+        relativeFilePath = path.join('shared', videoId, 'audio.mp3');
+        await ensureDirectoryExists(path.dirname(finalFilePath));
         try {
-          await fs.unlink(filePath);
-        } catch (unlinkError) {
-          // Ignora errori di cleanup
+          await fs.access(finalFilePath);
+          throw new Error(`File condiviso già presente (race?): ${relativeFilePath}`);
+        } catch (err) {
+          if (err.code === 'ENOENT') { /* ok */ } else throw err;
         }
-        // Lancia errore per gestirlo nel catch esterno
-        throw new Error(`File duplicato: ${relativeFilePath}`);
+      } else {
+        const finalPath = getTrackStoragePath(userId, metadata.artist, metadata.album);
+        await ensureDirectoryExists(finalPath);
+        finalFilePath = path.join(finalPath, path.basename(filePath));
+        relativeFilePath = path.relative(storagePath, finalFilePath);
+      }
+
+      // Verifica duplicati (solo per path per-user)
+      if (!videoId) {
+        const isDuplicate = await isDuplicateFile(userId, relativeFilePath);
+        if (isDuplicate) {
+          console.warn(`[YouTube Download] File duplicato ignorato: ${relativeFilePath}`);
+          try { await fs.unlink(filePath); } catch (_) {}
+          throw new Error(`File duplicato: ${relativeFilePath}`);
+        }
       }
 
       await fs.rename(filePath, finalFilePath);
@@ -620,8 +707,8 @@ export async function processDownloadJob(job) {
         `INSERT INTO tracks (
           user_id, title, artist, album, album_artist, genre, year,
           track_number, disc_number, duration, file_path, file_size,
-          file_format, bitrate, sample_rate, cover_art_path
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          file_format, bitrate, sample_rate, cover_art_path, source_youtube_url
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING id, title, artist, album, duration, file_size, created_at`,
         [
           userId,
@@ -634,16 +721,27 @@ export async function processDownloadJob(job) {
           metadata.trackNumber,
           metadata.discNumber,
           Math.round(metadata.duration || 0),
-          path.relative(storagePath, finalFilePath),
+          relativeFilePath,
           stats?.size || 0,
           path.extname(finalFilePath).substring(1).toLowerCase(),
           metadata.bitrate ? Math.round(metadata.bitrate) : null,
           metadata.sampleRate ? Math.round(metadata.sampleRate) : null,
           coverArtPath,
+          normalizedUrl || null,
         ]
       );
 
       console.log(`[YouTube Download] Job ${jobId}: Completato con successo. Track ID: ${result.rows[0].id}`);
+      
+      // Aggiungi traccia singola alla playlist se specificata
+      if (finalPlaylistId && result.rows[0]?.id) {
+        console.log(`[YouTube Download] Job ${jobId}: Aggiunta traccia alla playlist ${finalPlaylistId}...`);
+        downloadQueue.updateJob(jobId, { 
+          progress: 99,
+          statusMessage: 'Aggiunta alla playlist...'
+        });
+        await addTracksToPlaylist(userId, finalPlaylistId, [result.rows[0].id]);
+      }
       
       downloadQueue.updateJob(jobId, {
         status: 'completed',
