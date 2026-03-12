@@ -40,7 +40,7 @@ export default function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1>ALEFY</h1>
+        <h1>ALEFY <span className="auth-version-badge">v2</span></h1>
         <h2>Accedi</h2>
         <form onSubmit={handleSubmit}>
           {error && <div className="error-message">{error}</div>}

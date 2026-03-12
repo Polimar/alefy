@@ -17,6 +17,7 @@ import { Play, Trash2, ArrowLeft, Music, Shuffle, Repeat, Repeat1, Download, Che
 import EditPlaylistModal from '../components/EditPlaylistModal';
 import { saveTrackOffline, isTrackOffline, removeTrackOffline, getOfflineTracksForPlaylist } from '../utils/offlineStorage';
 import useAuthStore from '../store/authStore';
+import useOfflineStore from '../store/offlineStore';
 import './PlaylistDetail.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -218,6 +219,7 @@ export default function PlaylistDetail() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuthStore();
+  const isOfflineMode = useOfflineStore((s) => s.isOfflineMode);
   const { 
     setCurrentTrack, 
     setQueue, 
@@ -228,7 +230,7 @@ export default function PlaylistDetail() {
     toggleRepeat,
   } = usePlayerStore();
   
-  const isOwner = playlist && user && playlist.user_id === user.id;
+  const isOwner = !isOfflineMode && playlist && user && playlist.user_id === user.id;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -238,7 +240,7 @@ export default function PlaylistDetail() {
 
   useEffect(() => {
     loadPlaylist();
-  }, [id]);
+  }, [id, isOfflineMode]);
 
   // Carica tracce offline quando cambia la playlist
   useEffect(() => {
@@ -260,10 +262,14 @@ export default function PlaylistDetail() {
     let currentBlobUrl = null;
 
     const loadCoverArt = async () => {
-      // Revoca il vecchio blob URL se esiste
       if (currentBlobUrl) {
         URL.revokeObjectURL(currentBlobUrl);
         currentBlobUrl = null;
+      }
+
+      if (isOfflineMode) {
+        setCoverUrl(null);
+        return;
       }
 
       if (tracks.length > 0 && tracks[0].cover_art_path && tracks[0].id) {
@@ -300,15 +306,31 @@ export default function PlaylistDetail() {
         URL.revokeObjectURL(currentBlobUrl);
       }
     };
-  }, [tracks]);
+  }, [tracks, isOfflineMode]);
 
   const loadPlaylist = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/playlists/${id}`);
-      const playlistData = response.data.data.playlist;
-      setPlaylist(playlistData);
-      setTracks(playlistData.tracks || []);
+      if (isOfflineMode) {
+        const offlineTracksList = await getOfflineTracksForPlaylist(id);
+        const tracksMapped = offlineTracksList.map((t) => ({
+          id: t.trackId,
+          ...t.metadata,
+        }));
+        const playlistName = offlineTracksList[0]?.playlistName || (id === 'orphan' ? 'Tracce senza playlist' : `Playlist ${id}`);
+        setPlaylist({
+          id,
+          name: playlistName,
+          tracks: tracksMapped,
+          track_count: tracksMapped.length,
+        });
+        setTracks(tracksMapped);
+      } else {
+        const response = await api.get(`/playlists/${id}`);
+        const playlistData = response.data.data.playlist;
+        setPlaylist(playlistData);
+        setTracks(playlistData.tracks || []);
+      }
     } catch (error) {
       console.error('Error loading playlist:', error);
       alert('Errore nel caricamento della playlist');
@@ -521,7 +543,7 @@ export default function PlaylistDetail() {
           }
 
           const audioBlob = await response.blob();
-          await saveTrackOffline(track.id, audioBlob, track, parseInt(id));
+          await saveTrackOffline(track.id, audioBlob, track, parseInt(id), playlist?.name || null);
           
           setOfflineTracks(prev => new Set(prev).add(track.id));
         } catch (error) {
@@ -664,15 +686,17 @@ export default function PlaylistDetail() {
             >
               {repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
             </button>
-            <button 
-              className={`control-btn ${offlineMode ? 'active' : ''}`}
-              onClick={() => setOfflineMode(!offlineMode)}
-              title="Modalità offline"
-            >
-              <Download size={18} />
-            </button>
+            {!isOfflineMode && (
+              <button 
+                className={`control-btn ${offlineMode ? 'active' : ''}`}
+                onClick={() => setOfflineMode(!offlineMode)}
+                title="Scarica per offline"
+              >
+                <Download size={18} />
+              </button>
+            )}
           </div>
-          {offlineMode && (
+          {!isOfflineMode && offlineMode && (
             <div className="offline-controls">
               <div className="offline-selection-controls">
                 <button onClick={selectAllTracks} className="offline-btn-small">
@@ -711,7 +735,7 @@ export default function PlaylistDetail() {
         {tracks.length === 0 ? (
           <div className="empty-tracks">
             <Music size={48} />
-            <p>Nessuna traccia in questa playlist</p>
+            <p>{isOfflineMode ? 'Nessuna traccia offline per questa playlist' : 'Nessuna traccia in questa playlist'}</p>
           </div>
         ) : (
           <>

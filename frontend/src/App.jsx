@@ -13,6 +13,7 @@ import YouTubeCookies from './pages/YouTubeCookies';
 import Share from './pages/Share';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import OfflineBlockedRoute from './components/OfflineBlockedRoute';
 
 function App() {
   const { checkAuth, isAuthenticated, loading } = useAuthStore();
@@ -46,24 +47,28 @@ function App() {
         element={isAuthenticated ? <Layout /> : <Navigate to="/login" />}
       >
         <Route index element={<Library />} />
-        <Route path="upload" element={<Upload />} />
+        <Route path="upload" element={<OfflineBlockedRoute><Upload /></OfflineBlockedRoute>} />
         <Route path="playlists" element={<Playlists />} />
         <Route path="playlists/:id" element={<PlaylistDetail />} />
-        <Route path="discover" element={<PublicPlaylists />} />
+        <Route path="discover" element={<OfflineBlockedRoute><PublicPlaylists /></OfflineBlockedRoute>} />
         <Route 
           path="users" 
           element={
-            <ProtectedRoute requireAdmin={true}>
-              <Users />
-            </ProtectedRoute>
+            <OfflineBlockedRoute>
+              <ProtectedRoute requireAdmin={true}>
+                <Users />
+              </ProtectedRoute>
+            </OfflineBlockedRoute>
           } 
         />
         <Route 
           path="youtube-cookies" 
           element={
-            <ProtectedRoute requireAdmin={true}>
-              <YouTubeCookies />
-            </ProtectedRoute>
+            <OfflineBlockedRoute>
+              <ProtectedRoute requireAdmin={true}>
+                <YouTubeCookies />
+              </ProtectedRoute>
+            </OfflineBlockedRoute>
           } 
         />
       </Route>

@@ -1,5 +1,29 @@
 import { create } from 'zustand';
 import api from '../utils/api';
+import useOfflineStore from './offlineStore';
+
+const USER_CACHE_KEY = 'alefy_user_cache';
+
+function saveUserCache(user) {
+  try {
+    if (user) {
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(USER_CACHE_KEY);
+    }
+  } catch (e) {
+    console.error('Errore salvataggio cache utente:', e);
+  }
+}
+
+function loadUserCache() {
+  try {
+    const raw = localStorage.getItem(USER_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 const useAuthStore = create((set) => ({
   user: null,
@@ -22,6 +46,7 @@ const useAuthStore = create((set) => ({
         };
       }
       
+      saveUserCache(user);
       set({ user, isAuthenticated: true });
       return { success: true };
     } catch (error) {
@@ -42,6 +67,7 @@ const useAuthStore = create((set) => ({
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       
+      saveUserCache(user);
       set({ user, isAuthenticated: true });
       return { success: true };
     } catch (error) {
@@ -63,12 +89,26 @@ const useAuthStore = create((set) => ({
     } finally {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      saveUserCache(null);
       set({ user: null, isAuthenticated: false });
     }
   },
 
   checkAuth: async () => {
     try {
+      const isOfflineMode = useOfflineStore.getState().isOfflineMode;
+
+      if (isOfflineMode) {
+        const token = localStorage.getItem('accessToken');
+        const cachedUser = loadUserCache();
+        if (token && cachedUser) {
+          set({ user: cachedUser, isAuthenticated: true, loading: false });
+          return cachedUser;
+        }
+        set({ user: null, isAuthenticated: false, loading: false });
+        return;
+      }
+
       let token;
       try {
         token = localStorage.getItem('accessToken');
@@ -84,13 +124,16 @@ const useAuthStore = create((set) => ({
       }
 
       const response = await api.get('/auth/me');
-      set({ user: response.data.data.user, isAuthenticated: true, loading: false });
-      return response.data.data.user;
+      const user = response.data.data.user;
+      saveUserCache(user);
+      set({ user, isAuthenticated: true, loading: false });
+      return user;
     } catch (error) {
       console.error('CheckAuth error:', error);
       try {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        saveUserCache(null);
       } catch (storageError) {
         console.error('Errore nella rimozione dei token:', storageError);
       }

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
 import usePlayerStore from '../store/playerStore';
+import useOfflineStore from '../store/offlineStore';
+import { getAllOfflineTracks } from '../utils/offlineStorage';
 import { Play, Music, MoreVertical, Plus, Trash2, Scissors, Edit, Share2 } from 'lucide-react';
 import EditTrackModal from '../components/EditTrackModal';
 import './Library.css';
@@ -28,39 +30,35 @@ export default function Library() {
   const [showCreatePlaylistForm, setShowCreatePlaylistForm] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const { setCurrentTrack, setQueue, play } = usePlayerStore();
+  const isOfflineMode = useOfflineStore((s) => s.isOfflineMode);
   const searchTimeoutRef = useRef(null);
 
-  // Carica playlists solo al mount
   useEffect(() => {
-    loadPlaylists();
-    // Carica anche le tracce iniziali
+    if (!isOfflineMode) {
+      loadPlaylists();
+    }
     loadTracks();
-  }, []);
+  }, [isOfflineMode]);
 
-  // Debounce per la ricerca - evita troppe richieste durante la digitazione
   useEffect(() => {
-    // Quando la ricerca è vuota, ricarica tutte le tracce immediatamente
+    if (isOfflineMode) {
+      loadTracks();
+      return;
+    }
     if (search === '') {
       loadTracks();
       return;
     }
-    
-    // Cancella timeout precedente
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
-    
-    // Imposta nuovo timeout per la ricerca con testo
-    searchTimeoutRef.current = setTimeout(() => {
-      loadTracks();
-    }, 500); // Attendi 500ms dopo l'ultima digitazione
-    
+    searchTimeoutRef.current = setTimeout(() => loadTracks(), 500);
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [search]);
+  }, [search, isOfflineMode]);
 
   // Carica le cover solo quando cambiano le tracce (non ad ogni render)
   // Non riprova se una cover ha già fallito (404) per quella traccia specifica
@@ -95,9 +93,33 @@ export default function Library() {
   const loadTracks = async () => {
     try {
       setLoading(true);
-      const params = search ? { search } : {};
-      const response = await api.get('/tracks', { params });
-      setTracks(response.data.data.tracks);
+      if (isOfflineMode) {
+        const offlineItems = await getAllOfflineTracks();
+        const mapped = offlineItems.map((item) => ({
+          id: item.trackId,
+          title: item.metadata?.title || 'Senza titolo',
+          artist: item.metadata?.artist || 'Sconosciuto',
+          album: item.metadata?.album || '-',
+          genre: item.metadata?.genre || '-',
+          year: item.metadata?.year || '-',
+          duration: item.metadata?.duration || 0,
+        }));
+        let filtered = mapped;
+        if (search.trim()) {
+          const q = search.toLowerCase().trim();
+          filtered = mapped.filter(
+            (t) =>
+              (t.title || '').toLowerCase().includes(q) ||
+              (t.artist || '').toLowerCase().includes(q) ||
+              (t.album || '').toLowerCase().includes(q)
+          );
+        }
+        setTracks(filtered);
+      } else {
+        const params = search ? { search } : {};
+        const response = await api.get('/tracks', { params });
+        setTracks(response.data.data.tracks);
+      }
     } catch (error) {
       console.error('Error loading tracks:', error);
     } finally {
@@ -455,7 +477,9 @@ export default function Library() {
     };
   }, [menuOpen]);
 
-  const renderActionMenu = (track) => (
+  const renderActionMenu = (track) => {
+    if (isOfflineMode) return null;
+    return (
     <div
       className="action-menu action-menu-portal"
       style={
@@ -509,11 +533,12 @@ export default function Library() {
       )}
     </div>
   );
+  };
 
   return (
     <div className="library">
       <div className="library-header">
-        <h1>Libreria</h1>
+        <h1>{isOfflineMode ? 'Tracce offline' : 'Libreria'}</h1>
         <input
           type="text"
           placeholder="Cerca brani, artisti, album..."
@@ -527,11 +552,11 @@ export default function Library() {
       ) : tracks.length === 0 ? (
         <div className="empty-state">
           <Music size={48} />
-          <p>Nessun brano trovato</p>
+          <p>{isOfflineMode ? 'Nessuna traccia offline. Scarica tracce dalle playlist per ascoltarle offline.' : 'Nessun brano trovato'}</p>
         </div>
       ) : (
         <>
-          {selectedTrackIds.size > 0 && (
+          {!isOfflineMode && selectedTrackIds.size > 0 && (
             <div className="bulk-actions-bar">
               <span className="bulk-actions-count">
                 {selectedTrackIds.size} tracce selezionate
@@ -556,15 +581,17 @@ export default function Library() {
             <table className="tracks-table">
               <thead>
                 <tr>
-                  <th className="track-checkbox-th">
-                    <input
-                      type="checkbox"
-                      checked={selectedTrackIds.size === tracks.length && tracks.length > 0}
-                      onChange={toggleSelectAll}
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label="Seleziona tutte"
-                    />
-                  </th>
+                  {!isOfflineMode && (
+                    <th className="track-checkbox-th">
+                      <input
+                        type="checkbox"
+                        checked={selectedTrackIds.size === tracks.length && tracks.length > 0}
+                        onChange={toggleSelectAll}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Seleziona tutte"
+                      />
+                    </th>
+                  )}
                   <th></th>
                   <th>Titolo</th>
                   <th>Artista</th>
@@ -572,7 +599,7 @@ export default function Library() {
                   <th>Genere</th>
                   <th>Anno</th>
                   <th>Durata</th>
-                  <th></th>
+                  {!isOfflineMode && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -584,15 +611,17 @@ export default function Library() {
                       className="track-row"
                       onClick={(e) => handleTrackClick(track, e)}
                     >
-                      <td className="track-checkbox-cell" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selectedTrackIds.has(track.id)}
-                          onChange={(e) => toggleTrackSelection(track.id, e)}
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label={`Seleziona ${track.title}`}
-                        />
-                      </td>
+                      {!isOfflineMode && (
+                        <td className="track-checkbox-cell" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedTrackIds.has(track.id)}
+                            onChange={(e) => toggleTrackSelection(track.id, e)}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`Seleziona ${track.title}`}
+                          />
+                        </td>
+                      )}
                       <td className="track-cover-cell">
                         {coverUrl ? (
                           <img
@@ -628,6 +657,7 @@ export default function Library() {
                       <td className="track-duration-cell">
                         {formatDuration(track.duration)}
                       </td>
+                      {!isOfflineMode && (
                       <td className="track-actions-cell">
                         <div className="track-actions">
                           <button
@@ -640,6 +670,7 @@ export default function Library() {
                             createPortal(renderActionMenu(track), document.body)}
                         </div>
                       </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -657,15 +688,17 @@ export default function Library() {
                   className="track-card"
                   onClick={(e) => handleTrackClick(track, e)}
                 >
-                  <div className="track-card-checkbox" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={selectedTrackIds.has(track.id)}
-                      onChange={(e) => toggleTrackSelection(track.id, e)}
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={`Seleziona ${track.title}`}
-                    />
-                  </div>
+                  {!isOfflineMode && (
+                    <div className="track-card-checkbox" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedTrackIds.has(track.id)}
+                        onChange={(e) => toggleTrackSelection(track.id, e)}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Seleziona ${track.title}`}
+                      />
+                    </div>
+                  )}
                   {coverUrl ? (
                     <img
                       src={coverUrl}
@@ -686,6 +719,7 @@ export default function Library() {
                     <div className="track-card-artist">{track.artist || 'Artista sconosciuto'}</div>
                   </div>
                   <div className="track-card-duration">{formatDuration(track.duration)}</div>
+                  {!isOfflineMode && (
                   <div className="track-card-actions">
                     <button
                       className="action-btn"
@@ -744,6 +778,7 @@ export default function Library() {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               );
             })}

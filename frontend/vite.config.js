@@ -24,12 +24,12 @@ export default defineConfig({
           // Cacha solo i file statici
           {
             urlPattern: /^https:\/\/.*\/assets\/.*/i,
-            handler: 'CacheFirst',
+            handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'assets-cache',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 anno
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 giorni
               },
             },
           },

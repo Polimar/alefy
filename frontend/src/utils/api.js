@@ -33,6 +33,18 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    const isOfflineMode = (() => {
+      try {
+        return localStorage.getItem('alefy_offline_mode') === 'true';
+      } catch {
+        return false;
+      }
+    })();
+
+    if (isOfflineMode && error.response?.status === 401) {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 

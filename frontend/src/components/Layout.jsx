@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { Home, Upload, ListMusic, LogOut, Menu, X, Users, Settings, Music, Compass } from 'lucide-react';
+import useOfflineStore from '../store/offlineStore';
+import { Home, Upload, ListMusic, LogOut, Menu, X, Users, Settings, Music, Compass, WifiOff } from 'lucide-react';
 import Player from './Player';
 import api from '../utils/api';
 import './Layout.css';
 
 export default function Layout() {
   const { logout, user } = useAuthStore();
+  const { isOfflineMode, toggleOfflineMode } = useOfflineStore();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -34,40 +36,29 @@ export default function Layout() {
   }, [location.pathname, isMobile]);
 
   useEffect(() => {
-    // Carica statistiche metadati
+    if (isOfflineMode) return;
+
     const loadMetadataStats = async () => {
       try {
         const response = await api.get('/stats');
-        console.log('[Layout] Risposta API stats:', response.data);
         if (response.data.success && response.data.data) {
-          // Usa metadataStats se disponibile, altrimenti crea oggetto con valori di default
           const stats = response.data.data.metadataStats || {
             total: response.data.data.trackCount || 0,
             processed: 0,
             recognized: 0,
           };
-          console.log('[Layout] Statistiche metadati caricate:', stats);
           setMetadataStats(stats);
-        } else {
-          console.warn('[Layout] Risposta API stats non valida:', response.data);
         }
       } catch (error) {
         console.error('[Layout] Errore caricamento statistiche metadati:', error);
-        console.error('[Layout] Dettagli errore:', error.response?.data || error.message);
-        // In caso di errore, mostra comunque valori di default
-        setMetadataStats({
-          total: 0,
-          processed: 0,
-          recognized: 0,
-        });
+        setMetadataStats({ total: 0, processed: 0, recognized: 0 });
       }
     };
-    
+
     loadMetadataStats();
-    // Aggiorna ogni 30 secondi
     const interval = setInterval(loadMetadataStats, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isOfflineMode]);
 
   const handleLogout = () => {
     logout();
@@ -113,14 +104,26 @@ export default function Layout() {
               <Home size={20} />
               <span>Libreria</span>
             </Link>
-            <Link
-              to="/upload"
-              className={`nav-item ${location.pathname === '/upload' ? 'active' : ''}`}
-              onClick={() => isMobile && setSidebarOpen(false)}
-            >
-              <Upload size={20} />
-              <span>Carica</span>
-            </Link>
+            {isOfflineMode ? (
+              <button
+                type="button"
+                className="nav-item nav-item-disabled"
+                onClick={() => alert('Non disponibile offline')}
+                title="Non disponibile offline"
+              >
+                <Upload size={20} />
+                <span>Carica</span>
+              </button>
+            ) : (
+              <Link
+                to="/upload"
+                className={`nav-item ${location.pathname === '/upload' ? 'active' : ''}`}
+                onClick={() => isMobile && setSidebarOpen(false)}
+              >
+                <Upload size={20} />
+                <span>Carica</span>
+              </Link>
+            )}
             <Link
               to="/playlists"
               className={`nav-item ${location.pathname === '/playlists' && !location.pathname.startsWith('/playlists/') ? 'active' : ''}`}
@@ -129,35 +132,80 @@ export default function Layout() {
               <ListMusic size={20} />
               <span>Playlist</span>
             </Link>
-            <Link
-              to="/discover"
-              className={`nav-item ${location.pathname === '/discover' ? 'active' : ''}`}
-              onClick={() => isMobile && setSidebarOpen(false)}
-            >
-              <Compass size={20} />
-              <span>Scopri</span>
-            </Link>
+            {isOfflineMode ? (
+              <button
+                type="button"
+                className="nav-item nav-item-disabled"
+                onClick={() => alert('Non disponibile offline')}
+                title="Non disponibile offline"
+              >
+                <Compass size={20} />
+                <span>Scopri</span>
+              </button>
+            ) : (
+              <Link
+                to="/discover"
+                className={`nav-item ${location.pathname === '/discover' ? 'active' : ''}`}
+                onClick={() => isMobile && setSidebarOpen(false)}
+              >
+                <Compass size={20} />
+                <span>Scopri</span>
+              </Link>
+            )}
             {user?.is_admin && (
               <>
-                <Link
-                  to="/users"
-                  className={`nav-item ${location.pathname === '/users' ? 'active' : ''}`}
-                  onClick={() => isMobile && setSidebarOpen(false)}
-                >
-                  <Users size={20} />
-                  <span>Utenti</span>
-                </Link>
-                <Link
-                  to="/youtube-cookies"
-                  className={`nav-item ${location.pathname === '/youtube-cookies' ? 'active' : ''}`}
-                  onClick={() => isMobile && setSidebarOpen(false)}
-                >
-                  <Settings size={20} />
-                  <span>Cookies YouTube</span>
-                </Link>
+                {isOfflineMode ? (
+                  <>
+                    <button
+                      type="button"
+                      className="nav-item nav-item-disabled"
+                      onClick={() => alert('Non disponibile offline')}
+                      title="Non disponibile offline"
+                    >
+                      <Users size={20} />
+                      <span>Utenti</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="nav-item nav-item-disabled"
+                      onClick={() => alert('Non disponibile offline')}
+                      title="Non disponibile offline"
+                    >
+                      <Settings size={20} />
+                      <span>Cookies YouTube</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/users"
+                      className={`nav-item ${location.pathname === '/users' ? 'active' : ''}`}
+                      onClick={() => isMobile && setSidebarOpen(false)}
+                    >
+                      <Users size={20} />
+                      <span>Utenti</span>
+                    </Link>
+                    <Link
+                      to="/youtube-cookies"
+                      className={`nav-item ${location.pathname === '/youtube-cookies' ? 'active' : ''}`}
+                      onClick={() => isMobile && setSidebarOpen(false)}
+                    >
+                      <Settings size={20} />
+                      <span>Cookies YouTube</span>
+                    </Link>
+                  </>
+                )}
               </>
             )}
           </nav>
+          <button
+            className={`offline-mode-toggle nav-item ${isOfflineMode ? 'active' : ''}`}
+            onClick={toggleOfflineMode}
+            title={isOfflineMode ? 'Disattiva modalità offline' : 'Attiva modalità offline'}
+          >
+            <WifiOff size={20} />
+            <span>Modalità offline</span>
+          </button>
           <div className="metadata-stats">
               <div className="metadata-stats-header">
                 <Music size={16} />

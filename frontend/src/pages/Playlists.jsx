@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import useOfflineStore from '../store/offlineStore';
+import { getAllOfflineTracks } from '../utils/offlineStorage';
 import { Plus, Music } from 'lucide-react';
 import './Playlists.css';
 
@@ -15,16 +17,34 @@ export default function Playlists() {
   const [creating, setCreating] = useState(false);
   const [coverUrls, setCoverUrls] = useState({});
   const navigate = useNavigate();
+  const isOfflineMode = useOfflineStore((s) => s.isOfflineMode);
 
   useEffect(() => {
     loadPlaylists();
-  }, []);
+  }, [isOfflineMode]);
 
   const loadPlaylists = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/playlists');
-      setPlaylists(response.data.data.playlists);
+      if (isOfflineMode) {
+        const offlineItems = await getAllOfflineTracks();
+        const byPlaylist = {};
+        for (const item of offlineItems) {
+          const pid = item.playlistId ?? 'orphan';
+          if (!byPlaylist[pid]) {
+            byPlaylist[pid] = {
+              id: pid,
+              name: item.playlistName || (pid === 'orphan' ? 'Tracce senza playlist' : `Playlist ${pid}`),
+              track_count: 0,
+            };
+          }
+          byPlaylist[pid].track_count++;
+        }
+        setPlaylists(Object.values(byPlaylist).filter((p) => p.track_count > 0));
+      } else {
+        const response = await api.get('/playlists');
+        setPlaylists(response.data.data.playlists);
+      }
     } catch (error) {
       console.error('Error loading playlists:', error);
     } finally {
@@ -102,14 +122,16 @@ export default function Playlists() {
   return (
     <div className="playlists">
       <div className="playlists-header">
-        <h1>Playlist</h1>
-        <button 
-          className="create-playlist-btn"
-          onClick={() => setShowModal(true)}
-        >
-          <Plus size={20} />
-          Crea Playlist
-        </button>
+        <h1>{isOfflineMode ? 'Playlist offline' : 'Playlist'}</h1>
+        {!isOfflineMode && (
+          <button 
+            className="create-playlist-btn"
+            onClick={() => setShowModal(true)}
+          >
+            <Plus size={20} />
+            Crea Playlist
+          </button>
+        )}
       </div>
 
       {showModal && (
@@ -169,13 +191,15 @@ export default function Playlists() {
       ) : playlists.length === 0 ? (
         <div className="empty-state">
           <Music size={48} />
-          <p>Nessuna playlist</p>
-          <button 
-            className="create-first-playlist-btn"
-            onClick={() => setShowModal(true)}
-          >
-            Crea la tua prima playlist
-          </button>
+          <p>{isOfflineMode ? 'Nessuna playlist con tracce offline' : 'Nessuna playlist'}</p>
+          {!isOfflineMode && (
+            <button 
+              className="create-first-playlist-btn"
+              onClick={() => setShowModal(true)}
+            >
+              Crea la tua prima playlist
+            </button>
+          )}
         </div>
       ) : (
         <div className="playlists-grid">

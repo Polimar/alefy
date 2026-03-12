@@ -200,6 +200,28 @@
   color: var(--text-primary);
 }
 
+.offline-mode-toggle {
+  width: 100%;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.offline-mode-toggle.active {
+  color: var(--accent);
+}
+
+.nav-item-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nav-item-disabled:hover {
+  background-color: transparent;
+}
+
 .metadata-stats {
   padding: 12px 16px;
   margin: 8px;

@@ -111,3 +111,19 @@
   text-decoration: underline;
 }
 
+.auth-version-badge {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-left: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .auth-version-badge {
+    color: var(--accent);
+    font-size: 16px;
+  }
+}
+

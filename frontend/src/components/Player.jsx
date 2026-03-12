@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import usePlayerStore from '../store/playerStore';
 import api from '../utils/api';
 import { getTrackOffline, isTrackOffline } from '../utils/offlineStorage';
+import useOfflineStore from '../store/offlineStore';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, ListMusic, Music, Sliders, X, Shuffle, Repeat, Repeat1 } from 'lucide-react';
 import AudioWaveform from './AudioWaveform';
 import QueuePanel from './QueuePanel';
@@ -23,7 +24,6 @@ export default function Player() {
   const [showMiniQueue, setShowMiniQueue] = useState(false);
   const [showMobileQueue, setShowMobileQueue] = useState(false);
   const {
-    currentTrack,
     isPlaying,
     currentTime,
     duration,
@@ -50,7 +50,8 @@ export default function Player() {
     toggleShuffle,
     toggleRepeat,
   } = usePlayerStore();
-  
+  const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const isOfflineMode = useOfflineStore((s) => s.isOfflineMode);
   const [coverUrl, setCoverUrl] = useState(null);
 
   useEffect(() => {
@@ -70,9 +71,6 @@ export default function Player() {
     };
     
     const handleCanPlay = () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Player.jsx:handleCanPlay',message:'Audio canplay event',data:{trackId:currentTrack?.id,readyState:audio.readyState,duration:audio.duration},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       // Quando l'audio è pronto, aggiorna la durata
       updateDuration();
       // Se isPlaying è true e l'audio è pronto, riproduci automaticamente
@@ -262,10 +260,6 @@ export default function Player() {
     }
 
     const loadAudio = async () => {
-      // #region agent log
-      const loadStartTime = Date.now();
-      fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Player.jsx:loadAudio:start',message:'Inizio caricamento audio',data:{trackId:currentTrack?.id,trackTitle:currentTrack?.title,loadStartTime},timestamp:loadStartTime,sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       try {
         setLoading(true);
         setError(null);
@@ -274,12 +268,22 @@ export default function Player() {
 
         // Controlla prima se la traccia è disponibile offline
         const offlineTrack = await getTrackOffline(currentTrack.id);
-        
+
         if (offlineTrack) {
-          console.log(`[Player] Traccia ${currentTrack.id} trovata offline, uso versione locale`);
           blobUrlRef.current = URL.createObjectURL(offlineTrack.audioBlob);
           audio.src = blobUrlRef.current;
           audio.load();
+          return;
+        }
+
+        if (isOfflineMode) {
+          const nextOfflineIndex = await findNextAvailableOfflineTrack();
+          if (nextOfflineIndex !== null) {
+            playFromQueue(nextOfflineIndex);
+            return;
+          }
+          setError('Traccia non disponibile offline. Disattiva la modalità offline per riprodurre.');
+          pause();
           return;
         }
 
@@ -341,10 +345,6 @@ export default function Player() {
         blobUrlRef.current = URL.createObjectURL(blob);
         audio.src = blobUrlRef.current;
         audio.load();
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/13d5d8fe-7c85-4021-89b1-1687e254a045',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Player.jsx:loadAudio:end',message:'Audio caricato',data:{trackId:currentTrack?.id,blobSize:blob.size,elapsed:Date.now()-loadStartTime},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-        // #endregion
-        
         // L'auto-play sarà gestito dal useEffect che monitora isPlaying
         // Non serve aggiungere listener qui perché il useEffect per isPlaying lo gestirà
       } catch (err) {
@@ -430,9 +430,18 @@ export default function Player() {
         currentBlobUrl = null;
       }
 
+      if (isOfflineMode) {
+        setCoverUrl(null);
+        return;
+      }
+
+      if (isOfflineMode) {
+        setCoverUrl(null);
+        return;
+      }
+
       if (currentTrack?.cover_art_path && currentTrack?.id) {
         try {
-          // Usa api (axios) invece di fetch per beneficiare dell'interceptor che gestisce il refresh token
           const response = await api.get(`/stream/tracks/${currentTrack.id}/cover`, {
             responseType: 'blob',
           });
@@ -461,7 +470,7 @@ export default function Player() {
         URL.revokeObjectURL(currentBlobUrl);
       }
     };
-  }, [currentTrack]);
+  }, [currentTrack, isOfflineMode]);
 
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00';

@@ -48,10 +48,10 @@ function openDB() {
  * @param {Blob} audioBlob - Blob dell'audio
  * @param {Object} trackMetadata - Metadati della traccia
  * @param {number|null} playlistId - ID della playlist (opzionale)
+ * @param {string|null} playlistName - Nome della playlist (opzionale, per display in modalità offline)
  */
-export async function saveTrackOffline(trackId, audioBlob, trackMetadata, playlistId = null) {
+export async function saveTrackOffline(trackId, audioBlob, trackMetadata, playlistId = null, playlistName = null) {
   try {
-    // Converti Blob in ArrayBuffer per IndexedDB
     const arrayBuffer = await audioBlob.arrayBuffer();
     
     const db = await openDB();
@@ -61,6 +61,7 @@ export async function saveTrackOffline(trackId, audioBlob, trackMetadata, playli
     const trackData = {
       trackId,
       playlistId,
+      playlistName: playlistName || null,
       audioData: arrayBuffer,
       audioType: audioBlob.type || 'audio/mpeg',
       metadata: trackMetadata,
@@ -131,22 +132,34 @@ export async function isTrackOffline(trackId) {
 
 /**
  * Ottiene tutte le tracce offline per una playlist
- * @param {number} playlistId - ID della playlist
- * @returns {Promise<Array<{trackId: number, metadata: Object}>>}
+ * @param {number|string|null} playlistId - ID della playlist, o 'orphan' per tracce senza playlist
+ * @returns {Promise<Array<{trackId: number, metadata: Object, playlistName?: string}>>}
  */
 export async function getOfflineTracksForPlaylist(playlistId) {
   try {
     const db = await openDB();
     const transaction = db.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
-    const index = store.index('playlistId');
 
+    if (playlistId === 'orphan' || playlistId === null) {
+      const all = await getAllOfflineTracks();
+      return all
+        .filter((item) => item.playlistId == null)
+        .map((item) => ({
+          trackId: item.trackId,
+          metadata: item.metadata,
+          playlistName: item.playlistName,
+        }));
+    }
+
+    const index = store.index('playlistId');
     return new Promise((resolve, reject) => {
-      const request = index.getAll(playlistId);
+      const request = index.getAll(Number(playlistId));
       request.onsuccess = () => {
         const results = request.result.map(item => ({
           trackId: item.trackId,
           metadata: item.metadata,
+          playlistName: item.playlistName || null,
         }));
         resolve(results);
       };
@@ -199,6 +212,7 @@ export async function getAllOfflineTracks() {
           trackId: item.trackId,
           metadata: item.metadata,
           playlistId: item.playlistId,
+          playlistName: item.playlistName || null,
         }));
         resolve(results);
       };
