@@ -85,6 +85,18 @@
   cursor: not-allowed;
 }
 
+.submit-btn-secondary {
+  margin-top: 12px;
+  background-color: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.submit-btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
 .error-message {
   background-color: var(--error-dim);
   border: 1px solid var(--error);

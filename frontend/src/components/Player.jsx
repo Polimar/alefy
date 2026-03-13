@@ -534,23 +534,25 @@ export default function Player() {
         </div>
       )}
       <div className="player-content">
-        <div className="player-left">
-          <div className="player-album-art" onClick={openExpanded}>
-            {currentTrack && coverUrl ? (
-              <img 
-                src={coverUrl} 
-                alt={currentTrack.title || 'Track'}
-                className={`album-art-image ${isPlaying ? 'playing' : ''}`}
-              />
-            ) : (
-              <div className="album-art-placeholder">
-                <Music size={40} />
-              </div>
-            )}
-          </div>
-          <div className="player-track-info" onClick={openExpanded}>
-            <div className="track-title">{currentTrack?.title || 'Nessuna traccia selezionata'}</div>
-            <div className="track-artist">{currentTrack?.artist || 'Seleziona una traccia per iniziare'}</div>
+        <div className="player-top-row">
+          <div className="player-info" onClick={openExpanded}>
+            <div className="player-album-art">
+              {currentTrack && coverUrl ? (
+                <img 
+                  src={coverUrl} 
+                  alt={currentTrack.title || 'Track'}
+                  className={`album-art-image ${isPlaying ? 'playing' : ''}`}
+                />
+              ) : (
+                <div className="album-art-placeholder">
+                  <Music size={40} />
+                </div>
+              )}
+            </div>
+            <div className="player-track-info">
+              <div className="track-title">{currentTrack?.title || 'Nessuna traccia selezionata'}</div>
+              <div className="track-artist">{currentTrack?.artist || 'Seleziona una traccia per iniziare'}</div>
+            </div>
           </div>
           {currentTrack && (
             <button
@@ -561,9 +563,109 @@ export default function Player() {
               <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
             </button>
           )}
+          <div className="player-top-actions">
+            <button
+              onClick={toggleEqualizer}
+              className={`control-btn equalizer-btn ${showEqualizer ? 'active' : ''}`}
+              title="Equalizzatore"
+            >
+              <Sliders size={18} />
+            </button>
+            {queue.length > 0 && (
+              <div className="queue-popover-wrapper">
+                <button
+                  onClick={toggleMiniQueue}
+                  className={`control-btn queue-btn ${showMiniQueue ? 'active' : ''}`}
+                  title="Coda di riproduzione"
+                >
+                  <ListMusic size={18} />
+                </button>
+                {showMiniQueue && (
+                  <div className="queue-popover">
+                    <div className="queue-popover-header">
+                      <span>Coda</span>
+                      <button onClick={toggleMiniQueue} className="queue-popover-close">×</button>
+                    </div>
+                    <div className="queue-popover-list">
+                      {queue.map((track, idx) => (
+                        <div 
+                          key={track.id} 
+                          className={`queue-popover-item clickable ${currentTrack?.id === track.id ? 'active' : ''}`}
+                          onClick={() => {
+                            playFromQueue(idx);
+                            setShowMiniQueue(false);
+                          }}
+                          title={`Riproduci "${track.title}"`}
+                        >
+                          <span className="queue-popover-index">{idx + 1}</span>
+                          <div className="queue-popover-info">
+                            <div className="queue-popover-title">{track.title || 'Senza titolo'}</div>
+                            <div className="queue-popover-artist">{track.artist || 'Sconosciuto'}</div>
+                          </div>
+                          {currentTrack?.id === track.id && (
+                            <span className="queue-popover-playing">▶</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="volume-btn-wrapper">
+              <button
+                ref={volumeBtnRef}
+                onClick={toggleVolumeModal}
+                className="control-btn volume-btn"
+                title={`Volume: ${Math.round(volume * 100)}%`}
+              >
+                {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+              </button>
+              {showVolumeModal && (
+                <>
+                  <div className="volume-modal-overlay" onClick={toggleVolumeModal}></div>
+                  <div 
+                    ref={volumeModalRef}
+                    className="volume-modal" 
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      bottom: `${volumeModalPosition.bottom}px`,
+                      right: `${volumeModalPosition.right}px`,
+                    }}
+                  >
+                    <div className="volume-modal-header">
+                      <h3>Volume</h3>
+                      <button onClick={toggleVolumeModal} className="volume-modal-close">×</button>
+                    </div>
+                    <div className="volume-modal-content">
+                      <button
+                        onClick={() => setVolume(volume > 0 ? 0 : 1)}
+                        className="volume-icon-btn-modal"
+                        title={volume > 0 ? 'Muta' : 'Riattiva audio'}
+                      >
+                        {volume === 0 ? <VolumeX size={24} /> : <Volume2 size={24} />}
+                      </button>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={volume}
+                        onChange={(e) => setVolume(parseFloat(e.target.value))}
+                        className="volume-slider-modal"
+                        title={`Volume: ${Math.round(volume * 100)}%`}
+                        style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
+                      />
+                      <span className="volume-percentage-modal">{Math.round(volume * 100)}%</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="player-center">
+        <div className="player-controls-row">
           <div className="control-buttons">
             <button
               onClick={toggleShuffle}
@@ -594,124 +696,23 @@ export default function Player() {
               <SkipForward size={22} />
             </button>
           </div>
-          <div className="progress-container" onClick={handleSeek}>
-            {currentTrack && (
-              <div className="waveform-container">
-                <AudioWaveform audioElement={audioRef} isPlaying={isPlaying} />
-              </div>
-            )}
-            <div className="progress-bar">
-              <div
-                className="progress-fill"
-                style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-              />
-            </div>
-            <div className="time-display">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-          </div>
         </div>
 
-        <div className="player-right">
-          <button
-            onClick={toggleEqualizer}
-            className={`control-btn equalizer-btn ${showEqualizer ? 'active' : ''}`}
-            title="Equalizzatore"
-          >
-            <Sliders size={18} />
-          </button>
-          {queue.length > 0 && (
-            <div className="queue-popover-wrapper">
-              <button
-                onClick={toggleMiniQueue}
-                className={`control-btn queue-btn ${showMiniQueue ? 'active' : ''}`}
-                title="Coda di riproduzione"
-              >
-                <ListMusic size={18} />
-              </button>
-              {showMiniQueue && (
-                <div className="queue-popover">
-                  <div className="queue-popover-header">
-                    <span>Coda</span>
-                    <button onClick={toggleMiniQueue} className="queue-popover-close">×</button>
-                  </div>
-                  <div className="queue-popover-list">
-                    {queue.map((track, idx) => (
-                      <div 
-                        key={track.id} 
-                        className={`queue-popover-item clickable ${currentTrack?.id === track.id ? 'active' : ''}`}
-                        onClick={() => {
-                          playFromQueue(idx);
-                          setShowMiniQueue(false);
-                        }}
-                        title={`Riproduci "${track.title}"`}
-                      >
-                        <span className="queue-popover-index">{idx + 1}</span>
-                        <div className="queue-popover-info">
-                          <div className="queue-popover-title">{track.title || 'Senza titolo'}</div>
-                          <div className="queue-popover-artist">{track.artist || 'Sconosciuto'}</div>
-                        </div>
-                        {currentTrack?.id === track.id && (
-                          <span className="queue-popover-playing">▶</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+        <div className="progress-container" onClick={handleSeek}>
+          {currentTrack && (
+            <div className="waveform-container">
+              <AudioWaveform audioElement={audioRef} isPlaying={isPlaying} />
             </div>
           )}
-          <div className="volume-btn-wrapper">
-            <button
-              ref={volumeBtnRef}
-              onClick={toggleVolumeModal}
-              className="control-btn volume-btn"
-              title={`Volume: ${Math.round(volume * 100)}%`}
-            >
-              {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </button>
-            
-            {showVolumeModal && (
-              <>
-                <div className="volume-modal-overlay" onClick={toggleVolumeModal}></div>
-                <div 
-                  ref={volumeModalRef}
-                  className="volume-modal" 
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    bottom: `${volumeModalPosition.bottom}px`,
-                    right: `${volumeModalPosition.right}px`,
-                  }}
-                >
-                  <div className="volume-modal-header">
-                    <h3>Volume</h3>
-                    <button onClick={toggleVolumeModal} className="volume-modal-close">×</button>
-                  </div>
-                  <div className="volume-modal-content">
-                    <button
-                      onClick={() => setVolume(volume > 0 ? 0 : 1)}
-                      className="volume-icon-btn-modal"
-                      title={volume > 0 ? 'Muta' : 'Riattiva audio'}
-                    >
-                      {volume === 0 ? <VolumeX size={24} /> : <Volume2 size={24} />}
-                    </button>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={volume}
-                      onChange={(e) => setVolume(parseFloat(e.target.value))}
-                      className="volume-slider-modal"
-                      title={`Volume: ${Math.round(volume * 100)}%`}
-                      style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
-                    />
-                    <span className="volume-percentage-modal">{Math.round(volume * 100)}%</span>
-                  </div>
-                </div>
-              </>
-            )}
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+            />
+          </div>
+          <div className="time-display">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
           </div>
         </div>
       </div>
@@ -722,31 +723,33 @@ export default function Player() {
   const renderMobile = () => (
     <div className="player player-mobile">
       <audio ref={audioRef} />
-      <div className="player-mobile-bar" onClick={!isExpanded ? toggleExpand : undefined}>
-        <div className="player-mobile-info">
-          <div className="player-album-art small" onClick={(e) => { e.stopPropagation(); openExpanded(); }}>
-            {currentTrack && coverUrl ? (
-              <img 
-                src={coverUrl} 
-                alt={currentTrack.title || 'Track'}
-                className={`album-art-image ${isPlaying ? 'playing' : ''}`}
-              />
-            ) : (
-              <div className="album-art-placeholder">
-                <Music size={28} />
-              </div>
-            )}
-          </div>
-          <div className="player-track-info">
-            <div className="track-title" onClick={(e) => { e.stopPropagation(); openExpanded(); }}>
-              {currentTrack?.title || 'Nessuna traccia'}
+      <div className="player-mobile-wrapper" onClick={!isExpanded ? toggleExpand : undefined}>
+        <div className="player-mobile-top">
+          <div className="player-mobile-info">
+            <div className="player-album-art small" onClick={(e) => { e.stopPropagation(); openExpanded(); }}>
+              {currentTrack && coverUrl ? (
+                <img 
+                  src={coverUrl} 
+                  alt={currentTrack.title || 'Track'}
+                  className={`album-art-image ${isPlaying ? 'playing' : ''}`}
+                />
+              ) : (
+                <div className="album-art-placeholder">
+                  <Music size={28} />
+                </div>
+              )}
             </div>
-            <div className="track-artist" onClick={(e) => { e.stopPropagation(); openExpanded(); }}>
-              {currentTrack?.artist || 'Seleziona un brano'}
+            <div className="player-track-info">
+              <div className="track-title" onClick={(e) => { e.stopPropagation(); openExpanded(); }}>
+                {currentTrack?.title || 'Nessuna traccia'}
+              </div>
+              <div className="track-artist" onClick={(e) => { e.stopPropagation(); openExpanded(); }}>
+                {currentTrack?.artist || 'Seleziona un brano'}
+              </div>
             </div>
           </div>
         </div>
-        <div className="player-mobile-actions">
+        <div className="player-mobile-controls">
           <button
             onClick={(e) => { e.stopPropagation(); previous(); }}
             className="control-btn"
@@ -779,10 +782,6 @@ export default function Player() {
             className="mini-progress-fill"
             style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
           />
-        </div>
-        <div className="mini-time">
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
         </div>
       </div>
 

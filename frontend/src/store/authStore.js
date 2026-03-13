@@ -94,18 +94,46 @@ const useAuthStore = create((set) => ({
     }
   },
 
+  hasCachedSession: () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const cachedUser = loadUserCache();
+      return !!(token && cachedUser);
+    } catch {
+      return false;
+    }
+  },
+
+  enterWithCachedSession: () => {
+    const token = localStorage.getItem('accessToken');
+    const cachedUser = loadUserCache();
+    if (!token || !cachedUser) return false;
+    useOfflineStore.getState().setOfflineMode(true);
+    set({ user: cachedUser, isAuthenticated: true, loading: false });
+    return true;
+  },
+
   checkAuth: async () => {
     try {
       const isOfflineMode = useOfflineStore.getState().isOfflineMode;
+      const hasNetwork = typeof navigator !== 'undefined' && navigator.onLine;
 
-      if (isOfflineMode) {
+      const useCachedAuth = (autoOffline = false) => {
         const token = localStorage.getItem('accessToken');
         const cachedUser = loadUserCache();
         if (token && cachedUser) {
+          if (autoOffline) {
+            useOfflineStore.getState().setOfflineMode(true);
+          }
           set({ user: cachedUser, isAuthenticated: true, loading: false });
           return cachedUser;
         }
         set({ user: null, isAuthenticated: false, loading: false });
+        return null;
+      };
+
+      if (isOfflineMode || !hasNetwork) {
+        useCachedAuth(!hasNetwork);
         return;
       }
 
@@ -123,13 +151,32 @@ const useAuthStore = create((set) => ({
         return;
       }
 
-      const response = await api.get('/auth/me');
-      const user = response.data.data.user;
-      saveUserCache(user);
-      set({ user, isAuthenticated: true, loading: false });
-      return user;
+      try {
+        const response = await api.get('/auth/me', { timeout: 8000 });
+        const user = response.data.data.user;
+        saveUserCache(user);
+        set({ user, isAuthenticated: true, loading: false });
+        return user;
+      } catch (networkError) {
+        const isTimeout = networkError.code === 'ECONNABORTED';
+        const isNetworkFailure =
+          isTimeout ||
+          networkError.message?.includes('Network Error') ||
+          networkError.message?.includes('Failed to fetch');
+        if (isNetworkFailure) {
+          useCachedAuth(true);
+          return;
+        }
+        throw networkError;
+      }
     } catch (error) {
       console.error('CheckAuth error:', error);
+      const token = localStorage.getItem('accessToken');
+      const cachedUser = loadUserCache();
+      if (token && cachedUser) {
+        set({ user: cachedUser, isAuthenticated: true, loading: false });
+        return;
+      }
       try {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');

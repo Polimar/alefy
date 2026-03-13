@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import './Auth.css';
@@ -8,15 +8,25 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuthStore();
+  const { login, hasCachedSession, enterWithCachedSession } = useAuthStore();
   const navigate = useNavigate();
+
+  const isNetworkError = (msg) =>
+    msg && (msg.includes('Network Error') || msg.includes('Failed to fetch') || msg.includes('timeout'));
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine && hasCachedSession()) {
+      if (enterWithCachedSession()) {
+        navigate('/');
+      }
+    }
+  }, [hasCachedSession, enterWithCachedSession, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // Verifica che localStorage sia disponibile
     try {
       const testKey = '__localStorage_test__';
       localStorage.setItem(testKey, 'test');
@@ -32,8 +42,20 @@ export default function Login() {
 
     if (result.success) {
       navigate('/');
+    } else if (isNetworkError(result.error) && hasCachedSession()) {
+      if (enterWithCachedSession()) {
+        navigate('/');
+      } else {
+        setError(result.error);
+      }
     } else {
       setError(result.error);
+    }
+  };
+
+  const handleEnterOffline = () => {
+    if (enterWithCachedSession()) {
+      navigate('/');
     }
   };
 
@@ -69,6 +91,16 @@ export default function Login() {
           <button type="submit" className="submit-btn" disabled={loading}>
             {loading ? 'Accesso...' : 'Accedi'}
           </button>
+          {hasCachedSession() && (
+            <button
+              type="button"
+              className="submit-btn submit-btn-secondary"
+              onClick={handleEnterOffline}
+              disabled={loading}
+            >
+              Entra offline
+            </button>
+          )}
         </form>
         <p className="auth-link">
           Non hai un account? <Link to="/register">Registrati</Link>
