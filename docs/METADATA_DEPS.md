@@ -76,5 +76,6 @@ python3 -c "import shazamio; print('OK')"
 | Errore | Soluzione |
 |--------|-----------|
 | `fpcalc: not found` | Installa chromaprint: `apt-get install libchromaprint-tools` |
-| `Shazam non disponibile` | Installa ShazamIO: `pip3 install shazamio` o usa lo script `install-metadata-deps.sh` |
+| `ensurepip is not available` / venv non creato | Installa: `apt install python3.13-venv` (o `python3.XX-venv` per la tua versione), poi riesegui lo script |
+| `ShazamIO non disponibile` alla verifica finale | Se il venv era corrotto: `rm -rf /opt/alefy/shazam_venv` e riesegui `./scripts/install-metadata-deps.sh` |
 | `externally-managed-environment` (pip) | Usa `pip3 install --break-system-packages shazamio` oppure un virtualenv |

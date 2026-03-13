@@ -61,14 +61,27 @@ if ! command -v fpcalc &>/dev/null; then
 fi
 echo -e "${GREEN}✓ fpcalc: $(fpcalc -version 2>/dev/null || fpcalc 2>&1 | head -1)${NC}\n"
 
-# 2. Python 3
-echo -e "${YELLOW}2. Verifica Python 3...${NC}"
+# 2. Python 3 + venv (necessario per ShazamIO)
+echo -e "${YELLOW}2. Verifica Python 3 e python3-venv...${NC}"
 if ! command -v python3 &>/dev/null; then
     apt-get update -qq
     apt-get install -y python3 python3-pip python3-venv
     echo -e "${GREEN}✓ Python 3 installato${NC}"
 else
     echo -e "${GREEN}✓ Python 3 già installato: $(python3 --version)${NC}"
+fi
+# python3-venv: su Debian/Ubuntu recenti può essere python3.XX-venv
+if ! python3 -c "import venv" 2>/dev/null; then
+    echo -e "${YELLOW}Installazione python3-venv...${NC}"
+    apt-get update -qq
+    PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "3")
+    if apt-get install -y "python${PYVER}-venv" 2>/dev/null; then
+        echo -e "${GREEN}✓ python${PYVER}-venv installato${NC}"
+    elif apt-get install -y python3-venv 2>/dev/null; then
+        echo -e "${GREEN}✓ python3-venv installato${NC}"
+    else
+        echo -e "${YELLOW}⚠ Prova: apt-get install python3.13-venv (o python${PYVER}-venv)${NC}"
+    fi
 fi
 
 # 3. ShazamIO
@@ -88,15 +101,32 @@ else
         echo -e "${GREEN}✓ ShazamIO installato (pip globale)${NC}"
     else
         # Fallback: virtualenv dedicato
-        echo -e "${YELLOW}Creazione virtualenv per ShazamIO in ${SHAZAM_VENV}...${NC}"
-        mkdir -p "$(dirname "$SHAZAM_VENV")"
-        python3 -m venv "$SHAZAM_VENV"
+        # Rimuovi venv corrotto da tentativi precedenti falliti
+        if [ -d "$SHAZAM_VENV" ] && ! "${SHAZAM_VENV}/bin/python3" -c "import venv" 2>/dev/null; then
+            echo -e "${YELLOW}  Rimozione virtualenv incompleto...${NC}"
+            rm -rf "$SHAZAM_VENV"
+        fi
+        if [ ! -d "$SHAZAM_VENV" ]; then
+            echo -e "${YELLOW}Creazione virtualenv per ShazamIO in ${SHAZAM_VENV}...${NC}"
+            mkdir -p "$(dirname "$SHAZAM_VENV")"
+            python3 -m venv "$SHAZAM_VENV" || {
+                echo -e "${RED}✗ Creazione venv fallita. Installa: apt install python3.13-venv${NC}"
+                exit 1
+            }
+        fi
         "${SHAZAM_VENV}/bin/pip" install --upgrade pip
         "${SHAZAM_VENV}/bin/pip" install shazamio
         
-        # Aggiorna shebang dello script se esiste
+        # Copia script e aggiorna shebang se non presente in ALEFY_HOME
+        mkdir -p "${ALEFY_HOME}/scripts"
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        REPO_SCRIPT="${SCRIPT_DIR}/shazam_recognize.py"
+        if [ -f "$REPO_SCRIPT" ]; then
+            cp -f "$REPO_SCRIPT" "$SHAZAM_SCRIPT"
+        fi
         if [ -f "$SHAZAM_SCRIPT" ]; then
-            sed -i "1s|^#!/usr/bin/env python3|#!${SHAZAM_VENV}/bin/python3|" "$SHAZAM_SCRIPT"
+            sed -i "1s|^#!.*|#!${SHAZAM_VENV}/bin/python3|" "$SHAZAM_SCRIPT"
+            chmod +x "$SHAZAM_SCRIPT"
             chown "${ALEFY_USER}:${ALEFY_USER}" "$SHAZAM_SCRIPT" 2>/dev/null || true
         fi
         echo -e "${GREEN}✓ ShazamIO installato in virtualenv${NC}"
@@ -119,6 +149,9 @@ if $PYTHON_CMD -c "import shazamio" 2>/dev/null; then
     echo -e "${GREEN}✓ ShazamIO OK${NC}"
 else
     echo -e "${RED}✗ ShazamIO non disponibile${NC}"
+    if [ -d "$SHAZAM_VENV" ]; then
+        echo -e "${YELLOW}  Prova: rm -rf ${SHAZAM_VENV} e riesegui lo script${NC}"
+    fi
 fi
 
 echo -e "\n${GREEN}=== Installazione completata ===${NC}"
