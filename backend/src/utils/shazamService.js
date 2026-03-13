@@ -18,8 +18,9 @@ const SHAZAM_SCRIPT_PATHS = [
 const SHAZAM_VENV_PATHS = [
   process.env.SHAZAM_VENV,
   process.env.ALEFY_HOME && path.join(process.env.ALEFY_HOME, 'shazam_venv', 'bin', 'python3'),
-  '/opt/alefy/shazam_venv/bin/python3',
   path.join(BACKEND_ROOT, '..', 'shazam_venv', 'bin', 'python3'),
+  '/opt/alefy/shazam_venv/bin/python3',
+  '/home/alefy/shazam_venv/bin/python3',
 ].filter(Boolean);
 
 /**
@@ -105,24 +106,34 @@ export async function recognizeWithShazam(audioFilePath) {
  * @returns {Promise<boolean>}
  */
 export async function isShazamAvailable() {
+  const fs = await import('fs/promises');
   try {
-    const fs = await import('fs/promises');
     await execAsync('python3 --version');
+  } catch (e) {
+    console.warn('[Shazam] Python3 non trovato:', e.message);
+    return false;
+  }
 
-    let pythonCmd = 'python3';
-    for (const venvPath of SHAZAM_VENV_PATHS) {
-      try {
-        await fs.access(venvPath);
-        pythonCmd = venvPath;
-        break;
-      } catch {
-        /* continua */
-      }
+  let pythonCmd = 'python3';
+  for (const venvPath of SHAZAM_VENV_PATHS) {
+    try {
+      await fs.access(venvPath);
+      pythonCmd = venvPath;
+      break;
+    } catch {
+      /* continua */
     }
+  }
 
+  try {
     await execAsync(`${pythonCmd} -c "import shazamio"`);
     return true;
   } catch (error) {
+    console.warn(
+      '[Shazam] Verifica fallita. Python:', pythonCmd,
+      '| Percorsi venv controllati:', SHAZAM_VENV_PATHS.join(', '),
+      '| Errore:', error.message
+    );
     return false;
   }
 }
