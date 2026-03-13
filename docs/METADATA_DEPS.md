@@ -11,17 +11,13 @@ Per il riconoscimento automatico dei metadati (AcoustID e Shazam) servono:
 # Nel container, come root
 cd /tmp/alefy   # oppure dove hai clonato il repo
 git pull origin main
-chmod +x scripts/install-metadata-deps.sh
 ./scripts/install-metadata-deps.sh
+
+# Se il backend gira da /tmp/alefy (non /opt/alefy):
+ALEFY_HOME=/tmp/alefy ./scripts/install-metadata-deps.sh
 
 # Riavvia backend
 systemctl restart alefy
-```
-
-Se Alefy è in un’altra directory:
-
-```bash
-ALEFY_HOME=/opt/alefy ./scripts/install-metadata-deps.sh
 ```
 
 ## Installazione manuale

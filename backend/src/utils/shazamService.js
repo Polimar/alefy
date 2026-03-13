@@ -7,11 +7,20 @@ const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Prova prima il percorso nello script directory, poi fallback a repository
+const BACKEND_ROOT = path.join(__dirname, '../..');
+
 const SHAZAM_SCRIPT_PATHS = [
+  process.env.ALEFY_HOME && path.join(process.env.ALEFY_HOME, 'scripts/shazam_recognize.py'),
   '/opt/alefy/scripts/shazam_recognize.py',
-  path.join(__dirname, '../../../scripts/shazam_recognize.py'),
-];
+  path.join(BACKEND_ROOT, '../scripts/shazam_recognize.py'),
+].filter(Boolean);
+
+const SHAZAM_VENV_PATHS = [
+  process.env.SHAZAM_VENV,
+  process.env.ALEFY_HOME && path.join(process.env.ALEFY_HOME, 'shazam_venv', 'bin', 'python3'),
+  '/opt/alefy/shazam_venv/bin/python3',
+  path.join(BACKEND_ROOT, '..', 'shazam_venv', 'bin', 'python3'),
+].filter(Boolean);
 
 /**
  * Riconosce un file audio usando ShazamIO (Python)
@@ -37,14 +46,15 @@ export async function recognizeWithShazam(audioFilePath) {
       throw new Error('Script Shazam non trovato. Assicurati che shazam_recognize.py esista.');
     }
 
-    // Prova prima con virtualenv se esiste, altrimenti usa python3 normale
     let pythonCmd = 'python3';
-    const venvPython = '/opt/alefy/shazam_venv/bin/python3';
-    try {
-      await fs.access(venvPython);
-      pythonCmd = venvPython;
-    } catch (e) {
-      // Usa python3 normale
+    for (const venvPath of SHAZAM_VENV_PATHS) {
+      try {
+        await fs.access(venvPath);
+        pythonCmd = venvPath;
+        break;
+      } catch {
+        /* continua */
+      }
     }
 
     // Esegui lo script Python
@@ -96,25 +106,20 @@ export async function recognizeWithShazam(audioFilePath) {
  */
 export async function isShazamAvailable() {
   try {
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
     const fs = await import('fs/promises');
-
-    // Verifica Python
     await execAsync('python3 --version');
-    
-    // Prova prima con virtualenv se esiste
-    const venvPython = '/opt/alefy/shazam_venv/bin/python3';
+
     let pythonCmd = 'python3';
-    try {
-      await fs.access(venvPython);
-      pythonCmd = venvPython;
-    } catch (e) {
-      // Usa python3 normale
+    for (const venvPath of SHAZAM_VENV_PATHS) {
+      try {
+        await fs.access(venvPath);
+        pythonCmd = venvPath;
+        break;
+      } catch {
+        /* continua */
+      }
     }
-    
-    // Verifica ShazamIO
+
     await execAsync(`${pythonCmd} -c "import shazamio"`);
     return true;
   } catch (error) {

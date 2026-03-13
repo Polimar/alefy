@@ -2,6 +2,7 @@
 # Installa dipendenze per metadati (fingerprint AcoustID + Shazam)
 # Eseguire come root nel container LXC
 # Uso: ./scripts/install-metadata-deps.sh
+# Se l'app è in /tmp/alefy: ALEFY_HOME=/tmp/alefy ./scripts/install-metadata-deps.sh
 
 set -e
 
@@ -10,7 +11,15 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-ALEFY_HOME="${ALEFY_HOME:-/opt/alefy}"
+# Se non impostato: in repo (scripts/../backend) usa la root del repo, altrimenti /opt/alefy
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${ALEFY_HOME}" ]; then
+    if [ -d "${SCRIPT_DIR}/../backend" ]; then
+        ALEFY_HOME="$(cd "${SCRIPT_DIR}/.." && pwd)"
+    else
+        ALEFY_HOME="/opt/alefy"
+    fi
+fi
 ALEFY_USER="${ALEFY_USER:-alefy}"
 
 echo -e "${YELLOW}=== Installazione dipendenze metadati (chromaprint + ShazamIO) ===${NC}\n"
@@ -116,6 +125,9 @@ else
         fi
         "${SHAZAM_VENV}/bin/pip" install --upgrade pip
         "${SHAZAM_VENV}/bin/pip" install shazamio
+        
+        # Permessi: il backend gira spesso come utente alefy
+        chown -R "${ALEFY_USER}:${ALEFY_USER}" "$SHAZAM_VENV" 2>/dev/null || true
         
         # Copia script e aggiorna shebang se non presente in ALEFY_HOME
         mkdir -p "${ALEFY_HOME}/scripts"
