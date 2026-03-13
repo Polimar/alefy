@@ -244,6 +244,19 @@ systemctl status alefy
 journalctl -u alefy -n 20
 ```
 
+## Dipendenze metadati (fingerprint + Shazam)
+
+Se vedi errori tipo `fpcalc: not found` o `Shazam non disponibile`:
+
+```bash
+cd /tmp/alefy
+git pull origin main
+./scripts/install-metadata-deps.sh
+systemctl restart alefy
+```
+
+Vedi [docs/METADATA_DEPS.md](METADATA_DEPS.md) per dettagli.
+
 ## Risoluzione Problemi
 
 ### Backend non si avvia dopo aggiornamento
